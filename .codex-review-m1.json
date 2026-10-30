@@ -1,0 +1,48 @@
+{
+  "review": "M1 鸿蒙端渲染层（提交 065a9d0，工程 C:\\Users\\19161\\saolei）",
+  "when": "2026-10-30",
+  "tool": "codex-delegate.ps1 -ReviewMode Commit -ReviewTarget 065a9d0 -ExpectVerdict",
+  "verdict": "BLOCKER",
+  "verdictSource": "推断（模型没有给明确的 VERDICT 行，裁定由回答里的 P1 级别标记推出）",
+  "ok": true,
+  "timedOut": false,
+  "usage": "无法计量（codex exec review 路径不上报用量）",
+  "findings": [
+    {
+      "level": "P1",
+      "file": "entry/src/main/ets/common/GameController.ets:199-201",
+      "problem": "未翻开的格子只要 cell.mine 为真就画雷 → 游戏中直接暴露全部雷位",
+      "fix": "删除该分支；只在判负后由引擎翻开雷格时（revealed 分支里的 cell.mine）画雷",
+      "status": "已修"
+    },
+    {
+      "level": "P2",
+      "file": "entry/src/main/ets/common/GameController.ets:188-194",
+      "problem": "判负时引擎翻开的雷（exploded 之外）没画雷，只剩数字",
+      "fix": "revealed 分支增加 cell.mine → 画雷",
+      "status": "已修"
+    },
+    {
+      "level": "P2",
+      "file": "entry/src/main/ets/common/GameController.ets:190-192",
+      "problem": "错旗格（安全格插旗）没有被引擎翻开，红叉画在不可达的分支里",
+      "fix": "错叉改画在未翻开分支（旗仍保留）",
+      "status": "已修"
+    },
+    {
+      "level": "P2",
+      "file": "entry/src/main/ets/common/GameController.ets:272-277",
+      "problem": "终局后计时器没停",
+      "fix": "新增 syncTimerWithState()，tap/longPress 后检查 GameState.Won/Lost",
+      "status": "已修（复审跑之前就顺手修了）"
+    },
+    {
+      "level": "P2",
+      "file": "entry/src/main/ets/components/MinefieldCanvas.ets:56-58",
+      "problem": "页面销毁时只清了长按定时器，控制器里的 interval 还在往已销毁的画布上画",
+      "fix": "GameController.dispose() 停表并清上下文，aboutToDisappear 调用",
+      "status": "已修"
+    }
+  ],
+  "notRerun": "按全局约定，同一任务最多自动复审一次；本轮已用掉一次。"
+}
