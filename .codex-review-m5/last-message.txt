@@ -1,0 +1,24 @@
+The new pan bounds prevent access to clipped cells, gradual pinches can fail to zoom, and cached sounds cannot reliably replay. The result dialog and statistics also have user-visible defects.
+
+Full review comments:
+
+- [P1] Allow panning when the board exceeds the canvas — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:214-224
+  When the frame is larger than the canvas, `halfW` or `halfH` is negative and this branch forces the corresponding pan to zero. On a narrow screen, the expert board is therefore clipped with no way to reach its outer cells. The condition should disable panning when the frame fits, and bound panning when it does not.
+
+- [P1] Accumulate pinch movement before snapping scale — C:\Users\19161\saolei\entry\src\main\ets\components\MinefieldCanvas.ets:245-250
+  For a gradual pinch, each move uses only `dist / prevDist`. At scale 3, repeated 5% increases each round back to 3, so even a large cumulative pinch never zooms. Retain the gesture's starting distance and scale, or accumulate fractional scale between events.
+
+- [P1] Prepare a stopped player before replaying it — C:\Users\19161\saolei\entry\src\main\ets\common\SoundPlayer.ets:82-92
+  On the second use of a cached sound, `stop()` moves the AVPlayer to `stopped`; `seek(0)` does not return it to `prepared`, so `play()` fails. This breaks repeated tile and flag sounds. Seek while the player is playable, or call `prepare()` after stopping.
+
+- [P2] Keep fastest times separate for each difficulty — C:\Users\19161\saolei\entry\src\main\ets\common\GameStats.ets:48-52
+  After a fast beginner win, an expert win compares against the same `bestSeconds` and displays the beginner time as the expert record. The victory dialog explicitly describes the record as belonging to the current difficulty, so persist and retrieve best time and date by difficulty.
+
+- [P2] Reset the drag origin when one finger leaves a pinch — C:\Users\19161\saolei\entry\src\main\ets\components\MinefieldCanvas.ets:208-213
+  If one finger remains down after a pinch, this branch ends the pinch without updating `downX` and `downY`. Its next small move is measured from the original single-finger press and can jump the board by the entire pinch displacement. Rebase the drag origin to the remaining touch.
+
+- [P2] Redraw after closing the result dialog for the menu — C:\Users\19161\saolei\entry\src\main\ets\pages\Index.ets:34-37
+  Selecting “换个难度” sets `dialog` to null but does not redraw the canvas. The already-painted result dialog remains visible behind the difficulty menu until another game action triggers a draw. Redraw when dismissing the dialog.
+
+- [P2] Make the drawn close button respond to taps — C:\Users\19161\saolei\entry\src\main\ets\common\WinDialog.ets:214-216
+  Both result dialogs draw a red title-bar close button, but `hitButton()` tests only entries in `spec.buttons`, so tapping the visible close control does nothing. Include its rectangle in hit testing and handle the resulting close action.
