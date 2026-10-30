@@ -1,6 +1,6 @@
 # Win7 扫雷 → 鸿蒙（HarmonyOS）移植规格
 
-版本 v0.1 · 2026-10-30 · 状态：逻辑层已实现并通过离线测试，UI 层未开始
+版本 v0.2 · 2026-10-30 · 状态：UI 层已能在 Pura X Max 真机跑通（初级/中级/高级三盘、开格、插旗、计时、胜负结算）；手势缩放与折叠适配未做
 
 ---
 
@@ -223,6 +223,26 @@ frame = r * 30 + c
 1. 它的**左上角 30×30 区域里藏着状态条的素材**：时钟图标在源图 `(30,30)`、雷图标在 `(30,55)`、计数面板在 `(55,30)`（Lmy0217 的绘制代码 `Minesweeper.cpp:973-976` 证实）。
 2. 整体**上下颠倒**（BMP 行序自下而上，转 PNG 时没翻行），所以那些图标出现在左上角而不是左下角。
 3. 原版绘制时**只画九宫格的 8 块边框、不画中心区**，角落素材才不会被拉伸糊掉。
+
+### 5.7 HarmonyOS Canvas 的单位陷阱（2026-10-30 真机实测，务必知道）
+
+这一节是本项目在 Pura X Max 上真机验证出来的**三个连环坑**，每一个都单独烧掉一次真机往返：
+
+| 坑 | 现象 | 真相 | 正确做法 |
+|---|---|---|---|
+| **坐标单位是 vp** | 按设备像素算好的棋盘跑到右下角、尺寸溢出 | Canvas 的绘制坐标单位是 **vp**（1 单位 = 1 设备像素 / density） | 内部按设备像素算（格边必须落在整数像素上），**送进 Canvas 前统一乘 `1/density`** |
+| **PixelMap 源矩形也是 vp** | 格子只画出 1/3 大、图块错位像楼梯 | SDK 原文：PixelMap 源的裁剪矩形 (sx,sy,sw,sh) 在 **API 18 起默认单位是 vp**（更早才是 px） | **源矩形也要乘 `1/density`**，否则等于从图集里裁错区域 |
+| **onReady 的参数不是 DrawingRenderingContext** | 一启动就崩：`param is not a DrawingRenderingContext object` | 类型声明说是 `DrawingRenderingContext`，**运行时给的其实是构造 Canvas 时传进去的那个对象** | 构造时传 `CanvasRenderingContext2D`，`onReady` 里就直接用它，**不要再桥接** |
+
+补充：`errorManager` 的事件名在 API 26 是 `'globalErrorOccurred'`（不是老版本的 `'error'`），回调参数是 `GlobalError`（继承 `Error`，有 `message`/`stack`），不是 `BusinessError`。
+
+**教训**：本节所有结论都来自 SDK 的 `.d.ts` 与注释，**不是凭记忆**。下回写任何 ArkUI API 之前，先在 SDK 里搜一遍声明：
+
+```
+Select-String -Path 'D:\software\DevEco Studio\sdk\default\openharmony\ets\build-tools\ets-loader\declarations\*.d.ts' -Pattern 'xxx'
+```
+
+**以及**：真机跑不起来时，用 `errorManager.on('globalErrorOccurred', ...)` 把异常抓出来（配 `console.error`），比猜快得多。
 
 **本项目的处理**：手机上不画原版那圈玻璃窗口边框（手机没有窗口管理器），改为：底色 + 白色地板 + 左/右/下三边 1px 凹槽线（实测 rgb(76,85,111)）。原版 30 列窗口里白色棋盘区实测为 x=30..570、y=30..318。
 

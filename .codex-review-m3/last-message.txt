@@ -1,0 +1,12 @@
+The patch introduces a build-blocking signing configuration for other machines and two user-visible interaction or rendering regressions. The canvas source-crop conversion matches the installed API 26 declarations.
+
+Full review comments:
+
+- [P1] Remove machine-specific signing paths from the shared profile — C:\Users\19161\saolei\build-profile.json5:8-14
+  On any machine without this user's `.ohos` files, the default product cannot sign debug or release builds because its certificate, profile, and keystore paths are absolute. The committed passwords and `debugKey` also become the release signing configuration. Keep signing material in local or CI configuration instead.
+
+- [P2] Keep the counter font size in physical pixels — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:330-330
+  On displays with density above 1, `this.v(12 * u)` divides the intended physical-pixel font size by density, but the resulting string still uses the explicit `px` unit. The timer and mine counts render too small for their panels. Retain `12 * u` with the `px` suffix, or use a `vp` suffix for the converted value.
+
+- [P2] Stop menu touches from passing through to the board — C:\Users\19161\saolei\entry\src\main\ets\pages\Index.ets:126-128
+  When the menu overlaps the board in a short window, `HitTestMode.Transparent` lets touches on the menu panel continue to the underlying `MinefieldCanvas`. Tapping a non-command part of the panel can therefore reveal a cell while the menu remains open. Make the panel consume hits while allowing only the empty overlay area to pass them through.
