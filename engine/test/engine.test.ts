@@ -196,15 +196,20 @@ test('剩余雷数可以为负', () => {
 });
 
 test('已翻开的格子不能插旗，插旗的格子不能翻开', () => {
-  const e = new MinesweeperEngine();
-  e.reset(9, 9, 10, seededRandom(3));
-  e.reveal(4, 4);
-  assert.equal(e.toggleMark(4, 4), false, '已翻开的格子不应能插旗');
+  // 分成两个盘做，避免第一个盘的洪泛把第二个盘要用到的格子也开掉
+  const a = new MinesweeperEngine();
+  a.reset(9, 9, 10, seededRandom(3));
+  a.reveal(4, 4);
+  assert.equal(a.cellAt(4, 4).revealed, true);
+  assert.equal(a.toggleMark(4, 4), false, '已翻开的格子不应能插旗');
 
-  e.toggleMark(0, 0);
-  const outcome = e.reveal(0, 0);
+  const b = new MinesweeperEngine();
+  b.reset(9, 9, 10, seededRandom(3));
+  b.toggleMark(0, 0);
+  assert.equal(b.cellAt(0, 0).mark, Mark.Flag);
+  const outcome = b.reveal(0, 0);
   assert.equal(outcome.changed, false, '插旗的格子不应能被翻开');
-  assert.equal(e.cellAt(0, 0).mark, Mark.Flag);
+  assert.equal(b.cellAt(0, 0).mark, Mark.Flag);
 });
 
 // ---------------------------------------------------------------- 洪泛
@@ -339,6 +344,27 @@ test('同雷场重来：盖回面但雷不变', () => {
 });
 
 // ---------------------------------------------------------------- 边界
+
+test('退化随机源（恒返回同一个值）也必须布够雷数', () => {
+  // 拒绝采样在这种随机源下会死循环并少布雷，导致棋盘永远赢不了
+  for (const constant of [0, 0.5, 0.999999]) {
+    const e = new MinesweeperEngine();
+    e.reset(9, 9, 10, (): number => constant);
+    e.reveal(4, 4);
+    assert.equal(countMines(e), 10, `随机源恒为 ${constant} 时只布了 ${countMines(e)} 颗雷`);
+  }
+});
+
+test('安全区放不下时逐级放宽，但雷数仍布够', () => {
+  // 3×3 盘、首点在中心：3×3 安全区覆盖整盘，放不下 5 颗雷，
+  // 引擎应退化为「只排除首点」，并且照样布够 5 颗
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 5);
+  assert.equal(e.mineCount, 5);
+  e.reveal(1, 1);
+  assert.equal(countMines(e), 5, '应该布够 5 颗雷');
+  assert.equal(e.cellAt(1, 1).mine, false, '首点本身不能是雷');
+});
 
 test('1×1 极端棋盘不会死循环', () => {
   const e = new MinesweeperEngine();

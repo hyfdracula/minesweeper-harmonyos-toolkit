@@ -421,26 +421,25 @@ export class MinesweeperEngine {
       }
     }
 
-    const chosen = new Uint8Array(total);
-    let placed = 0;
-    let guard = 0;
-    const maxGuard = total * 200 + 1000;
-    while (placed < this.mineCount && guard < maxGuard) {
-      guard++;
-      let pick = Math.floor(this.rng() * allowed.length);
-      if (pick < 0) {
-        pick = 0;
+    // 无放回地取 mineCount 个格子：对 allowed 做部分 Fisher-Yates 洗牌，取前 mineCount 个。
+    // 不用拒绝采样——随机源退化时（比如恒返回 0）拒绝采样会死循环并静默少布雷，
+    // 洗牌则保证「随机源多差都恰好布出 mineCount 颗雷」。
+    const pool: number[] = allowed.slice();
+    const take = Math.min(this.mineCount, pool.length);
+    for (let i = 0; i < take; i++) {
+      let j = i + Math.floor(this.rng() * (pool.length - i));
+      if (j < i) {
+        j = i;
       }
-      if (pick >= allowed.length) {
-        pick = allowed.length - 1;
+      if (j >= pool.length) {
+        j = pool.length - 1;
       }
-      const idx = allowed[pick];
-      if (chosen[idx] === 1) {
-        continue;
-      }
-      chosen[idx] = 1;
-      this.cells[idx].mine = true;
-      placed++;
+      const swap = pool[i];
+      pool[i] = pool[j];
+      pool[j] = swap;
+    }
+    for (let i = 0; i < take; i++) {
+      this.cells[pool[i]].mine = true;
     }
 
     this.recomputeAdjacent();
