@@ -51,20 +51,22 @@ Write-Output '== 1. 安装并启动 =='
 & $hdc -t $dev shell aa force-stop $pkg | Out-Null
 & $hdc -t $dev shell hilog -r | Out-Null
 & $hdc -t $dev shell "aa start -a EntryAbility -b $pkg" | Out-Null
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 6
 Shot 'v1_start'
+Start-Sleep -Seconds 2
+Shot 'v1b_start_again'   # 2026-10-31 曾出现一次黑屏，留两张对比
 
 Write-Output '== 2. 菜单栏：点「游戏」看下拉 =='
 Tap 60 140 900
 Shot 'v2_menu_open'
-Write-Output '== 3. 选「高级」（下拉里的第三项区域） =='
-Tap 120 430 1200
+Write-Output '== 3. 选「高级」（下拉第三项） =='
+Tap 120 425 1200
 Shot 'v3_expert'
 Logs 'GameController\] 布局'
 
 Write-Output '== 4. 回初级，踩雷看结束对话框 =='
 Tap 60 140 700
-Tap 120 340 1200
+Tap 120 295 1200
 Shot 'v4_beginner'
 # 扫全盘直到踩雷（高级盘 16x30 一格 72px，棋盘原点 428,242）
 for ($j = 0; $j -lt 16; $j += 3) {
@@ -76,9 +78,9 @@ Start-Sleep -Seconds 1
 Shot 'v5_dialog'
 Logs '\[Dialog\]|\[Menu\]'
 
-Write-Output '== 5. 点「再玩一局」 =='
-Tap 1290 940 1200
-Shot 'v6_again'
+Write-Output '== 5. 结束对话框按钮（坐标需按截图现场点，脚本先只截图） =='
+Shot 'v5_dialog'
+Logs '\[Dialog\]|\[Menu\]'
 
 Write-Output '== 6. 单指拖动（平移）=='
 Drag 1500 900 900 900
