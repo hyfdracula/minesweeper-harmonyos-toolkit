@@ -275,6 +275,19 @@ Mate 90 Pro 同理，只是更极端：计时数字中心 **-56**、雷数数字
 | 自定义 24×30 | n=2、格边 **72 px**（≥ 48 ✓）、棋盘原点 (25,209)、状态条带 (25,1937 2160×128) 四元素全在画布内 |
 | 截图 | `docs/verify/hud_02_expert_16x30.jpeg`、`hud_03_custom_dialog.jpeg`（高度已敲成 24）、`hud_05_custom_24x30_board.jpeg`、`hud_06_panned.jpeg` |
 
+**P2（点状态条不翻开被压住的格子）在 5555 上实测不了**，因为 HUD 模式在 5555 上根本不出现。
+试过、都不成的办法（都试完就把模拟器恢复原样了）：
+
+| 办法 | 结果 |
+|---|---|
+| 改 `config.ini` 的 `hw.lcd.double.*`（把折叠屏内屏改成 2584×1824） | 模拟器在 `Init Foldable` 阶段直接崩（`QThread: Destroyed while thread is still running`） |
+| 改 `hardware-qemu.ini` 的 `hw.lcd.width/height/density` + `isCustomize=true` + 设备类型改 phone | 分辨率**不生效**：画布还是 1824×2400 @2.75（只有密度生效）——DevEco 模拟器的屏幕尺寸由内置 skin 定死 |
+| 起 `MatePad Pro 13`（2880×1920，横屏矮屏，本来最合适） | 该实例从没引导过，模拟器起不来（`can not read uuid file`） |
+| Pura X Max 真机 | **没连在这台机器上**（`hdc list targets` 只有 5555 / 5557 两个模拟器） |
+
+结论：**「Pura X Max 内屏 2584×1824」这个画面目前只能靠推演 + 断言保证**（脚本 8 组断言里断言 2/5/7/8 专门盯这条路径）；
+要真机实测 P2 与 HUD，需要把 Pura X Max 接上（或做一个屏幕够矮的模拟器实例）。
+
 脚本：`tools/hud_probe.py`（自标定画布尺寸/密度/画布在屏幕上的纵向偏移，菜单与数字键盘都按 **画布 vp** 换算成屏幕像素）。
 踩过的坑记在那个文件的注释里：**画布偏移不能用 `tools/probe_canvas.py` 探**（它认「蓝砖」，外观换成绿砖就探不到），
 脚本里另写了一个按**彩色度**判定的探测器。
@@ -762,3 +775,4 @@ python tools\check_layout.py --md     # 额外打印 markdown 表格
   所以「点状态条不会翻开被压住的格子」这条（Codex P2）在 5555 上**无法实测**，
   只能靠「HUD 模式在 5555 上根本不出现」来间接确认那条分支没被误触发。
   要真机验证 P2，得在 Pura X Max 内屏上跑 24×30（那里才纵向溢出）。
+  试过的替代办法与失败原因见 §4.3.5 的表。
