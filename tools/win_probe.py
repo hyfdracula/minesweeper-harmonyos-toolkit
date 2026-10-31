@@ -705,6 +705,7 @@ def solve(board, rows, cols, mines, max_nodes=200000):
 # --------------------------------------------------------------------------
 
 _TPL_CACHE = {}
+_BAR_PROFILE = None
 
 
 def _frame_templates(kind):
@@ -738,6 +739,25 @@ def _frame_templates(kind):
     return out
 
 
+_RESIZED = {}
+
+
+def _resized_templates(kind, size):
+    """
+    把动画帧模板缩放到指定尺寸并**缓存**。
+    之前每次比对都重新 resize（38 帧 × 81 格 × 20 帧 = 六万次缩放），慢到没法用。
+    """
+    key = (kind, size[0], size[1])
+    if key in _RESIZED:
+        return _RESIZED[key]
+    out = []
+    for tpl in _frame_templates(kind):
+        out.append(np.asarray(Image.fromarray(tpl.astype(np.uint8)).resize(size, Image.BOX),
+                              dtype=np.float32))
+    _RESIZED[key] = out
+    return out
+
+
 def _best_frame(patch, tpls, size, alpha_min=110):
     """
     在一组帧里找最像 patch 的那一帧。
@@ -745,9 +765,7 @@ def _best_frame(patch, tpls, size, alpha_min=110):
     返回 (帧号, 相似度) 或 None。
     """
     best = None
-    for f, tpl in enumerate(tpls):
-        ta = np.asarray(Image.fromarray(tpl.astype(np.uint8)).resize(size, Image.BOX),
-                        dtype=np.float32)
+    for f, ta in enumerate(tpls):
         solid = ta[:, :, 3] >= alpha_min
         n = int(solid.sum())
         if n < 50:
@@ -797,9 +815,9 @@ def analyse_disarm(img, gx, gy, pitch, unit, rows, cols, only=None):
     only = 只查这些 (r,c)（已知雷位），省时间。
     """
     found = []
-    tpls = _frame_templates('disarm')
     w = int(50 * unit)
     h = int(150 * unit)
+    tpls = _resized_templates('disarm', (w, h))
     for r in range(rows):
         for c in range(cols):
             if only is not None and (r, c) not in only:
@@ -837,8 +855,8 @@ def analyse_explode(img, gx, gy, pitch, unit, rows, cols, only=None):
     返回 [(r, c, 帧号, 相似度), ...]
     """
     found = []
-    tpls = _frame_templates('explode')
     cell = int(57 * unit)
+    tpls = _resized_templates('explode', (cell, cell))
     for r in range(rows):
         for c in range(cols):
             if only is not None and (r, c) not in only:
@@ -860,59 +878,57 @@ def analyse_explode(img, gx, gy, pitch, unit, rows, cols, only=None):
     return found
 
 
-def locate_scan_bar(img, gx, gy, pitch, unit, rows, cols):
+def locate_scan_bar(img, gx, gy, pitch, unit, rows, cols, search_above=False):
     """
     定位胜利扫描条，返回 (barY, 相似度) 或 None。
 
-    扫描条画法（GameController.drawScanBar）：
-        x = boardX，w = cols*tile，h = 62*unit
-        barY = scanBarY() = boardBottom - barH - p*boardH   （自下而上扫）
-    源矩形 = otherSheet 的 SCAN_BAR = [0,912,275,62]（逻辑坐标）。
+    扫描条的精灵（otherSheet 的 [0,912,275,62]）上半截不透明、是一条蓝白高光带，
+    下半截 alpha 渐隐。所以检测用**那条高光带**：把精灵里 alpha>=200 的那几行取出来，
+    横向拉成棋盘宽，当作一维模板在屏幕上逐行比对。
+    这样既不受「条被裁在棋盘内」的影响，也不会有「淡色地板被误认成条」的问题
+    （整块矩形比地板是比不上的，地板是纯色而条有横向纹理）。
 
-    做法：把精灵按 (w,h) 缩放成模板，在棋盘上下滑动比对，
-    取相似度最高的位置。这样不会把「淡色的地板」误认成扫描条。
+    search_above=False（默认）：**只在棋盘矩形内**找 —— 这是修复后的行为，
+        条被裁在棋盘里，扫到顶就消失。
+    search_above=True：连棋盘上方一起找，用来证明「修复前条停在棋盘顶上」。
+
+    返回的 y 是高光带在屏幕上的位置，相似度 >= 0.96 才算认出来。
     """
-    other = Image.open(OTHER).convert('RGBA')
-    sx, sy, sw, sh = SCAN_BAR_SRC
-    if sx + sw > other.size[0] or sy + sh > other.size[1]:
-        return None
-    w = cols * pitch
-    h = int(round(62 * unit))
-    if w <= 0 or h <= 0:
-        return None
-    tpl = other.crop((sx, sy, sx + sw, sy + sh)).resize((w, h), Image.BOX)
-    ta = np.asarray(tpl, dtype=np.float32)
-    alpha = ta[:, :, 3]
-    solid = alpha > 200
-    if int(solid.sum()) < 50:
-        return None
-    trgb = ta[:, :, :3]
-
+    global _BAR_PROFILE
+    if _BAR_PROFILE is None:
+        other = Image.open(OTHER).convert('RGBA')
+        sx, sy, sw, sh = SCAN_BAR_SRC
+        if sx + sw > other.size[0] or sy + sh > other.size[1]:
+            return None
+        a = np.asarray(other.crop((sx, sy, sx + sw, sy + sh)), dtype=np.float32)
+        band = a[:, :, 3] >= 200
+        rows_idx = np.where(band.any(axis=1))[0]
+        if len(rows_idx) == 0:
+            return None
+        top = int(rows_idx.min())
+        bot = int(rows_idx.max())
+        band_img = Image.fromarray(a[top:bot + 1].astype(np.uint8))
+        _BAR_PROFILE = band_img          # 之后按棋盘宽缩放
     a = np.asarray(img, dtype=np.float32)
     H, W = a.shape[:2]
+    w = cols * pitch
     if gx + w > W:
         return None
-    # 只在棋盘附近找（扫描条最多在棋盘上下各一格边之内）
-    y_lo = max(0, gy - h - pitch)
-    y_hi = min(H - h, gy + rows * pitch)
-    if y_hi <= y_lo:
+    prof = np.asarray(_BAR_PROFILE.resize((w, 1), Image.BOX), dtype=np.float32)[0, :, :3]
+    if prof.shape[0] != w:
         return None
-    # 抽样比对（每 6 像素取一个），快得多
-    step = 6
-    tm = trgb[::step, ::step]
-    sm = solid[::step, ::step]
-    if int(sm.sum()) < 20:
-        return None
-    tm = tm[sm]
+    if search_above:
+        y_lo = max(0, gy - 400)
+    else:
+        y_lo = max(0, gy)             # 条被裁在棋盘内，只可能在棋盘里找
+    y_hi = min(H - 1, gy + rows * pitch)
     best = None
-    for y in range(y_lo, y_hi + 1, 3):
-        patch = a[y:y + h:step, gx:gx + w:step][sm]
-        if patch.shape != tm.shape:
-            continue
-        score = 1.0 - float(np.abs(patch - tm).mean()) / 255.0
+    for y in range(y_lo, y_hi + 1):
+        seg = a[y, gx:gx + w, :3]
+        score = 1.0 - float(np.abs(seg - prof).mean()) / 255.0
         if best is None or score > best[1]:
             best = (y, score)
-    if best is None or best[1] < 0.92:
+    if best is None or best[1] < 0.96:
         return None
     return best
 
@@ -1164,8 +1180,12 @@ def run_phase_explode(args, templates, mine_tmpl):
     y = gy + r * pitch + pitch / 2.0
     print('[exp] 踩 (r=%d,c=%d) 屏幕(%.0f,%.0f)' % (r, c, x, y))
     click(device, x, y)
-    time.sleep(0.05)
-    paths = burst(device, outdir, 'ANIM_explode', args.burst, args.burst_gap)
+    # 爆炸只有 1 秒（23 帧），而设备端一次截图要 ~500ms，
+    # 所以「点击 -> 第一张截图」之间隔多少，直接决定我们落在第几帧。
+    # --first-delay 就是用来**扫**这个落点的：多跑几轮、给不同的延时，
+    # 就能把 23 帧里的好几帧分别拍下来。
+    time.sleep(args.first_delay)
+    paths = burst(device, outdir, args.tag, args.burst, args.burst_gap)
     print('[exp] 抓到 %d 帧' % len(paths))
     for p in paths:
         im = Image.open(p).convert('RGB')
@@ -1186,6 +1206,9 @@ def main():
     ap.add_argument('--burst', type=int, default=16)
     ap.add_argument('--burst-gap', type=float, default=0.15)
     ap.add_argument('--click-wait', type=float, default=1.1)
+    ap.add_argument('--first-delay', type=float, default=0.0,
+                    help='爆炸：点击之后到第一张截图之间等多久（用来扫不同的动画帧）')
+    ap.add_argument('--tag', default='ANIM_explode', help='输出文件名前缀')
     args = ap.parse_args()
 
     templates = load_templates()
