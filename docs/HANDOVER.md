@@ -1,7 +1,7 @@
 # 交接文档 —— Win7 扫雷移植（HarmonyOS）
 
 > 用途：**新会话/新模型接手时，只读这一份就能继续干活。**
-> 写于 2026-11-01 00:20，对应应用仓 `ec73858`、规格仓 `4d7a364`。
+> 写于 2026-11-01 00:40，对应应用仓 `06b6217`、规格仓 `4d7a364`（HUD 实测那笔随后追加）。
 > 本文件不谈过程，只谈「现在是什么状态、怎么动手、还差什么」。
 
 ---
@@ -22,7 +22,7 @@
 
 | 用途 | 路径 | 分支/HEAD |
 |---|---|---|
-| **应用仓**（鸿蒙工程，真正要装到手机上的） | `C:\Users\19161\saolei` | master @ `ec73858` |
+| **应用仓**（鸿蒙工程，真正要装到手机上的） | `C:\Users\19161\saolei` | master @ `06b6217` |
 | **规格仓**（文档 + 工具 + 证据图） | `D:\software\harmony\projects\minesweeper` | master @ `4d7a364` |
 
 应用仓 `bundleName = com.example.saolei`。
@@ -45,6 +45,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\software\harmony\projects
 powershell -NoProfile -ExecutionPolicy Bypass -File D:\software\harmony\projects\minesweeper\tools\run_engine_tests.ps1
 # 原版对话框逐像素比对
 python D:\software\harmony\projects\minesweeper\tools\pixel_diff.py --ref <参考图> --shot <截图> --rect X,Y,W,H --auto-scale
+# HUD 分支实测（自标定 + 造 24×30 局 + 命中拦截 + 纵向拖动）
+python D:\software\harmony\projects\minesweeper\tools\hud_probe.py --device 127.0.0.1:5557
+# 量「拖动挪了多少 / 状态条有没有跟着动」
+python D:\software\harmony\projects\minesweeper\tools\drag_shift.py --before <图A> --after <图B> --board-top 212 --strip-top 1908 --strip-bottom 2036 --x0 0 --x1 550
 ```
 
 ---
@@ -126,7 +130,9 @@ entry/src/main/ets/
 | **颜色(C) 对话框**：游戏样式(扫雷/花园) + 棋盘(银蓝/绿色) + 置灰复选框 | 已实现 | `docs/APPEARANCE-DIALOG.md`、`docs/verify/M2_color_dialog.jpeg` |
 | 绿棋盘 + 花园玩法（三段判负音效） | 已实现 | `docs/verify/M6_after_restart.jpeg` |
 | 外观设置**重启保留** | 已实现 | `[GameStats] 外观已保存 board=1` + 重启后绿棋盘实测 |
-| 状态条**超宽钉屏幕两端**、**纵向溢出钉画布底边(HUD)** | 已实现 | `docs/LAYOUT-MATRIX.md` v4.0 |
+| 状态条**超宽钉屏幕两端**、**纵向溢出钉画布底边(HUD)** | 已实现 | `docs/LAYOUT-MATRIX.md` v4.0 §4.3、§4.3.6 |
+| **HUD 命中拦截实测**：点状态条盖住的格子不翻开 | 已实现并**实测** | 点屏幕 (676,1972) → 棋盘变化 **0 px**；对照点可见格 → 296578 px（`docs/verify/hud_09/10_*.jpeg`） |
+| **纵向拖动上限 = 整个溢出量**，且状态条钉住不动 | 已实现并**实测** | 拖动实测位移 32 px（= overV），状态条最下 16 px 差异 **0 px** |
 | 抬档规则：整块装得下优先，格边 <48 设备像素就抬（允许纵向溢出） | 已实现 | 24×30 在 Mate 90 Pro 上 n=2 / 格边 72px 实测 |
 | 爆炸 23 帧 / 拆雷 38 帧 / 胜利扫描条 | 已实现 | 代码在 `Anim.ets`；**真机连续帧证据由 anim-agent 出** |
 | 音效全套（含花朵三段） | 已实现 | `SoundPlayer.ets` |

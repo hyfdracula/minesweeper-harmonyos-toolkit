@@ -13,7 +13,7 @@
 | 展开后的源矩形 | 1584（活 1522 + 死 62） |
 | 越界 | 0 |
 | 重复常量组 | 4 |
-| 本目录 PNG 张数 | 184 |
+| 本目录 PNG 张数 | 303 |
 
 ## 逐张说明
 
@@ -194,6 +194,106 @@
 | `pressedTileRect_f718.png` | 凹陷方砖代表帧（0,1,24,25,100,349,699,718,719） |
 | `pressedTileRect_f719.png` | 凹陷方砖代表帧（0,1,24,25,100,349,699,718,719） |
 | `pressed_tiles_contact.png` | 720 帧凹陷砖拼版（25 帧/行） |
+| `recheck_face_blueSheet_0.png` | （自动生成） |
+| `recheck_face_blueSheet_1.png` | （自动生成） |
+| `recheck_face_blueSheet_2.png` | （自动生成） |
+| `recheck_face_blueSheet_3.png` | （自动生成） |
+| `recheck_face_blueSheet_4.png` | （自动生成） |
+| `recheck_face_blueSheet_5.png` | （自动生成） |
+| `recheck_face_flowerGardenSheet_0.png` | （自动生成） |
+| `recheck_face_flowerGardenSheet_1.png` | （自动生成） |
+| `recheck_face_flowerGardenSheet_2.png` | （自动生成） |
+| `recheck_face_flowerGardenSheet_3.png` | （自动生成） |
+| `recheck_face_flowerGardenSheet_4.png` | （自动生成） |
+| `recheck_face_flowerGardenSheet_5.png` | （自动生成） |
+| `recheck_face_greenSheet_0.png` | （自动生成） |
+| `recheck_face_greenSheet_1.png` | （自动生成） |
+| `recheck_face_greenSheet_2.png` | （自动生成） |
+| `recheck_face_greenSheet_3.png` | （自动生成） |
+| `recheck_face_greenSheet_4.png` | （自动生成） |
+| `recheck_face_greenSheet_5.png` | （自动生成） |
+| `recheck_face_helpBoard_0.png` | （自动生成） |
+| `recheck_face_helpBoard_1.png` | （自动生成） |
+| `recheck_face_helpBoard_2.png` | （自动生成） |
+| `recheck_face_helpBoard_3.png` | （自动生成） |
+| `recheck_face_helpBoard_4.png` | （自动生成） |
+| `recheck_face_helpBoard_5.png` | （自动生成） |
+| `recheck_face_icon128_0.png` | （自动生成） |
+| `recheck_face_icon128_1.png` | （自动生成） |
+| `recheck_face_icon128_2.png` | （自动生成） |
+| `recheck_face_icon128_3.png` | （自动生成） |
+| `recheck_face_icon128_4.png` | （自动生成） |
+| `recheck_face_icon128_5.png` | （自动生成） |
+| `recheck_face_icon32_0.png` | （自动生成） |
+| `recheck_face_icon32_1.png` | （自动生成） |
+| `recheck_face_icon32_2.png` | （自动生成） |
+| `recheck_face_icon32_3.png` | （自动生成） |
+| `recheck_face_icon32_4.png` | （自动生成） |
+| `recheck_face_icon32_5.png` | （自动生成） |
+| `recheck_face_icon48_0.png` | （自动生成） |
+| `recheck_face_icon48_1.png` | （自动生成） |
+| `recheck_face_icon48_2.png` | （自动生成） |
+| `recheck_face_icon48_3.png` | （自动生成） |
+| `recheck_face_icon48_4.png` | （自动生成） |
+| `recheck_face_icon48_5.png` | （自动生成） |
+| `recheck_face_icon64_0.png` | （自动生成） |
+| `recheck_face_icon64_1.png` | （自动生成） |
+| `recheck_face_icon64_2.png` | （自动生成） |
+| `recheck_face_icon64_3.png` | （自动生成） |
+| `recheck_face_icon64_4.png` | （自动生成） |
+| `recheck_face_icon64_5.png` | （自动生成） |
+| `recheck_face_minesweeperSheet_0.png` | （自动生成） |
+| `recheck_face_minesweeperSheet_1.png` | （自动生成） |
+| `recheck_face_minesweeperSheet_2.png` | （自动生成） |
+| `recheck_face_minesweeperSheet_3.png` | （自动生成） |
+| `recheck_face_minesweeperSheet_4.png` | （自动生成） |
+| `recheck_face_minesweeperSheet_5.png` | （自动生成） |
+| `recheck_face_otherSheet_0.png` | （自动生成） |
+| `recheck_face_otherSheet_1.png` | （自动生成） |
+| `recheck_face_otherSheet_2.png` | （自动生成） |
+| `recheck_face_otherSheet_3.png` | （自动生成） |
+| `recheck_face_otherSheet_4.png` | （自动生成） |
+| `recheck_face_otherSheet_5.png` | （自动生成） |
+| `recheck_face_thumbBlue_0.png` | （自动生成） |
+| `recheck_face_thumbBlue_1.png` | （自动生成） |
+| `recheck_face_thumbBlue_2.png` | （自动生成） |
+| `recheck_face_thumbBlue_3.png` | （自动生成） |
+| `recheck_face_thumbBlue_4.png` | （自动生成） |
+| `recheck_face_thumbBlue_5.png` | （自动生成） |
+| `recheck_face_thumbFlowers_0.png` | （自动生成） |
+| `recheck_face_thumbFlowers_1.png` | （自动生成） |
+| `recheck_face_thumbFlowers_2.png` | （自动生成） |
+| `recheck_face_thumbFlowers_3.png` | （自动生成） |
+| `recheck_face_thumbFlowers_4.png` | （自动生成） |
+| `recheck_face_thumbFlowers_5.png` | （自动生成） |
+| `recheck_face_thumbGreen_0.png` | （自动生成） |
+| `recheck_face_thumbGreen_1.png` | （自动生成） |
+| `recheck_face_thumbGreen_2.png` | （自动生成） |
+| `recheck_face_thumbGreen_3.png` | （自动生成） |
+| `recheck_face_thumbGreen_4.png` | （自动生成） |
+| `recheck_face_thumbGreen_5.png` | （自动生成） |
+| `recheck_face_thumbMines_0.png` | （自动生成） |
+| `recheck_face_thumbMines_1.png` | （自动生成） |
+| `recheck_face_thumbMines_2.png` | （自动生成） |
+| `recheck_face_thumbMines_3.png` | （自动生成） |
+| `recheck_face_thumbMines_4.png` | （自动生成） |
+| `recheck_face_thumbMines_5.png` | （自动生成） |
+| `recheck_helpboard_strip_5x.png` | （自动生成） |
+| `recheck_montage_assets.png` | （自动生成） |
+| `recheck_overview_blueSheet.png` | （自动生成） |
+| `recheck_overview_flowerGardenSheet.png` | （自动生成） |
+| `recheck_overview_greenSheet.png` | （自动生成） |
+| `recheck_overview_helpBoard.png` | （自动生成） |
+| `recheck_overview_icon128.png` | （自动生成） |
+| `recheck_overview_icon32.png` | （自动生成） |
+| `recheck_overview_icon48.png` | （自动生成） |
+| `recheck_overview_icon64.png` | （自动生成） |
+| `recheck_overview_minesweeperSheet.png` | （自动生成） |
+| `recheck_overview_otherSheet.png` | （自动生成） |
+| `recheck_overview_thumbBlue.png` | （自动生成） |
+| `recheck_overview_thumbFlowers.png` | （自动生成） |
+| `recheck_overview_thumbGreen.png` | （自动生成） |
+| `recheck_overview_thumbMines.png` | （自动生成） |
 | `unused_blueSheet_counter_row.png` | 未引用：blueSheet 计数器那一行 x80 之后全空 |
 | `unused_blueSheet_right_strip.png` | 未引用：blueSheet 右侧渐变条（窗口边框残片） |
 | `unused_blueSheet_sprite_band.png` | 未引用：blueSheet 渐变块下方横带 |
@@ -203,3 +303,22 @@
 | `unused_otherSheet_green_beam_mid.png` | 未引用：同上，中段 |
 | `unused_otherSheet_led_digits.png` | 未引用：otherSheet 底部渐变条 + 第二份彩色数字 |
 | `unused_otherSheet_scanbar_row.png` | 未引用：扫描条那一行 x560 之后全空 |
+| `v2_Anim_SCAN_BAR.png` | （自动生成） |
+| `v2_Anim_disarmRect.png` | （自动生成） |
+| `v2_Anim_explodeRect.png` | （自动生成） |
+| `v2_INLINE_SHADOW_L_LOW.png` | （自动生成） |
+| `v2_RECT_CLOCK.png` | （自动生成） |
+| `v2_RECT_COUNTER.png` | （自动生成） |
+| `v2_RECT_FLAG.png` | （自动生成） |
+| `v2_RECT_HILITE.png` | （自动生成） |
+| `v2_RECT_MINE.png` | （自动生成） |
+| `v2_RECT_MISFLAG.png` | （自动生成） |
+| `v2_RECT_PANEL_MINE.png` | （自动生成） |
+| `v2_RECT_QUESTION.png` | （自动生成） |
+| `v2_RECT_SHADOW_L.png` | （自动生成） |
+| `v2_RECT_SHADOW_U.png` | （自动生成） |
+| `v2_SpriteAtlas_drawWhole.png` | （自动生成） |
+| `v2_WinDialog_win_icon.png` | （自动生成） |
+| `v2_digitRect.png` | （自动生成） |
+| `v2_normalTileRect.png` | （自动生成） |
+| `v2_pressedTileRect.png` | （自动生成） |

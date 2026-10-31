@@ -1,0 +1,21 @@
+The committed layout can leave board cells unreachable, and the new appearance, rendering, and audio paths contain user-visible regressions.
+
+Full review comments:
+
+- [P1] Allow panning through the full vertical overflow — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:370-372
+  When the board is taller than the area above the pinned status strip, `applyGeometry()` starts it at the menu edge, but this limit permits moving it upward by only half the overflow. The bottom portion remains behind the status strip even at maximum pan, leaving cells unreachable. Allow an upward pan equal to the full overflow.
+
+- [P2] Exclude the pinned status strip from board hit testing — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:345-345
+  When vertical overflow pins the strip over the board, `hitTest()` still maps taps in that strip to the covered cells. Tapping a counter can therefore reveal or flag an unseen cell, including a mine. Reject board hits at or below `stripTop` while the strip is pinned.
+
+- [P2] Wait for saved appearance before applying the startup theme — C:\Users\19161\saolei\entry\src\main\ets\components\MinefieldCanvas.ets:84-88
+  On startup, `GameStats.load()` and atlas loading run independently. If the atlas finishes first, this callback reads the default style values and applies the blue/mines theme before preferences are read; the later preferences load never reapplies it. Wait for both operations before restoring the theme.
+
+- [P2] Use logical coordinates for the about-dialog icon — C:\Users\19161\saolei\entry\src\main\ets\common\WinDialog.ets:407-407
+  Opening About passes this rectangle to `drawLogical()`, which doubles source coordinates. The minesweeper sheet is 94×54 physical pixels, so `[58, 4, 34, 34]` starts at physical x=116, outside the image; the replacement icon cannot render. Convert the intended physical crop to logical coordinates.
+
+- [P2] Correct the seven-segment mask for digit one — C:\Users\19161\saolei\entry\src\main\ets\common\SevenSeg.ets:60-60
+  Every displayed `1` uses `0x0E`, which lights segments b, c, and the bottom bar d, while omitting `SEG_FLAG`. The counter therefore draws the wrong glyph and never draws the intended serif flag. Use the mask for b, c, and `SEG_FLAG`.
+
+- [P2] Replace the loss sound in flower mode instead of layering it — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:909-915
+  On every flower-mode loss, the unconditional call plays `GAME_LOSE` and this branch also plays a flower loss clip. Both players start independently, so the new sound overlaps the mines loss sound instead of replacing it. Select one loss clip based on game style.

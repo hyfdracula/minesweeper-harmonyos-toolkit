@@ -1,0 +1,60 @@
+﻿
+// ---- helpBoard.png（原版帮助窗口插图） --------------------------------------
+
+/**
+ * 原版帮助窗口插图的源尺寸（**像素，1 倍**）。
+ *
+ * 坑（最容易踩的一个）：helpBoard.png 是 **1:1** 的图，不像 blueSheet 那样按 2 倍存，
+ * 所以取它的源坐标时**不能乘 SPRITE_SCALE**，否则会从图里裁到错的地方
+ * （×2 会直接裁到图外，画出空白）。
+ *
+ * 这张图是微软自己的插图：一局进行中的 Win7 扫雷画面，底部带 [时钟][18] … [-40][雷] 状态条。
+ */
+export const HELP_BOARD_W: number = 256;
+export const HELP_BOARD_H: number = 192;
+
+
+/**
+ * 砖块渐变帧映射：原版不是所有格子同一个蓝色，而是 720 帧（30×24）从左上到右下
+ * 由亮到暗的渐变，每格取自己那一帧。小棋盘取「居中窗口」而不是拉伸整个渐变，
+ * 否则初级局会显得过亮或过暗。
+ */
+export function gradientFrame(row: number, col: number, rows: number, cols: number): number {
+  const r = Math.min(GRAD_ROWS - 1, row + Math.max(0, Math.floor((GRAD_ROWS - rows) / 2)));
+  const c = Math.min(GRAD_COLS - 1, col + Math.max(0, Math.floor((GRAD_COLS - cols) / 2)));
+  return r * GRAD_COLS + c;
+}
+
+// ---- 配色（实测自原版窗口底图 Frame.png） ---------------------------------
+
+/** 窗口外圈（原来那圈淡蓝玻璃边框，手机版只留底色） */
+export const COLOR_OUTSIDE: string = '#c6cede';
+/** 棋盘区地板：纯白 */
+export const COLOR_FLOOR: string = '#ffffff';
+/** 棋盘区四边的凹槽线（实测约 rgb(76,85,111)） */
+export const COLOR_SUNKEN: string = '#4c556f';
+
+// ---- 底部状态条 -----------------------------------------------------------
+
+/** 状态条离棋盘下沿的高度（原版是窗口下边框，32 单位高） */
+export const STRIP_BAND: number = 32;
+
+/**
+ * 最小可点格边（设备像素）。
+ *
+ * 48 px 是经典的最小点按目标尺寸。窄屏上 30 列的局装得下时只有 36 px（≈10~13 vp），
+ * 手指根本点不准；这时宁可让棋盘横向超宽（可单指平移），也不要给一个点不中的棋盘。
+ * 用户的要求原话是「外屏不接受降级，我希望可以拖动放大」。
+ */
+export const MIN_CELL_PX: number = 48;
+
+/** 时钟图标 25×25 */
+export const STRIP_CLOCK_SIZE: number = 25;
+/** 计数面板 40×21（实测原版 40×22，取素材里的 40×21） */
+export const STRIP_PANEL_W: number = 40;
+export const STRIP_PANEL_H: number = 21;
+/** 图标与面板之间的空隙 */
+export const STRIP_GAP: number = 6;
+
+// ---- 外观（Appearance）：棋盘样式 / 游戏样式 ---------------------------------
+

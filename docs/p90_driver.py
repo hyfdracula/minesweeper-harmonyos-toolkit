@@ -91,9 +91,12 @@ def main():
         shot("probe")
         print(white_ratio(p))
     elif a[0] == "lose":
-        x, y = int(a[1]), int(a[2])
-        tries = int(a[3]) if len(a) > 3 else 10
-        for i in range(tries):
+        # 在棋盘范围内轮换着点，直到结束对话框出现
+        cells = [(x, y) for x in (250, 350, 450, 550, 650, 750, 850, 950, 1050)
+                 for y in (1200, 1300, 1400, 1500, 1600)]
+        tries = int(a[3]) if len(a) > 3 else 12
+        for i in range(min(tries, len(cells))):
+            x, y = cells[i]
             click(x, y)
             p = os.path.join(VER, "P90_probe.jpeg")
             shot("probe")
@@ -101,9 +104,6 @@ def main():
             if r:
                 print("lose dialog after %d clicks, red x=%s" % (i + 1, r))
                 return
-            # 换一格点
-            x = 200 + (x + 90) % 900
-            y = 1200 + (y + 40) % 500
         print("lose dialog NOT found after %d clicks" % tries)
     elif a[0] == "seq":
         for cmd in a[1].split(";"):

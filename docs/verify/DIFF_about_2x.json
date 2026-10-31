@@ -1,0 +1,74 @@
+{
+  "ref": "C:\\Users\\19161\\Desktop\\minesweeper-refs\\Minesweeper-master\\jpg\\about.jpg",
+  "shot": "docs\\verify\\P90_about_dialog.jpeg",
+  "scale": 2,
+  "scale_is_integer": true,
+  "scale_source": "命令行指定",
+  "rect_in_shot": [
+    326,
+    1238,
+    628,
+    394
+  ],
+  "ref_rect": [
+    152,
+    101,
+    314,
+    197
+  ],
+  "total_px": 247432,
+  "diff_px": 78477,
+  "diff_ratio": 0.31716592841669633,
+  "same_ratio": 0.6828340715833037,
+  "channel_mean_absdiff": {
+    "R": 21.400493873064114,
+    "G": 20.961468201364415,
+    "B": 19.486161854570145
+  },
+  "max_channel_diff": 255,
+  "threshold": 8,
+  "size_mismatch": false,
+  "top_regions": [
+    [
+      326,
+      1238,
+      953,
+      1631,
+      53587,
+      3012310
+    ],
+    [
+      735,
+      1536,
+      919,
+      1599,
+      6240,
+      602220
+    ],
+    [
+      570,
+      1419,
+      787,
+      1447,
+      4003,
+      399247
+    ],
+    [
+      558,
+      1362,
+      747,
+      1391,
+      3635,
+      377402
+    ],
+    [
+      568,
+      1475,
+      695,
+      1503,
+      1813,
+      278098
+    ]
+  ],
+  "diff_image": "docs\\verify\\DIFF_about_2x.png"
+}

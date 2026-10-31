@@ -1,0 +1,40 @@
+﻿   * 这与 Lmy0217 复刻的绘制代码完全一致：它的时钟图标取自 Frame.bmp 左上角，
+   * 画在棋盘下沿的左端，计时面板紧跟其右；雷数面板与雷图标在右端。
+   */
+  private drawStatusStrip(ctx: CanvasRenderingContext2D): void {
+    const u = this.unit;
+    const e = this.engine;
+    const boardBottom = this.boardY + e.rowCount * this.tile;
+    const boardRight = this.boardX + e.colCount * this.tile;
+    const margin = stripMargin(e.colCount) * u;
+
+    // 左端：时钟 + 计时面板
+    const clockX = this.boardX + margin;
+    const clockY = boardBottom + Math.round((STRIP_BAND - STRIP_CLOCK_SIZE) / 2) * u;
+    const timeX = clockX + (STRIP_CLOCK_SIZE + STRIP_GAP) * u;
+    const timeY = boardBottom + Math.round((STRIP_BAND - STRIP_PANEL_H) / 2) * u;
+
+    // 右端：雷数面板 + 雷图标
+    const iconX = boardRight - margin - STRIP_CLOCK_SIZE * u;
+    const iconY = boardBottom + Math.round((STRIP_BAND - STRIP_CLOCK_SIZE) / 2) * u;
+    const mineX = iconX - (STRIP_GAP + STRIP_PANEL_W) * u;
+    const mineY = boardBottom + Math.round((STRIP_BAND - STRIP_PANEL_H) / 2) * u;
+
+    this.atlas.drawLogical(ctx, this.atlas.otherSheet, RECT_CLOCK, clockX, clockY, u);
+    this.atlas.drawLogical(ctx, this.atlas.boardSheet, RECT_COUNTER, timeX, timeY, u);
+    this.atlas.drawLogical(ctx, this.atlas.boardSheet, RECT_COUNTER, mineX, mineY, u);
+    this.atlas.drawLogical(ctx, this.atlas.gameSheet, RECT_PANEL_MINE, iconX, iconY, u);
+
+    // 字号单位：Canvas 的 font 里 "px" 是**设备像素**（与画布坐标的 vp 不是一回事，
+    // 真机实测：写成 vp 换算值会让数字小 2.75 倍）。原版字高约 9 单位 → 字号约 12 单位。
+    ctx.font = `bold ${12 * u}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${this.seconds}`, this.v(timeX + STRIP_PANEL_W * u / 2), this.v(timeY + STRIP_PANEL_H * u / 2));
+    ctx.fillText(`${e.minesRemaining()}`, this.v(mineX + STRIP_PANEL_W * u / 2), this.v(mineY + STRIP_PANEL_H * u / 2));
+  }
+
+  // ------------------------------------------------------------------ 交互
+
+  /** 设备像素坐标 → 格子索引，-1 表示不在棋盘上 */

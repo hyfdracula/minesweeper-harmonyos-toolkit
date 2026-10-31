@@ -1,0 +1,436 @@
+{
+ "rows": [
+  {
+   "ref": "normalTileRect",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:28",
+   "worst_px": [
+    0,
+    0,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 720,
+   "use": "未揭开的凸起方砖（720 帧渐变，25 帧/行）",
+   "times2": true
+  },
+  {
+   "ref": "pressedTileRect",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:35",
+   "worst_px": [
+    1000,
+    0,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 720,
+   "use": "已翻开的凹陷地板砖（= normalTileRect + 500 逻辑单位）",
+   "times2": true
+  },
+  {
+   "ref": "RECT_FLAG",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:41",
+   "worst_px": [
+    800,
+    1120,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "红旗",
+   "times2": true
+  },
+  {
+   "ref": "RECT_QUESTION",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:43",
+   "worst_px": [
+    840,
+    1120,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "问号",
+   "times2": true
+  },
+  {
+   "ref": "RECT_HILITE",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:45",
+   "worst_px": [
+    880,
+    1120,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "悬停高亮（相加混合）",
+   "times2": true
+  },
+  {
+   "ref": "RECT_MISFLAG",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:47",
+   "worst_px": [
+    920,
+    1120,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "错旗红叉",
+   "times2": true
+  },
+  {
+   "ref": "RECT_SHADOW_U",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:49",
+   "worst_px": [
+    960,
+    1120,
+    36,
+    6
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "上边黑边 18×3",
+   "times2": true
+  },
+  {
+   "ref": "RECT_SHADOW_L",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:51",
+   "worst_px": [
+    2024,
+    0,
+    6,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "左边黑边 3×18",
+   "times2": true
+  },
+  {
+   "ref": "INLINE_SHADOW_L_LOW",
+   "sheet": "blueSheet.png",
+   "src": "GameController.ets:510",
+   "worst_px": [
+    2024,
+    6,
+    6,
+    30
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "内联字面量 [1012,3,3,15]：角落时从黑边下方开始的左黑边",
+   "times2": true
+  },
+  {
+   "ref": "RECT_COUNTER",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:53",
+   "worst_px": [
+    0,
+    1160,
+    80,
+    42
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "计数器凹槽面板",
+   "times2": true
+  },
+  {
+   "ref": "digitRect(1..8)",
+   "sheet": "blueSheet.png",
+   "src": "Theme.ets:56",
+   "worst_px": [
+    2000,
+    0,
+    24,
+    30
+   ],
+   "worst_frame": 0,
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 8,
+   "use": "彩色数字 1..8（12×15 逻辑槽）",
+   "times2": true
+  },
+  {
+   "ref": "RECT_MINE",
+   "sheet": "minesweeperSheet.png",
+   "src": "Theme.ets:63",
+   "worst_px": [
+    54,
+    0,
+    36,
+    36
+   ],
+   "worst_frame": 0,
+   "size": [
+    94,
+    54
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "格下地雷",
+   "times2": true
+  },
+  {
+   "ref": "RECT_PANEL_MINE",
+   "sheet": "minesweeperSheet.png",
+   "src": "Theme.ets:65",
+   "worst_px": [
+    0,
+    0,
+    50,
+    50
+   ],
+   "worst_frame": 0,
+   "size": [
+    94,
+    54
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "状态条「雷图标」银钮",
+   "times2": true
+  },
+  {
+   "ref": "WinDialog.win.icon",
+   "sheet": "minesweeperSheet.png",
+   "src": "WinDialog.ets:323",
+   "worst_px": [
+    0,
+    0,
+    50,
+    50
+   ],
+   "worst_frame": 0,
+   "size": [
+    94,
+    54
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "胜利/失败对话框的雷图标（字面量）",
+   "times2": true
+  },
+  {
+   "ref": "RECT_CLOCK",
+   "sheet": "otherSheet.png",
+   "src": "Theme.ets:70",
+   "worst_px": [
+    1810,
+    850,
+    50,
+    50
+   ],
+   "worst_frame": 0,
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "状态条时钟图标",
+   "times2": true
+  },
+  {
+   "ref": "Anim.explodeRect",
+   "sheet": "otherSheet.png",
+   "src": "Anim.ets:55",
+   "worst_px": [
+    1456,
+    0,
+    114,
+    114
+   ],
+   "worst_frame": 0,
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 23,
+   "use": "踩雷爆炸动画 23 帧",
+   "times2": true
+  },
+  {
+   "ref": "Anim.disarmRect",
+   "sheet": "otherSheet.png",
+   "src": "Anim.ets:115",
+   "worst_px": [
+    0,
+    0,
+    100,
+    300
+   ],
+   "worst_frame": 0,
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 38,
+   "use": "胜利拆雷光束 38 帧",
+   "times2": true
+  },
+  {
+   "ref": "Anim.SCAN_BAR",
+   "sheet": "otherSheet.png",
+   "src": "Anim.ets:85",
+   "worst_px": [
+    0,
+    1824,
+    550,
+    124
+   ],
+   "worst_frame": 0,
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "胜利扫描条",
+   "times2": true
+  },
+  {
+   "ref": "SpriteAtlas.drawWhole(helpBoard)",
+   "sheet": "helpBoard.png",
+   "src": "SpriteAtlas.ets:147 / WinDialog.ets:463",
+   "worst_px": [
+    0,
+    0,
+    256,
+    192
+   ],
+   "worst_frame": 0,
+   "size": [
+    256,
+    192
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "frames": 1,
+   "use": "帮助窗口整图（1:1 图，源坐标不乘 SPRITE_SCALE；源矩形 = 256×pxScale vp）",
+   "times2": false
+  }
+ ],
+ "oob": [],
+ "dups": [
+  [
+   "RECT_PANEL_MINE",
+   "WinDialog.win.icon",
+   "minesweeperSheet.png",
+   [
+    0,
+    0,
+    50,
+    50
+   ]
+  ]
+ ]
+}

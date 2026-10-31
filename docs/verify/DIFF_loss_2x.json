@@ -1,0 +1,69 @@
+{
+  "ref": "C:\\Users\\19161\\Desktop\\minesweeper-refs\\Minesweeper-master\\jpg\\loss.jpg",
+  "shot": "docs\\verify\\P90_lose_dialog.jpeg",
+  "scale": 2,
+  "scale_is_integer": true,
+  "scale_source": "命令行指定",
+  "rect_in_shot": [
+    157,
+    1147,
+    966,
+    576
+  ],
+  "ref_rect": null,
+  "total_px": 556416,
+  "diff_px": 103699,
+  "diff_ratio": 0.18636955083965953,
+  "same_ratio": 0.8136304491603404,
+  "channel_mean_absdiff": {
+    "R": 12.846129514607776,
+    "G": 12.987381743156199,
+    "B": 11.886974853347136
+  },
+  "max_channel_diff": 255,
+  "threshold": 8,
+  "size_mismatch": false,
+  "top_regions": [
+    [
+      157,
+      1147,
+      1122,
+      1722,
+      69745,
+      3997082
+    ],
+    [
+      201,
+      1472,
+      304,
+      1499,
+      1730,
+      257400
+    ],
+    [
+      681,
+      1248,
+      814,
+      1279,
+      1853,
+      246398
+    ],
+    [
+      623,
+      1632,
+      752,
+      1658,
+      2091,
+      245655
+    ],
+    [
+      201,
+      1424,
+      304,
+      1451,
+      1642,
+      239174
+    ]
+  ],
+  "diff_image": "docs\\verify\\DIFF_loss_2x.png"
+}
