@@ -57,6 +57,54 @@ function countMines(engine: MinesweeperEngine): number {
   return n;
 }
 
+/**
+ * 洪泛深度（独立于引擎实现的参考算法）。
+ * 洪泛只能从 0 格继续往外扩，所以「层次」= 在「0 格 → 它的 8 邻域」这张图上
+ * 从首点出发的 BFS 深度。引擎的展开顺序应当与这个深度单调一致（SPEC §3.2）。
+ */
+function floodDepths(engine: MinesweeperEngine, row: number, col: number): number[] {
+  const depths: number[] = [];
+  const visited: boolean[] = [];
+  for (let i = 0; i < engine.cells.length; i++) {
+    depths.push(-1);
+    visited.push(false);
+  }
+  const start = row * engine.colCount + col;
+  const queue: number[] = [start];
+  visited[start] = true;
+  depths[start] = 0;
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head];
+    head++;
+    const r = Math.floor(idx / engine.colCount);
+    const c = idx - r * engine.colCount;
+    if (engine.cellAt(r, c).adjacent !== 0) {
+      continue; // 只有 0 格能继续扩展
+    }
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) {
+          continue;
+        }
+        const nr = r + dr;
+        const nc = c + dc;
+        if (!engine.inBounds(nr, nc)) {
+          continue;
+        }
+        const nIdx = nr * engine.colCount + nc;
+        if (visited[nIdx]) {
+          continue;
+        }
+        visited[nIdx] = true;
+        depths[nIdx] = depths[idx] + 1;
+        queue.push(nIdx);
+      }
+    }
+  }
+  return depths;
+}
+
 console.log('minesweeper engine tests\n');
 
 // ---------------------------------------------------------------- 基础尺寸
@@ -159,6 +207,95 @@ test('首点安全区在边缘按行列裁剪，不会误伤远处的格子', ()
   assert.ok(sawMineAt00, '远处格子 (0,0) 40 次都没能布到雷，说明安全区算错了');
 });
 
+test('首点安全区：三个难度 × 全部起点 × 3 组种子都无雷', () => {
+  // SPEC §3.1：首点及其周围 8 格（越界裁剪）内不放雷
+  const presets: number[][] = [
+    [9, 9, 10],
+    [16, 16, 40],
+    [16, 30, 99],
+  ];
+  for (const preset of presets) {
+    const rows = preset[0];
+    const cols = preset[1];
+    const mines = preset[2];
+    const e = new MinesweeperEngine();
+    for (let seed = 1; seed <= 3; seed++) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          e.reset(rows, cols, mines, seededRandom(seed * 100003 + r * 101 + c));
+          const outcome = e.reveal(r, c);
+          assert.equal(outcome.lost, false, `${rows}x${cols} 首点 (${r},${c}) 踩雷`);
+          const r0 = Math.max(0, r - 1);
+          const r1 = Math.min(rows - 1, r + 1);
+          const c0 = Math.max(0, c - 1);
+          const c1 = Math.min(cols - 1, c + 1);
+          for (let nr = r0; nr <= r1; nr++) {
+            for (let nc = c0; nc <= c1; nc++) {
+              assert.equal(
+                e.cellAt(nr, nc).mine,
+                false,
+                `${rows}x${cols} 首点 (${r},${c}) 的邻格 (${nr},${nc}) 上有雷`,
+              );
+            }
+          }
+          assert.equal(countMines(e), mines, `${rows}x${cols} 首点 (${r},${c}) 的雷数不对`);
+        }
+      }
+    }
+  }
+});
+
+test('首点必开空地：安全区整片都被翻开（9×9 全起点穷举）', () => {
+  // SPEC §3.1：安全区整片无雷 ⇒ 首点周围雷数为 0 ⇒ 洪泛至少打开整个安全区。
+  // 角落安全区 4 格 ⇒ 角落首点至少开 4 格；内部安全区 9 格 ⇒ 至少开 9 格。
+  const e = new MinesweeperEngine();
+  for (let seed = 1; seed <= 5; seed++) {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        e.reset(9, 9, 10, seededRandom(seed * 7919 + r * 31 + c));
+        e.reveal(r, c);
+        const zoneRows = Math.min(8, r + 1) - Math.max(0, r - 1) + 1;
+        const zoneCols = Math.min(8, c + 1) - Math.max(0, c - 1) + 1;
+        const zone = zoneRows * zoneCols;
+        assert.ok(
+          e.revealedCount >= zone,
+          `首点 (${r},${c}) 只开 ${e.revealedCount} 格，安全区有 ${zone} 格`,
+        );
+        const isCorner = (r === 0 || r === 8) && (c === 0 || c === 8);
+        if (isCorner) {
+          assert.ok(e.revealedCount >= 4, `角落首点 (${r},${c}) 只开 ${e.revealedCount} 格`);
+        }
+        if (r >= 1 && r <= 7 && c >= 1 && c <= 7) {
+          assert.ok(e.revealedCount >= 9, `中心首点 (${r},${c}) 只开 ${e.revealedCount} 格`);
+        }
+      }
+    }
+  }
+});
+
+test('退化到「只排除首点」时首点仍不是雷，计数器与棋盘一致', () => {
+  // SPEC §3.1 的硬约束：首点必不是雷。雷数被顶到放不下时，
+  // 只能少布雷（计数器跟着下调），绝不能把雷布回首点。
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 5);
+  e.mineCount = 9; // 人为把雷数顶到整盘大小（面板不会这么干，引擎层要自洽）
+  e.placeMines(1, 1);
+  assert.equal(e.cellAt(1, 1).mine, false, '首点被布上了雷');
+  assert.equal(countMines(e), 8, '3×3 盘扣掉首点最多只能放 8 颗雷');
+  assert.equal(e.mineCount, 8, '计数器必须与棋盘上的实际雷数一致');
+});
+
+test('雷数被顶到放不下时，首点也不会踩雷', () => {
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 5);
+  e.mineCount = 9;
+  e.minesPlaced = false;
+  const outcome = e.reveal(1, 1);
+  assert.equal(outcome.lost, false, '首点踩雷');
+  assert.equal(e.cellAt(1, 1).mine, false);
+  assert.equal(countMines(e), e.mineCount, '计数器与实际雷数不一致');
+});
+
 // ---------------------------------------------------------------- 标记
 
 test('右键三态：无标记 → 旗 → 问号 → 无标记', () => {
@@ -166,9 +303,11 @@ test('右键三态：无标记 → 旗 → 问号 → 无标记', () => {
   e.reset(9, 9, 10);
   assert.equal(e.toggleMark(4, 4), true);
   assert.equal(e.cellAt(4, 4).mark, Mark.Flag);
+  assert.equal(e.flagCount, 1, '插旗时 flagCount 加一');
   assert.equal(e.minesRemaining(), 9, '插一面旗，剩余雷数减一');
   assert.equal(e.toggleMark(4, 4), true);
   assert.equal(e.cellAt(4, 4).mark, Mark.Question);
+  assert.equal(e.flagCount, 0, '旗变问号时 flagCount 减一');
   assert.equal(e.minesRemaining(), 10, '旗取消成问号，旗数归零，剩余雷数回到 10');
   assert.equal(e.toggleMark(4, 4), true);
   assert.equal(e.cellAt(4, 4).mark, Mark.None);
@@ -244,6 +383,51 @@ test('问号格被翻开时清成空白', () => {
   assert.equal(e.cellAt(4, 4).revealed, true);
 });
 
+test('洪泛按 BFS 顺序展开（0 格图上的层次单调不降）', () => {
+  // SPEC §3.2：展开顺序按 BFS，UI 照此播放扩散动画。
+  const e = new MinesweeperEngine();
+  e.reset(16, 16, 40, seededRandom(11));
+  const outcome = e.reveal(8, 8);
+  assert.ok(outcome.opened.length > 20, '这片空地应该足够大');
+  const depths = floodDepths(e, 8, 8);
+  let last = -1;
+  for (const idx of outcome.opened) {
+    const d = depths[idx];
+    assert.ok(d >= 0, `格子 ${idx} 不在洪泛可达集合里`);
+    assert.ok(d >= last, `展开顺序不是 BFS：层次 ${last} 之后出现了 ${d}`);
+    last = d;
+  }
+  let reachable = 0;
+  for (let i = 0; i < depths.length; i++) {
+    if (depths[i] >= 0) {
+      reachable++;
+    }
+  }
+  assert.equal(outcome.opened.length, reachable, '展开的格子数与参考 BFS 不一致');
+});
+
+test('洪泛不穿过插旗格（旗子阻断扩展）', () => {
+  // 原版 ShowBlockValue 遇到旗子直接 return，扩展不会从旗子后面穿过去。
+  const plain = new MinesweeperEngine();
+  plain.reset(5, 5, 1);
+  plain.debugPlaceMines([24]); // 雷在 (4,4)
+  plain.reveal(0, 0);
+
+  const flagged = new MinesweeperEngine();
+  flagged.reset(5, 5, 1);
+  flagged.debugPlaceMines([24]);
+  flagged.toggleMark(2, 2);
+  flagged.reveal(0, 0);
+
+  assert.equal(flagged.cellAt(2, 2).revealed, false, '插旗的格子被洪泛翻开了');
+  assert.equal(flagged.cellAt(2, 2).mark, Mark.Flag);
+  assert.equal(
+    flagged.revealedCount,
+    plain.revealedCount - 1,
+    '有旗时展开的格子应当恰好少一个（旗子挡住了那一格）',
+  );
+});
+
 // ---------------------------------------------------------------- 和弦
 
 test('和弦：旗数与数字不符时不动手', () => {
@@ -285,6 +469,62 @@ test('和弦不能用在空白格上', () => {
   e.debugPlaceMines([4]);
   e.reveal(0, 0);
   assert.equal(e.chord(0, 0), false, '数字为 0 的格子不能和弦');
+});
+
+test('和弦不能用在没翻开的格子上', () => {
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 1);
+  e.debugPlaceMines([4]); // 雷在中心
+  e.reveal(0, 0); // (0,0) 邻着雷 → 数字 1
+  e.toggleMark(1, 1); // 正确的旗
+  // (1,0) 还没翻开（它也是数字 1），对它和弦无效
+  assert.equal(e.chord(1, 0), false, '没翻开的格子不能和弦');
+  assert.equal(e.gameState, GameState.Playing);
+  assert.equal(e.cellAt(1, 0).revealed, false);
+  assert.equal(e.cellAt(0, 1).revealed, false);
+});
+
+test('和弦：旗数比数字多时不动手', () => {
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 1);
+  e.debugPlaceMines([4]); // 雷在中心
+  e.reveal(0, 0); // (0,0) 邻着雷 → 数字 1
+  e.toggleMark(1, 1); // 正确的旗
+  e.toggleMark(1, 0); // 邻格多插一面 → 旗数 2 > 数字 1
+  assert.equal(e.chord(0, 0), false, '旗数比数字多时不应动手');
+  assert.equal(e.cellAt(0, 1).revealed, false);
+  assert.equal(e.gameState, GameState.Playing);
+});
+
+test('和弦：旗插错时未标雷同时引爆（红底），别的雷亮黑雷，错旗打叉', () => {
+  const e = new MinesweeperEngine();
+  e.reset(4, 4, 2);
+  e.debugPlaceMines([5, 15]); // (1,1) 与 (3,3)
+  e.reveal(0, 0); // (0,0) 邻着 (1,1) 的雷 → 数字 1
+  e.toggleMark(0, 1); // 插错的旗（非雷格）
+  assert.equal(e.chord(0, 0), true);
+  assert.equal(e.gameState, GameState.Lost);
+  assert.equal(e.cellAt(1, 1).exploded, true, '未标雷应同时引爆');
+  assert.equal(e.cellAt(1, 1).displayState(), BlockState.Exploded);
+  assert.equal(e.cellAt(3, 3).revealed, true, '别的雷应被亮出来');
+  assert.equal(e.cellAt(3, 3).exploded, false);
+  assert.equal(e.cellAt(3, 3).displayState(), BlockState.Mine);
+  assert.equal(e.cellAt(0, 1).misflagged, true, '错旗应打叉');
+  assert.equal(e.cellAt(0, 1).displayState(), BlockState.Misflag);
+});
+
+test('和弦：问号格被翻开时清空标记', () => {
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 1);
+  e.debugPlaceMines([4]); // 雷在中心
+  e.reveal(0, 0); // (0,0) 邻着雷 → 数字 1
+  e.toggleMark(1, 1); // 正确的旗
+  e.toggleMark(0, 1); // 无标记 → 旗
+  e.toggleMark(0, 1); // 旗 → 问号
+  assert.equal(e.cellAt(0, 1).mark, Mark.Question);
+  assert.equal(e.chord(0, 0), true);
+  assert.equal(e.cellAt(0, 1).revealed, true);
+  assert.equal(e.cellAt(0, 1).mark, Mark.None, '问号格被翻开时标记应清空');
 });
 
 // ---------------------------------------------------------------- 胜负
@@ -331,6 +571,40 @@ test('胜利：剩余的雷由程序自动插旗，雷数归零', () => {
   assert.equal(e.flagCount, e.mineCount);
 });
 
+test('判负：插对的雷保持旗不翻开，旗数与剩余雷数不变', () => {
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 2);
+  e.debugPlaceMines([4, 8]); // (1,1) 与 (2,2)
+  e.toggleMark(1, 1); // 插对的旗
+  e.toggleMark(0, 0); // 插错的旗
+  assert.equal(e.flagCount, 2);
+  const remainingBefore = e.minesRemaining();
+  const outcome = e.reveal(2, 2); // 踩到 (2,2) 的雷
+  assert.equal(outcome.lost, true);
+  assert.equal(e.cellAt(1, 1).revealed, false, '插对的雷不该被翻开');
+  assert.equal(e.cellAt(1, 1).mark, Mark.Flag);
+  assert.equal(e.cellAt(1, 1).displayState(), BlockState.Flag, '插对的雷仍显示为旗');
+  assert.equal(e.flagCount, 2, '判负后旗数不应变化');
+  assert.equal(e.minesRemaining(), remainingBefore, '判负后剩余雷数不应变化');
+});
+
+test('终局后所有操作都无效', () => {
+  const e = new MinesweeperEngine();
+  e.reset(3, 3, 1);
+  e.debugPlaceMines([4]);
+  e.reveal(0, 0);
+  const order: number[][] = [[0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
+  for (let i = 0; i < order.length; i++) {
+    e.reveal(order[i][0], order[i][1]);
+  }
+  assert.equal(e.gameState, GameState.Won);
+  assert.equal(e.reveal(0, 0).changed, false);
+  assert.equal(e.toggleMark(0, 1), false);
+  assert.equal(e.chord(0, 0), false);
+  assert.equal(e.gameState, GameState.Won);
+  assert.equal(e.minesRemaining(), 0);
+});
+
 test('同雷场重来：盖回面但雷不变', () => {
   const e = new MinesweeperEngine();
   e.reset(9, 9, 10, seededRandom(5));
@@ -374,6 +648,24 @@ test('1×1 极端棋盘不会死循环', () => {
   assert.equal(e.cells.length, 1);
 });
 
+test('1×1 / 1×2 极端棋盘：首点不踩雷、结果自洽', () => {
+  const one = new MinesweeperEngine();
+  one.reset(1, 1, 1, seededRandom(1));
+  assert.equal(one.mineCount, 0, '1×1 棋盘放不下雷');
+  const outOne = one.reveal(0, 0);
+  assert.equal(outOne.lost, false, '1×1 首点不能踩雷');
+  assert.equal(one.gameState, GameState.Won, '1×1 无雷盘翻开即胜');
+  assert.equal(one.minesRemaining(), 0);
+
+  const two = new MinesweeperEngine();
+  two.reset(1, 2, 1, seededRandom(2));
+  const outTwo = two.reveal(0, 0);
+  assert.equal(outTwo.lost, false, '1×2 首点不能踩雷');
+  assert.equal(two.gameState, GameState.Won);
+  assert.equal(two.minesRemaining(), 0);
+  assert.equal(countMines(two), two.mineCount);
+});
+
 test('越界操作被安全忽略', () => {
   const e = new MinesweeperEngine();
   e.reset(9, 9, 10);
@@ -381,6 +673,45 @@ test('越界操作被安全忽略', () => {
   assert.equal(e.reveal(0, 99).changed, false);
   assert.equal(e.toggleMark(-1, -1), false);
   assert.equal(e.chord(99, 99), false);
+});
+
+test('越界操作既不改局面也不开局', () => {
+  const e = new MinesweeperEngine();
+  e.reset(9, 9, 10);
+  const snapshot = (): string =>
+    e.cells
+      .map((c) => `${c.revealed ? 1 : 0}${c.mark}${c.exploded ? 1 : 0}${c.mine ? 1 : 0}`)
+      .join('');
+  const before = snapshot();
+  e.reveal(-1, 0);
+  e.reveal(0, -1);
+  e.reveal(9, 0);
+  e.reveal(0, 9);
+  e.toggleMark(-1, 5);
+  e.toggleMark(0, 99);
+  e.chord(-1, -1);
+  e.chord(99, 99);
+  assert.equal(snapshot(), before, '越界操作改变了棋盘');
+  assert.equal(e.gameState, GameState.Ready, '越界操作不该开局');
+  assert.equal(e.minesPlaced, false, '越界操作不该触发布雷');
+});
+
+test('方块状态码与 SPEC §4 的表一致', () => {
+  // SPEC §4：0x00 空格 / 0x01-0x08 数字 / 0x09 打开的问号 / 0x0A 黑雷
+  // 0x0B 红叉错旗 / 0x0C 红底雷 / 0x0D 旗 / 0x0E 问号 / 0x0F 未打开 / 0x10 边框
+  // 注意：旗与问号的码值与原版 game.h（FLAG=0x0E、QUESTION_MARK=0x0D）是对调的，
+  // 这里以 SPEC §4 为准，其余码值与 game.h 逐一相同。
+  assert.equal(BlockState.OpenedEmpty, 0x00);
+  assert.equal(BlockState.OpenedOne, 0x01);
+  assert.equal(BlockState.OpenedEight, 0x08);
+  assert.equal(BlockState.OpenedQuestion, 0x09);
+  assert.equal(BlockState.Mine, 0x0A);
+  assert.equal(BlockState.Misflag, 0x0B);
+  assert.equal(BlockState.Exploded, 0x0C);
+  assert.equal(BlockState.Flag, 0x0D);
+  assert.equal(BlockState.Question, 0x0E);
+  assert.equal(BlockState.Covered, 0x0F);
+  assert.equal(BlockState.Border, 0x10);
 });
 
 test('全部格子翻开即胜利（无雷盘）', () => {

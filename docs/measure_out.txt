@@ -1,0 +1,114 @@
+﻿PyTorch-free 版式实测 —— 参考图目录 C:\Users\19161\Desktop\minesweeper-refs\Minesweeper-master\jpg
+
+##########################################################################
+# loss.jpg   (483x288)   客户区 x=8..474  y=30..279
+##########################################################################
+## 外框（列中位亮度，客户区行范围内）
+   x= 0 med= 28  rgb=#222025
+   x= 1 med=234  rgb=#f5f2fb
+   x= 2 med=151  rgb=#cbc4d4
+   x= 3 med=151  rgb=#c9c1d6
+   x= 4 med=152  rgb=#c8c1d3
+   x= 5 med=152  rgb=#c8c1d1
+   x= 6 med=209  rgb=#e8e2f0
+   x= 7 med= 74  rgb=#524f58
+   x= 8 med=240  rgb=#f1eff2
+   x= 9 med=240  rgb=#f0f0f0
+   x=10 med=240  rgb=#f0f0f0
+   x=11 med=240  rgb=#f0f0f0
+   ...
+   x=471 med=240  rgb=#f0f0f0
+   x=472 med=240  rgb=#f0f0f0
+   x=473 med=240  rgb=#f0eff4
+   x=474 med=240  rgb=#f0eefb
+   x=475 med= 53  rgb=#343247
+   x=476 med=192  rgb=#d1ceeb
+   x=477 med=112  rgb=#9896bb
+   x=478 med=114  rgb=#9996c3
+   x=479 med=116  rgb=#9997c1
+   x=480 med=118  rgb=#9d99bc
+   x=481 med=228  rgb=#ebe8ff
+   x=482 med= 17  rgb=#141126
+   客户区底色 rgb=#f0f0f0 (x=200,y=32)
+## 标题栏渐变（每行在无文字处的 RGB 中位）
+   y=  1 rgb=#fbf3fd  med=247
+   y=  2 rgb=#dfd1e4  med=216
+   y=  3 rgb=#e1d0e8  med=216
+   y=  4 rgb=#e1d0e8  med=216
+   y=  5 rgb=#e1d0e8  med=216
+   y=  6 rgb=#e2d0e8  med=216
+   y=  7 rgb=#e2d0e8  med=216
+   y=  8 rgb=#e1d0e9  med=216
+   y=  9 rgb=#e1cfe8  med=215
+   y= 10 rgb=#e1d0e8  med=216
+   y= 11 rgb=#e1cfe8  med=215
+   y= 12 rgb=#e2cfe8  med=216
+   y= 13 rgb=#e2cfe8  med=216
+   y= 14 rgb=#e1cfe8  med=215
+   y= 15 rgb=#e1cee7  med=215
+   y= 16 rgb=#decce5  med=212
+   y= 17 rgb=#dac9e2  med=209
+   y= 18 rgb=#d3c3dd  med=203
+   y= 19 rgb=#cabbd6  med=195
+   y= 20 rgb=#c0b1ce  med=185
+   y= 21 rgb=#b4a6c7  med=174
+   y= 22 rgb=#a79bc0  med=163
+   y= 23 rgb=#9e93ba  med=154
+   y= 24 rgb=#958db9  med=148
+   y= 25 rgb=#9189b8  med=144
+   y= 26 rgb=#8f87b9  med=143
+   y= 27 rgb=#8e87b4  med=142
+   y= 28 rgb=#cdc9e7  med=205
+   标题栏底部分隔线 y=29 rgb=#484655
+## 标题文字（标题栏内暗像素行带）
+   标题文字带 y=9..27 (字高 19)  x=9..412
+     字符块: [(9, 31, 9, 19), (33, 56, 9, 19), (84, 84, 27, 27), (111, 118, 26, 27), (125, 412, 20, 27)]
+## 标题栏右上角关闭按钮（红）
+   红像素包围盒 x=430..474 y=3..18  (w=45 h=16)
+   红色 rgb=#cd6453
+   白色叉号 x=449..457 y=6..13
+## 客户区文字带
+   行 y=51..62 (字高 12)  段: [(161, 207), (212, 214), (219, 256), (262, 311)]
+   行 y=93..104 (字高 12)  段: [(22, 49), (59, 74)]
+   行 y=140..151 (字高 12)  段: [(23, 73), (82, 87)]
+   行 y=164..175 (字高 12)  段: [(23, 73), (82, 86), (203, 242), (251, 267)]
+   行 y=236..261 (字高 26)  段: [(17, 160), (170, 313), (323, 466)]
+## 按钮（客户区内偏离底色的连续行 + 行内长段）
+   逐行（只列有长段的行）:
+      y=236 [(18, 159), (171, 312), (324, 465)]
+      y=237 [(20, 157), (173, 310), (326, 463)]
+      y=248 [(19, 158), (172, 311), (325, 464)]
+      y=249 [(19, 158), (172, 311), (325, 464)]
+      y=250 [(19, 158), (172, 311), (325, 464)]
+      y=251 [(19, 158), (172, 311), (325, 464)]
+      y=252 [(19, 158), (172, 311), (325, 464)]
+      y=253 [(19, 158), (172, 311), (325, 464)]
+      y=254 [(19, 158), (172, 311), (325, 464)]
+      y=255 [(19, 158), (172, 311), (325, 464)]
+      y=256 [(19, 158), (172, 311), (325, 464)]
+      y=257 [(19, 158), (172, 311), (325, 464)]
+      y=258 [(19, 158), (172, 311), (325, 464)]
+      y=259 [(20, 157), (173, 310), (326, 463)]
+      y=261 [(18, 159), (171, 312), (324, 465)]
+
+## loss.jpg 按钮细测
+   按钮 x=18..159 (w=142) y=236..236 (h=1)
+python : Traceback (most recent call last):
+At line:1 char:181
++ ... armony\projects\minesweeper\docs'; python dlg_measure.py 2>&1 | Out-F ...
++                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 332, in <module>
+    main()
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 294, in main
+    hexs(med_rgb(im, a, y0 + 2, a, y1 - 2))))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 57, in med_rgb
+    return (median(r), median(g), median(b))
+            ^^^^^^^^^
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 47, in median
+    return vals[len(vals) // 2]
+           ~~~~^^^^^^^^^^^^^^^^
+IndexError: list index out of range

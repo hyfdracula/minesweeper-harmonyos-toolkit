@@ -35,9 +35,16 @@ export enum GameState {
 }
 
 /**
- * 方块显示状态码，与原版（ReversingMinesweeper/game.h）的低 5 位编码一致。
+ * 方块显示状态码，取值沿用原版（ReversingMinesweeper/game.h）的低 5 位编码。
  * 原版把「是雷 / 已打开」放在 bit7 / bit6，显示状态放 bit4..0；
  * 这里拆成独立字段，显示时用 displayState() 还原同一套语义。
+ *
+ * 与 game.h 的唯一差异：旗与问号的码值对调。
+ *   game.h  ：FLAG = 0x0E、QUESTION_MARK = 0x0D
+ *   本文件  ：Flag = 0x0D、Question = 0x0E（与 docs/SPEC.md §4 的表一致）
+ * 其余 11 个码值与 game.h 逐一相同。
+ * 这个差异只动内部常量，不动行为：渲染层用的是 cell.mark / cell.revealed /
+ * cell.exploded / cell.misflagged，displayState() 的码值只有离线测试在用。
  */
 export enum BlockState {
   OpenedEmpty = 0x00,
@@ -390,7 +397,6 @@ export class MinesweeperEngine {
    * 这里改成按行列裁剪的 3×3 邻域。
    */
   placeMines(safeRow: number, safeCol: number): void {
-    const total = this.rowCount * this.colCount;
     let allowed: number[] = [];
     for (let r = 0; r < this.rowCount; r++) {
       for (let c = 0; c < this.colCount; c++) {
@@ -403,7 +409,9 @@ export class MinesweeperEngine {
       }
     }
 
-    // 极端小棋盘放不下时逐级放宽，保证一定能布够雷数
+    // 极端小棋盘放不下时逐级放宽：3×3 安全区 → 只排除首点。
+    // 放宽到哪一级都不能把首点放回候选池——「首点必不是雷」是 SPEC §3.1 的硬约束，
+    // 宁可少布几颗雷（计数器同步下调，见本方法末尾），也不能让首点踩雷。
     if (allowed.length < this.mineCount) {
       allowed = [];
       for (let r = 0; r < this.rowCount; r++) {
@@ -412,12 +420,6 @@ export class MinesweeperEngine {
             allowed.push(r * this.colCount + c);
           }
         }
-      }
-    }
-    if (allowed.length < this.mineCount) {
-      allowed = [];
-      for (let i = 0; i < total; i++) {
-        allowed.push(i);
       }
     }
 
@@ -441,6 +443,10 @@ export class MinesweeperEngine {
     for (let i = 0; i < take; i++) {
       this.cells[pool[i]].mine = true;
     }
+
+    // 候选池装不下时实际布下的雷会少于请求值：计数器必须跟着局面走，
+    // 否则剩余雷数与胜负判定都会和棋盘对不上（也判不了胜）。
+    this.mineCount = take;
 
     this.recomputeAdjacent();
   }

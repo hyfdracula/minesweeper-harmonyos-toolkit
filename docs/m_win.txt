@@ -1,0 +1,79 @@
+﻿版式实测 —— 参考图目录 C:\Users\19161\Desktop\minesweeper-refs\Minesweeper-master\jpg
+
+##########################################################################
+# win.jpg  (396x340)   客户区 x=8..387  y=30..331
+##########################################################################
+## 外框（左右列中位亮度 / 代表色）
+   x=  0 med= 35 rgb=#2b292c
+   x=  1 med=241 rgb=#fbf6fc
+   x=  2 med=186 rgb=#e1d6e4
+   x=  3 med=186 rgb=#e2d5e6
+   x=  4 med=186 rgb=#e1d4e5
+   x=  5 med=188 rgb=#e1d6e4
+   x=  6 med=224 rgb=#f4e9f7
+   x=  7 med= 88 rgb=#6b666d
+   x=  8 med=240 rgb=#f1eff2
+   x=  9 med=240 rgb=#f0f0f0
+   x=386 med=240 rgb=#f0f0f0
+   x=387 med=240 rgb=#f1eff0
+   x=388 med=115 rgb=#6e676e
+   x=389 med=244 rgb=#faf0f8
+   x=390 med=232 rgb=#f0e2ef
+   x=391 med=232 rgb=#f1e3f0
+   x=392 med=232 rgb=#f1e3f0
+   x=393 med=232 rgb=#f0e4ee
+   x=394 med=250 rgb=#fff8ff
+   x=395 med= 47 rgb=#2e292f
+   客户区底色 = #f0f0f0
+## 标题栏渐变（每行在无文字处的 RGB 中位）
+   y=  1 rgb=#fff7ff med=250
+   y=  2 rgb=#f5e2f4 med=234
+   y=  3 rgb=#f8e0f6 med=234
+   y=  4 rgb=#f8e0f6 med=234
+   y=  5 rgb=#f7e0f6 med=234
+   y=  6 rgb=#f7e0f6 med=233
+   y=  7 rgb=#f7dff6 med=233
+   y=  8 rgb=#f8dff5 med=233
+   y=  9 rgb=#f7dff5 med=233
+   y= 10 rgb=#f7def5 med=233
+   y= 11 rgb=#f7def5 med=233
+   y= 12 rgb=#f7def5 med=233
+   y= 13 rgb=#f6ddf4 med=232
+   y= 14 rgb=#f6dcf4 med=231
+   y= 15 rgb=#f5dbf3 med=230
+   y= 16 rgb=#f3daf1 med=228
+   y= 17 rgb=#f1d8f0 med=226
+   y= 18 rgb=#efd6ee med=224
+   y= 19 rgb=#edd4ec med=222
+   y= 20 rgb=#ecd4eb med=221
+   y= 21 rgb=#ebd2ea med=220
+   y= 22 rgb=#ead2e9 med=219
+   y= 23 rgb=#ead1e9 med=219
+   y= 24 rgb=#e9d0e8 med=219
+   y= 25 rgb=#e8d0e7 med=218
+   y= 26 rgb=#e8d0e6 med=218
+   y= 27 rgb=#e6d1e4 med=218
+   y= 28 rgb=#f5e8f5 med=238
+   分隔线 y=29 rgb=#6b666d
+## 标题文字（仅搜标题栏左侧 80px 内，近黑阈值 120）
+   标题文字带 y=9..19 (字高 11) x=9..55
+      字符块 [(9, 19, 9, 19), (21, 31, 9, 19), (33, 43, 9, 19), (45, 50, 9, 17), (52, 55, 9, 19)]
+## 关闭按钮（红）
+   红色列段: [(344, 362), (365, 367), (370, 386)]
+   按钮矩形 x=370..386 (w=17) y=3..18 (h=16)
+   红色 = #d67464
+python : Traceback (most recent call last):
+At line:1 char:255
++ ... -Encoding utf8 m_loss.txt; python dlg_measure.py win.jpg 2>&1 | Out-F ...
++                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 402, in <module>
+    main()
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 386, in main
+    analyze_glass("win.jpg", 8, 387, 30, 331, 29)
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_measure.py", line 259, in analyze_glass
+    p("   白色叉号 x=%d..%d y=%d..%d" % wb)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+TypeError: %d format: a real number is required, not NoneType
