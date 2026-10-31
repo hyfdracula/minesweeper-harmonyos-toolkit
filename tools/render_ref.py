@@ -238,7 +238,7 @@ def make_board(rows, cols, mines, seed=7, lost=False):
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else r"D:\software\harmony\projects\minesweeper\docs\ref_render.png"
+    out = sys.argv[1] if len(sys.argv) > 1 else r"D:\software\harmony\projects\minesweeper\docs\analysis\ref_render.png"
     rows = int(sys.argv[2]) if len(sys.argv) > 2 else 9
     cols = int(sys.argv[3]) if len(sys.argv) > 3 else 9
     mines = int(sys.argv[4]) if len(sys.argv) > 4 else 10
