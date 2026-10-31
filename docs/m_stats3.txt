@@ -1,0 +1,91 @@
+﻿
+## 右栏（排除右侧边框 x=694）  (x 438..690, y 34..185)
+python : Traceback (most recent call last):
+At line:1 char:181
++ ... harmony\projects\minesweeper\docs'; python dlg_stats3.py 2>&1 | Out-F ...
++                                         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   行 y= 44.. 55 (字高 12) 段: [(444, 494), (501, 504)]
+   行 y= 67.. 78 (字高 12) 段: [(444, 494), (501, 504)]
+   行 y= 90..101 (字高 12) 段: [(443, 482), (491, 512)]
+   行 y=112..123 (字高 12) 段: [(443, 494), (501, 504)]
+   行 y=135..146 (字高 12) 段: [(443, 494), (500, 505)]
+   行 y=158..169 (字高 12) 段: [(444, 494), (501, 504)]
+
+## 左列表框（排除框线，灰度字）  (x 22..175, y 36..121)
+   行 y= 43.. 43 (字高  1) 段: [(22, 175)]
+   行 y= 59.. 70 (字高 12) 段: [(25, 46)]
+   行 y= 72.. 83 (字高 12) 段: [(24, 46)]
+
+## 表格区  (x 196..430, y 38..155)
+   行 y= 44.. 55 (字高 12) 段: [(202, 248)]
+   行 y= 66.. 73 (字高  8) 段: [(212, 222), (251, 376)]
+
+## 按钮标签  (x 340..490, y 206..231)
+   行 y=213..224 (字高 12) 段: [(393, 430), (489, 489)]
+   行 y=230..231 (字高  2) 段: [(340, 489)]
+
+## 按钮标签2  (x 505..650, y 206..231)
+   行 y=213..224 (字高 12) 段: [(558, 595)]
+   行 y=231..231 (字高  1) 段: [(505, 650)]
+
+## 列表框：蓝色选中条的行
+   y= 45 蓝色像素 154
+   y= 46 蓝色像素 154
+   y= 47 蓝色像素 154
+   y= 48 蓝色像素 153
+   y= 49 蓝色像素 153
+   y= 50 蓝色像素 153
+   y= 51 蓝色像素 153
+   y= 52 蓝色像素 151
+   y= 53 蓝色像素 150
+   y= 54 蓝色像素 154
+   y= 55 蓝色像素 154
+   y= 56 蓝色像素 154
+   y= 57 蓝色像素 149
+
+## 列表框 / 表格 的竖直边框（列暗像素数）
+   x= 20 n=80
+   x= 25 n=20
+   x= 27 n=21
+   x= 28 n=20
+   x= 29 n=31
+   x= 31 n=23
+   x= 32 n=20
+   x= 33 n=22
+   x= 37 n=20
+   x= 38 n=21
+   x= 41 n=23
+   x= 45 n=21
+   x=177 n=80
+   x=193 n=103
+   x=429 n=103
+
+## 中表 group box 边框（行）
+   y= 49 n=201
+   y= 66 n=78
+   y= 67 n=74
+   y= 68 n=85
+   y= 69 n=83
+   y= 70 n=85
+   y= 71 n=72
+   y= 72 n=87
+   y= 73 n=102
+   y=155 n=233
+
+## 关键取样色
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_stats3.py", line 137, in <module>
+    p("   选中条颜色        %s" % sample(30, 38, 170, 41))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_stats3.py", line 134, in sample
+    return med([im.getpixel((x, y)) for y in range(y0, y1 + 1) for x in range(x0, x1 + 1)])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_stats3.py", line 130, in med
+    return '#%02x%02x%02x' % tuple(c[i][len(c) // 2] for i in range(3))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\software\harmony\projects\minesweeper\docs\dlg_stats3.py", line 130, in <genexpr>
+    return '#%02x%02x%02x' % tuple(c[i][len(c) // 2] for i in range(3))
+                                   ~~~~^^^^^^^^^^^^^
+IndexError: tuple index out of range
