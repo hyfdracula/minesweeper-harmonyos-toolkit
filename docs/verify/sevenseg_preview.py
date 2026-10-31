@@ -21,8 +21,9 @@ TV, TH, HL = 3, 2, 5
 MIN_V, MAX_V = -99, 999
 LIT = (250, 250, 252)
 
-SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G, SEG_FLAG = 1, 2, 4, 8, 16, 32, 64, 128
-DIGITS = [0x3F, 0x8E, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F]
+SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G, SEG_FLAG, SEG_BASE1 = \
+    1, 2, 4, 8, 16, 32, 64, 128, 256
+DIGITS = [0x3F, 0x186, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F]
 
 
 def slots_for(value):
@@ -81,9 +82,15 @@ def draw_value(d, value, ox, oy, k):
         if mask & SEG_G:
             d.rectangle([cx + tv, cy + th + hl, cx + tv + hw - 1, cy + 2 * th + hl - 1], fill=LIT)
         if mask & SEG_FLAG:
-            # 与 SevenSeg.ets 一致：旗 = (cellX + TV - 2, cellY + TH, 2, 2)
-            d.rectangle([cx + (TV - 2) * k, cy + th, cx + (TV - 2) * k + 2 * k - 1, cy + th + 2 * k - 1],
-                        fill=LIT)
+            # 与 SevenSeg.ets 一致：旗 = (cellX + CELL_W - TV - 2, cellY + TH, 2, 2)
+            # 即紧挨 b 竖段（x 9..11）左沿的 x 7..8，高度对齐 b 的上端
+            fx = (CELL_W - TV - 2) * k
+            d.rectangle([cx + fx, cy + th, cx + fx + 2 * k - 1, cy + th + 2 * k - 1], fill=LIT)
+        if mask & SEG_BASE1:
+            # 与 SevenSeg.ets 一致：底横 = (cellX + CELL_W - TV - 2, cellY + CELL_H - TH, TV + 2, TH)
+            # 即以竖笔（x 9..11）为中心向两侧伸出的 x 7..11，在最下一行
+            bx = (CELL_W - TV - 2) * k
+            d.rectangle([cx + bx, cy + h - th, cx + bx + (TV + 2) * k - 1, cy + h - 1], fill=LIT)
 
 
 def on_real_panel(value, scale):
