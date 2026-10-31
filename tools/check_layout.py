@@ -208,27 +208,49 @@ def geometry(canvas, rows, cols, n, pan_x=0.0, pan_y=0.0):
     board_right = board_x + board_w
     margin = strip_margin(cols) * u
 
+    # 状态条内容自己的缩放档 su + 贴边留白（2026-11-01，Codex 对抗性复审 P2）
+    #
+    # 一组计数器 = 时钟 25 + 间隙 6 + 面板 40 = 71 个参考单位；两组就是 142u。
+    # 画布只有 1280 px 时 u 一旦超过 8 就放不下两组了，而状态条原来跟着棋盘档位放大，
+    # 于是两个计数都跑出屏幕（实测 n=8、30 列：计时面板从 x=1216 起、雷数面板整个在屏外）。
+    # 状态条是「窗口边框」性质的元素，原版里它本来就不随棋盘缩放，
+    # 所以内容单独一档 su = min(u, 两组放得下的最大档)；su 必须偶数（图集是 2 倍存储像素）。
+    group_ref = STRIP_CLOCK_SIZE + STRIP_GAP + STRIP_PANEL_W
+    max_su = 2 * (canvas.w // (2 * group_ref) // 2)
+    su = max(2, min(u, max_su))
+    group_w = group_ref * su
+    # 贴边留白：棋盘侧的 margin 也随 u 放大（30 列时 margin = 45u），
+    # 必须按「两组放得下」夹住，否则两组会挤在一起甚至互相压。
+    anchor_margin = min(margin, max(0, (canvas.w - 2 * group_w) // 2))
+
     # 两端「贴住画布沿」：棋盘比画布宽时（30 列的局在窄屏上棋盘 2160px、屏 1280px），
     # 原来钟钉在棋盘左沿 = 屏外 440px、雷图标钉在棋盘右沿 = 屏外 440px，两个计数都看不见。
-    # 主线程已改成锚画布左右沿（GameController.drawStatusStrip）：
-    #   clockX = max(boardX + margin, margin)
-    #   iconX  = min(boardRight - margin - 25u, canvasW - margin - 25u)
-    clock_x = max(board_x + margin, margin)
-    clock_y = strip_top + js_round((STRIP_BAND - STRIP_CLOCK_SIZE) / 2) * u
-    time_x = clock_x + (STRIP_CLOCK_SIZE + STRIP_GAP) * u
-    time_y = strip_top + js_round((STRIP_BAND - STRIP_PANEL_H) / 2) * u
-    icon_x = min(board_right - margin - STRIP_CLOCK_SIZE * u,
-                 canvas.w - margin - STRIP_CLOCK_SIZE * u)
-    icon_y = strip_top + js_round((STRIP_BAND - STRIP_CLOCK_SIZE) / 2) * u
-    mine_x = icon_x - (STRIP_GAP + STRIP_PANEL_W) * u
-    mine_y = strip_top + js_round((STRIP_BAND - STRIP_PANEL_H) / 2) * u
+    # 主线程已改成锚画布左右沿并夹在画布内（GameController.drawStatusStrip）：
+    #   clockX = clamp(max(boardX + margin, anchorMargin), 0, canvasW - groupW - anchorMargin)
+    #   iconX  = clamp(..., clockX + groupW + 面板+间隙宽, canvasW - 25*su)
+    clock_x = max(0, min(max(board_x + margin, anchor_margin),
+                         canvas.w - group_w - anchor_margin))
+    if su == u:
+        content_top = strip_top + js_round((STRIP_BAND - STRIP_CLOCK_SIZE) / 2) * u
+    else:
+        content_top = strip_top + js_round((STRIP_BAND * u - STRIP_CLOCK_SIZE * su) / 2)
+    clock_y = content_top
+    time_x = clock_x + (STRIP_CLOCK_SIZE + STRIP_GAP) * su
+    time_y = content_top + js_round((STRIP_CLOCK_SIZE - STRIP_PANEL_H) * su / 2)
+    icon_x = min(board_right - margin - STRIP_CLOCK_SIZE * su,
+                 canvas.w - anchor_margin - STRIP_CLOCK_SIZE * su)
+    icon_x = max(icon_x, clock_x + group_w + (STRIP_GAP + STRIP_PANEL_W) * su)
+    icon_x = min(icon_x, canvas.w - STRIP_CLOCK_SIZE * su)
+    icon_y = content_top
+    mine_x = icon_x - (STRIP_GAP + STRIP_PANEL_W) * su
+    mine_y = time_y
 
     strip = {
         'band': (board_x, strip_top, board_w, STRIP_BAND * u),
-        'clock': (clock_x, clock_y, STRIP_CLOCK_SIZE * u, STRIP_CLOCK_SIZE * u),
-        'time': (time_x, time_y, STRIP_PANEL_W * u, STRIP_PANEL_H * u),
-        'mine_panel': (mine_x, mine_y, STRIP_PANEL_W * u, STRIP_PANEL_H * u),
-        'mine_icon': (icon_x, icon_y, STRIP_CLOCK_SIZE * u, STRIP_CLOCK_SIZE * u),
+        'clock': (clock_x, clock_y, STRIP_CLOCK_SIZE * su, STRIP_CLOCK_SIZE * su),
+        'time': (time_x, time_y, STRIP_PANEL_W * su, STRIP_PANEL_H * su),
+        'mine_panel': (mine_x, mine_y, STRIP_PANEL_W * su, STRIP_PANEL_H * su),
+        'mine_icon': (icon_x, icon_y, STRIP_CLOCK_SIZE * su, STRIP_CLOCK_SIZE * su),
     }
     return {
         'n': n, 'u': u, 'tile': tile,
@@ -240,6 +262,8 @@ def geometry(canvas, rows, cols, n, pan_x=0.0, pan_y=0.0):
         'strip_top': strip_top,
         'board_area_h': board_area_h,
         'hud': not group_fits,
+        'strip_unit': su,
+        'anchor_margin': anchor_margin,
     }
 
 
@@ -692,6 +716,29 @@ def assert_rules(all_res):
        '断言8：内屏 24×30 的棋盘可视区高 %s 应等于 HUD 上沿 %s 减菜单栏 %s'
        % (r['g']['board_area_h'], r['g']['strip_top'], cv.menu_px))
 
+    # --- 断言 9：极限缩放（n = MAX_SCALE_INDEX）时两个计数仍要看得见、且两组不重叠 ---
+    #
+    # 坑（Codex 对抗性复审 P2，2026-11-01）：状态条原来跟着棋盘档位放大，
+    # 30 列的局缩到 n=8 时 margin=720px，计时面板从 x=1216 起（大半在屏外），
+    # 雷数面板整个跑到屏幕外 —— **两个计数都看不见**。
+    # 现在状态条内容有自己的一档 su（两组放得下的最大档），留白也按「放得下」夹住。
+    for cv in CANVASES:
+        for bname, rows, cols, _mines in BOARDS:
+            g = geometry(cv, rows, cols, MAX_SCALE_INDEX)
+            for el in ('clock', 'time', 'mine_panel', 'mine_icon'):
+                x, y, w, h = g['strip'][el]
+                ck(x >= 0 and x + w <= cv.w,
+                   '断言9：%s / %s 极限缩放时 %s %s 出画布（画布宽 %s，su=%s）'
+                   % (cv.name, bname, el, g['strip'][el], cv.w, g['strip_unit']))
+                ck(y >= 0 and y + h <= cv.h,
+                   '断言9：%s / %s 极限缩放时 %s %s 出画布（画布高 %s）'
+                   % (cv.name, bname, el, g['strip'][el], cv.h))
+            left_end = g['strip']['time'][0] + g['strip']['time'][2]
+            right_start = g['strip']['mine_panel'][0]
+            ck(left_end <= right_start,
+               '断言9：%s / %s 极限缩放时两组计数器重叠（左组到 %s，右组从 %s 起）'
+               % (cv.name, bname, left_end, right_start))
+
     return fails
 
 
@@ -720,9 +767,9 @@ def main():
             print('  FAIL: ' + f)
         print('  断言失败 %d 条' % len(fails))
         return 1
-    print('  8 组断言全部通过（v3.0 基线 15 行不变 / 内屏 24×30 新数字 / 格边>=48 / '
+    print('  9 组断言全部通过（v3.0 基线 15 行不变 / 内屏 24×30 新数字 / 格边>=48 / '
           '状态条在画布内 / HUD 只在竖向溢出时出现 / 纵向平移上限=溢出量 / '
-          '拖到底齐平 / 可视区=菜单栏到 HUD 顶）')
+          '拖到底齐平 / 可视区=菜单栏到 HUD 顶 / 极限缩放时两个计数仍在屏内且不重叠）')
     return 0
 
 

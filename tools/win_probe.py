@@ -711,6 +711,8 @@ def _frame_templates(kind):
     """
     取 otherSheet 里某组动画帧的模板（缩放到统一尺寸），**缓存起来**。
     之前每次比对都重新 crop+resize 38 次，81 格 × 18 帧 = 几千次缩放，慢到没法用。
+    返回 RGBA 的 numpy 数组（alpha 通道要留着：爆炸/光束的精灵大半是透明的，
+    比对时只能看**不透明**的那些像素，否则周围的棋盘会把相似度压垮）。
     """
     if kind in _TPL_CACHE:
         return _TPL_CACHE[kind]
@@ -734,6 +736,27 @@ def _frame_templates(kind):
         out.append(np.asarray(other.crop((fx, fy, fx + sw, fy + sh)), dtype=np.float32))
     _TPL_CACHE[kind] = out
     return out
+
+
+def _best_frame(patch, tpls, size, alpha_min=110):
+    """
+    在一组帧里找最像 patch 的那一帧。
+    只比**精灵里不透明**的像素（alpha >= alpha_min），透明区域忽略。
+    返回 (帧号, 相似度) 或 None。
+    """
+    best = None
+    for f, tpl in enumerate(tpls):
+        ta = np.asarray(Image.fromarray(tpl.astype(np.uint8)).resize(size, Image.BOX),
+                        dtype=np.float32)
+        solid = ta[:, :, 3] >= alpha_min
+        n = int(solid.sum())
+        if n < 50:
+            continue
+        diff = np.abs(ta[:, :, :3][solid] - patch[:, :, :3][solid]).mean(axis=1)
+        score = 1.0 - float(diff.mean()) / 255.0
+        if best is None or score > best[1]:
+            best = (f, score)
+    return best
 
 
 def _match_frame(patch, sheet_img, src_rect, frames, grid):
@@ -785,7 +808,7 @@ def analyse_disarm(img, gx, gy, pitch, unit, rows, cols, only=None):
             y = int(round(gy + r * pitch - 69 * unit))
             if x < 0 or y < 0 or x + w > img.size[0] or y + h > img.size[1]:
                 continue
-            patch = np.asarray(img.crop((x, y, x + w, y + h)).convert('RGBA'),
+            patch = np.asarray(img.crop((x, y, x + w, y + h)).convert('RGB'),
                                dtype=np.float32)
             rgb = patch[:, :, :3]
             mx = rgb.max(axis=2)
@@ -793,48 +816,46 @@ def analyse_disarm(img, gx, gy, pitch, unit, rows, cols, only=None):
             colored = float(((mx - mn) > 45).mean())
             if colored < 0.05:
                 continue
-            best = None
-            for f, tpl in enumerate(tpls):
-                ta = np.asarray(Image.fromarray(tpl.astype(np.uint8)).resize((w, h), Image.BOX),
-                                dtype=np.float32)
-                diff = np.abs(ta[:, :, :3] - rgb).mean(axis=2)
-                score = 1.0 - float(diff.mean()) / 255.0
-                if best is None or score > best[1]:
-                    best = (f, score)
-            if best is not None and best[1] > 0.88:
+            best = _best_frame(patch, tpls, (w, h), alpha_min=150)
+            if best is not None and best[1] > 0.92:
                 found.append((r, c, best[0], round(best[1], 3)))
     return found
 
 
 def analyse_explode(img, gx, gy, pitch, unit, rows, cols, only=None):
-    """找出屏幕上正在显示的「爆炸」帧。"""
+    """
+    找出屏幕上正在显示的「爆炸」帧。
+
+    爆炸精灵画在格子左上角 (-18,-18)*unit 处，尺寸 57*unit 见方（unit=10 时是 570px，
+    比一格 180px 大得多，所以这个方框会盖住旁边的格子）。
+    画面上真正「热」的部分只有中间那个火球，所以：
+      1) 用「橙红」判据找暖色像素（绿色主题的砖块本身偏暖，不能只比 r-b）；
+      2) 取**最密的一小块**当火球中心（红色数字「3」也是暖色，但它是细笔画，
+         密度远低于实心火球）；
+      3) 拿火球那一小块去和 23 张爆炸帧比。
+    整块 57*unit 见方直接去比会把相似度压到 0.48~0.73（认不出来），所以必须先定位。
+    返回 [(r, c, 帧号, 相似度), ...]
+    """
     found = []
     tpls = _frame_templates('explode')
-    w = int(57 * unit)
-    h = int(57 * unit)
+    cell = int(57 * unit)
     for r in range(rows):
         for c in range(cols):
             if only is not None and (r, c) not in only:
                 continue
             x = int(round(gx + c * pitch - 18 * unit))
             y = int(round(gy + r * pitch - 18 * unit))
-            if x < 0 or y < 0 or x + w > img.size[0] or y + h > img.size[1]:
+            if x < 0 or y < 0 or x + cell > img.size[0] or y + cell > img.size[1]:
                 continue
-            patch = np.asarray(img.crop((x, y, x + w, y + h)).convert('RGBA'),
+            patch = np.asarray(img.crop((x, y, x + cell, y + cell)).convert('RGB'),
                                dtype=np.float32)
-            rgb = patch[:, :, :3]
-            warm = float(((rgb[:, :, 0] - rgb[:, :, 2]) > 50).mean())
-            if warm < 0.05:
+            mask = ((patch[:, :, 0] > 140) & (patch[:, :, 2] < 130) &
+                    ((patch[:, :, 0] - patch[:, :, 2]) > 60) &
+                    ((patch[:, :, 0] - patch[:, :, 1]) > 30))
+            if int(mask.sum()) < 150:
                 continue
-            best = None
-            for f, tpl in enumerate(tpls):
-                ta = np.asarray(Image.fromarray(tpl.astype(np.uint8)).resize((w, h), Image.BOX),
-                                dtype=np.float32)
-                diff = np.abs(ta[:, :, :3] - rgb).mean(axis=2)
-                score = 1.0 - float(diff.mean()) / 255.0
-                if best is None or score > best[1]:
-                    best = (f, score)
-            if best is not None and best[1] > 0.85:
+            best = _best_frame(patch, tpls, (cell, cell))
+            if best is not None and best[1] > 0.90:
                 found.append((r, c, best[0], round(best[1], 3)))
     return found
 
