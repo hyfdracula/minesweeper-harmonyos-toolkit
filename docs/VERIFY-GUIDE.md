@@ -238,7 +238,11 @@ python D:\software\harmony\projects\minesweeper\tools\probe_canvas.py <截图路
 4. 两个**必须同时看得见** —— 这是一条**原版没有、我们自己引入又修掉的** bug
 
 > 模拟器实测已通过，截图 `docs\verify\V4P90_strip_left.png` / `V4P90_strip_right.png` /
-> `V4P90_strip_fixed.png`。**折叠外屏（更窄）上没验过**，所以真机上再看一眼。
+> `V4P90_strip_fixed.png`。
+> **折叠外屏也已验过**（Mate X7 折起 = 1080×2444）：菜单栏 / 棋盘 / 状态条**全部在屏内**，
+> 状态条完整可见，截图 `docs\verify\F2_outer.jpeg`；
+> 布局日志 `画布=1080x2236px 适配档n=3 当前档n=3 unit=6 格边=108px 棋盘原点=(54,569)`。
+> **真机 Pura X Max 的内外屏还没验**。
 
 ### 4.7 「颜色(C)」外观对话框：绿色棋盘 + 花园玩法
 
@@ -357,7 +361,8 @@ New-Item -ItemType Directory -Force -Path 'D:\software\harmony\projects\mineswee
 - **胜利动画与爆炸动画的真实运行**（anim-agent 在做）
 - **双指捏合缩放**（§4.6(1)，uitest 注入不了）
 - **`uitest uiInput doubleClick`（和弦）** 本身没验证过
-- **折叠开合**（§4.6(3)）
+- **折叠开合**（§4.6(3)）—— 注意：**折叠外屏本身已验过**（见 §2.8 / §4.6(5)），
+  这里说的是**折合过程中状态是否保住**
 - **真机 Pura X Max 内外屏**（§4.6(2)(4)）
 - **花园玩法判负瞬间的完整开花序列 + 三段判负音效**（§4.7(3) 的后半段）
 - **七段数码管在真机上的观感**（只在模拟器上看过）
