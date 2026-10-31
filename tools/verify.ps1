@@ -131,7 +131,7 @@ $BOARD_Y = [int]$m.Groups[6].Value
 $probeImg = Join-Path $vdir ("$Tag`_probe.jpeg")
 & $hdc -t $Device shell "snapshot_display -f /data/local/tmp/probe.jpeg" | Out-Null
 & $hdc -t $Device file recv "/data/local/tmp/probe.jpeg" $probeImg | Out-Null
-$cy = (python $probe $probeImg $BOARD_X $BOARD_Y 2>&1 | Out-String).Trim()
+$cy = (python $probe $probeImg $BOARD_X $BOARD_Y $TILE 2>&1 | Out-String).Trim()
 if ($cy -match 'CANVAS_Y=(-?\d+)') {
   $CANVAS_Y = [int]$Matches[1]
 } else {
@@ -140,6 +140,15 @@ if ($cy -match 'CANVAS_Y=(-?\d+)') {
 }
 Write-Output ("  画布 = " + $CANVAS_W + "x" + $CANVAS_H + "px  密度 = " + [math]::Round($DENS, 4) +
   "  格边 = " + $TILE + "px  棋盘原点 = (" + $BOARD_X + "," + $BOARD_Y + ")  画布顶偏移 = " + $CANVAS_Y + "px")
+
+# 对话框缩放：必须与 GameController.computeDialogScale() 同一套公式，否则按钮点不中
+function DlgScale([double]$refWidth) {
+  $byDensity = $DENS
+  $byWidth = ($CANVAS_W - 32) / $refWidth
+  $s = [math]::Min(2.0, [math]::Min($byDensity, $byWidth))
+  if ($s -lt 1.0) { $s = 1.0 }
+  return $s
+}
 
 Write-Output '== 3. 菜单栏：开「游戏」，换高级 =='
 $p = P $X_GAME $Y_TOP;        Tap $p[0] $p[1] 800
@@ -178,8 +187,8 @@ Shot 'e3_dialog'
 Logs '\[Dialog\]'
 
 Write-Output '== 7. 结束对话框：点「再玩一局(P)」 =='
-# loseSpec 参考像素：483x288，按钮 {x:323,y:236,w:144,h:26}；缩放 s=min(2,canvasW/1400)
-$ds = [math]::Min(2.0, [math]::Max(1.0, $CANVAS_W / 1400.0))
+# loseSpec 参考像素：483x288，按钮 {x:323,y:236,w:144,h:26}
+$ds = DlgScale 483
 $dx = [int](($CANVAS_W - 483 * $ds) / 2)
 $dy = [int](($CANVAS_H - 288 * $ds) / 2)
 $b3 = PD ($dx + (323 + 72) * $ds) ($dy + (236 + 13) * $ds)
@@ -192,10 +201,12 @@ $p = P $X_HELP $Y_TOP;          Tap $p[0] $p[1] 800
 Shot 'g1_help_menu'
 $p = P $X_DROP_HELP 41;          Tap $p[0] $p[1] 900
 Shot 'g2_help_dialog'
-# helpSpec 参考像素：320x210，按钮 {x:110,y:170,w:100,h:25}；缩放同上 s
-$hx = [int](($CANVAS_W - 320 * $ds) / 2)
-$hy = [int](($CANVAS_H - 210 * $ds) / 2)
-$ok = PD ($hx + (110 + 50) * $ds) ($hy + (170 + 12) * $ds)
+# helpSpec 参考像素：584x280（2026-10-31 改成带 Win7 原版插图的宽框），
+# 按钮「确定」x=242..341 / y=241..266
+$hs = DlgScale 584
+$hx = [int](($CANVAS_W - 584 * $hs) / 2)
+$hy = [int](($CANVAS_H - 280 * $hs) / 2)
+$ok = PD ($hx + (242 + 50) * $hs) ($hy + (241 + 12) * $hs)
 Tap $ok[0] $ok[1] 800
 Shot 'g3_help_closed'
 
@@ -204,8 +215,8 @@ $p = P $X_GAME $Y_TOP;          Tap $p[0] $p[1] 700
 $p = P $X_DROP_GAME $Y_BEST;   Tap $p[0] $p[1] 1200
 Shot 'h1_stats'
 Logs '\[Stats\]'
-# 统计窗口：参考 702x254，缩放 ss=min(2,canvasW/1500)；左栏列表项 x=24,y=46+13*i
-$ss = [math]::Min(2.0, [math]::Max(1.0, $CANVAS_W / 1500.0))
+# 统计窗口：参考 702x254；左栏列表项 x=24,y=46+13*i
+$ss = DlgScale 702
 $sx = [int](($CANVAS_W - 702 * $ss) / 2)
 $sy = [int](($CANVAS_H - 254 * $ss) / 2)
 $item = PD ($sx + (24 + 20) * $ss) ($sy + (46 + 13 * 2 + 6) * $ss)

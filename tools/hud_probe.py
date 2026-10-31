@@ -81,6 +81,14 @@ def tap(vp_x, vp_y, ms=800):
     return (x, y)
 
 
+def tap_px(x_px, y_px, ms=800):
+    """按**画布设备像素**点击（画布 px 与屏幕 px 1:1，只差一个纵向偏移）。"""
+    print('    tap 画布 px(%d, %d) -> 屏幕 px(%d, %d)'
+          % (x_px, y_px, x_px, CANVAS_Y + y_px))
+    shell('uitest uiInput click %d %d' % (x_px, CANVAS_Y + y_px))
+    time.sleep(ms / 1000.0)
+
+
 def last_layout():
     out = shell('hilog -x').stdout
     ls = [ln for ln in out.split('\n') if 'GameController] 布局' in ln]
@@ -119,6 +127,44 @@ def pick_menu(y_vp, label, check_log=True):
         before = after
     return False
 
+
+
+def diff_region(path_a, path_b, y0, y1, x0=0, x1=None):
+    """两块截图在指定区域内的差异像素数与差异包围盒。
+
+    返回 (变化像素数, bbox 或 None)。bbox=None 表示两块图在该区域完全一致。
+    """
+    from PIL import Image, ImageChops
+    a = Image.open(path_a).convert('RGB')
+    b = Image.open(path_b).convert('RGB')
+    if x1 is None:
+        x1 = a.size[0]
+    box = (max(0, x0), max(0, y0), min(a.size[0], x1), min(a.size[1], y1))
+    ca = a.crop(box)
+    cb = b.crop(box)
+    if ca.size != cb.size:
+        return -1, None
+    d = ImageChops.difference(ca, cb)
+    bbox = d.getbbox()
+    hist = d.convert('L').histogram()
+    changed = sum(hist[1:])
+    return changed, bbox
+
+
+def hud_geometry(f, rows):
+    """按引擎的同一套常数，推算状态条位置与 HUD 开关。
+
+    常数来自 entry/src/main/ets/common/Theme.ets 与 WinMenu.ets：
+      TILE=18、STRIP_BAND=32、MENU_BAR_H=21vp（18 参考 px × 14/12）
+    """
+    canvas_w, canvas_h, px_scale, n, tile, bx, by = f
+    u = 2 * n
+    strip_h = 32 * u
+    menu_px = int(round(21.0 / px_scale))
+    board_h = rows * tile
+    group_fits = menu_px + board_h + strip_h <= canvas_h
+    strip_top = (by + board_h) if group_fits else (canvas_h - strip_h)
+    return strip_h, strip_top, group_fits
 
 
 def detect_canvas_y(img_path, board_x, tile):
@@ -244,8 +290,72 @@ def main():
     print('  布局: %s' % last_layout().split('布局 ')[-1])
     shot('05_custom_24x30_board')
 
+    # ------------------------------------------------------------ HUD 命中拦截
+    print('== 5. HUD 命中拦截（点状态条盖住的格子不能翻开）==')
+    f2 = layout_fields()
+    strip_h, strip_top, group_fits = hud_geometry(f2, 24)
+    canvas_h = f2[1]
+    tile2 = f2[4]
+    bx2, by2 = f2[5], f2[6]
+    print('  画布高=%d px 状态条高=%d px 状态条上沿(canvas px)=%d 整组装得下=%s'
+          % (canvas_h, strip_h, strip_top, group_fits))
+    print('  状态条在屏幕上的纵向范围 = %d..%d px'
+          % (CANVAS_Y + strip_top, CANVAS_Y + canvas_h))
+    if group_fits:
+        print('  !! 这局没有纵向溢出，HUD 分支没被触发，本轮测不到拦截')
+
+    # 棋盘可视区（不含状态条那条带子）
+    ry0 = CANVAS_Y + by2
+    ry1 = CANVAS_Y + strip_top
+    rx0 = max(0, bx2)
+    rx1 = min(f2[0], bx2 + 30 * tile2)
+    print('  棋盘可视区（屏幕 px）= x[%d..%d] y[%d..%d]' % (rx0, rx1, ry0, ry1))
+
+    # 0) 静置自检：发牌动画必须已经结束，否则后面全是假差异
+    base = shot('07_static_a')
+    time.sleep(2.5)
+    base2 = shot('08_static_b')
+    n0, _ = diff_region(base, base2, ry0, ry1, rx0, rx1)
+    print('  静置自检：2.5 s 内棋盘变化像素 = %d（应为 0）' % n0)
+
+    # 1) 阳性对照：点在状态条上沿正上方那半格（可见的第 24 行）上，应该翻开
+    col_x = bx2 + 15 * tile2 + tile2 // 2
+    tap_px(col_x, strip_top - 20, 3000)
+    shot('09_clicked_visible_row')
+    n1, b1 = diff_region(base2, OUT + r'\hud_09_clicked_visible_row.jpeg', ry0, ry1, rx0, rx1)
+    print('  阳性对照（点在可见格上）棋盘变化像素 = %d（应 > 0）%s' % (n1, b1))
+
+    # 2) HUD 拦截：点在**完全被状态条盖住**的那一行上，不许翻开
+    tap_px(col_x, strip_top + strip_h // 2, 3000)
+    shot('10_clicked_under_hud')
+    n2, b2 = diff_region(OUT + r'\hud_09_clicked_visible_row.jpeg',
+                          OUT + r'\hud_10_clicked_under_hud.jpeg', ry0, ry1, rx0, rx1)
+    print('  HUD 拦截（点在状态条盖住的格上）棋盘变化像素 = %d（应 = 0）%s' % (n2, b2))
+
+    # 3) 状态条确实画出来了：条子里有近白的七段数字（点亮段 #FAFAFC），
+    #    画布底边以下（空画布区）应该一个都没有
+    def near_white(img, y0, y1):
+        from PIL import Image
+        im = Image.open(img).convert('RGB')
+        px = im.load()
+        w = im.size[0]
+        n = 0
+        for y in range(max(0, y0), min(im.size[1], y1)):
+            for x in range(0, w):
+                r, g, b = px[x, y]
+                if r >= 235 and g >= 235 and b >= 235:
+                    n += 1
+        return n
+
+    w_in = near_white(OUT + r'\hud_10_clicked_under_hud.jpeg',
+                       CANVAS_Y + strip_top, CANVAS_Y + canvas_h)
+    w_out = near_white(OUT + r'\hud_10_clicked_under_hud.jpeg',
+                        CANVAS_Y + canvas_h, CANVAS_Y + canvas_h + strip_h)
+    print('  状态条带内近白像素 = %d（应 > 0），画布底边以下近白像素 = %d（应 = 0）'
+          % (w_in, w_out))
+
     # ------------------------------------------------------------ 纵向拖动
-    print('== 5. 纵向拖动 ==')
+    print('== 6. 纵向拖动 ==')
     x = int(CANVAS_W / 2)
     shell('uitest uiInput drag %d %d %d %d' % (x, CANVAS_Y + 500, x, CANVAS_Y + 150))
     time.sleep(1.0)
