@@ -4,7 +4,7 @@
 
 - 应用仓：`C:\Users\19161\saolei`（HarmonyOS 7 / API 26，ArkTS）
 - 规格仓：`D:\software\harmony\projects\minesweeper`
-- **今天 13:05 之后应用仓的 6 个提交**（本文提到的所有代码改动都在这 6 个里）：
+- **今天 13:05 之后应用仓的 9 个提交**（本文提到的所有代码改动都在这 9 个里）：
 
   | commit | 内容 |
   |---|---|
@@ -14,6 +14,9 @@
   | `c130326` | 帮助窗口插图没画出来（vp / 设备像素换算方向写反） |
   | `f261aa9` | 自定义难度对话框的三处还原度（custom-agent 裁决 P4/P6 + 夹取回显） |
   | `a2b635f` | 七段数码管计数器 + Win7「颜色(C)」外观对话框与绿棋盘/花园玩法 + 对话框像素级修正 |
+  | `c1dd9c3` | 外观设置重启后没保留（存档读与图集加载并行导致竞态） |
+  | `5e62e75` | Codex 复审 BLOCKER 中的两条（关于框图标坐标单位、七段「1」漏了衬线旗） |
+  | `7524b83` | 七段「1」的衬线旗画错了位置（脱开 7 像素），底横也不是标准 d 段 |
 
 - 本轮上下文材料：`BUTTON-INVENTORY.md`、`CUSTOM-DIALOG-AUDIT.md`、`CUSTOM-DIALOG-VERDICT.md`、
   `LAYOUT-MATRIX.md`、`SPRITE-COVERAGE.md`、`STATUS-STRIP-VERDICT.md`、`CLICK-MATRIX-X7.md`、
@@ -662,7 +665,8 @@ longClick 插旗、doubleClick 和弦、「帮助(H)」对话框这三项，
 | 负号 | 独立的一段（中段 g） |
 | 显示区间 | [-99, 999]，超出钳到端点 |
 | 亮段颜色 | `#FAFAFC` |
-| 「1」的形状 | 带原版的**衬线小旗 + 底横**（第 8 段 `SEG_FLAG`，掩码 `0x0E`） |
+| 「1」的形状 | 带原版的**衬线小旗 + 衬线底横**：竖笔在格的**右边**（x 9..11），旗贴在竖笔左上角，底横以竖笔为中心**向两侧伸出**（x 7..11） |
+| 「1」的段掩码 | `0x186` = b + c + 衬线旗（`SEG_FLAG`，**第 8 段**）+ 衬线底横（`SEG_BASE1`，**第 9 段**）。注意底横**不是**标准 d 段（标准 d 横跨格宽中间的 x 3..8），是单独画的一段 |
 | 槽位起点 | 面板内 **x = 0**（不是 XP 的 x = 1）—— 面板精灵右缘有 2 像素斜角高光，数字贴上去会糊成一片 |
 
 > **模拟器上的实拍证据**：docs\verify\V4P90_strip_right.png —— 雷数「99」的
@@ -818,6 +822,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\run_engine_tests.ps1
 
 - 设备：Mate X7 内屏（`127.0.0.1:5555`）
 - 步骤：选绿色 → 确定 → **完全杀掉应用** → 重开 → 棋盘**仍是绿色的**
+- **中途修过一个真 bug**（commit `c1dd9c3`）：存档读与图集加载**并行**，竞态导致重启后外观没保留。
 - 截图：`docs\verify\M6_after_restart.jpeg`
 - 日志：`[GameStats] 外观已保存 board=1 game=0`
 
