@@ -1,0 +1,1888 @@
+{
+ "rows": [
+  {
+   "ref": "normalTileRect",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:28",
+   "px": [
+    0,
+    0,
+    36,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "未揭开的凸起方砖（720 帧渐变，25 帧/行）",
+   "crop": null,
+   "frames": 720,
+   "worst_frame": 0
+  },
+  {
+   "ref": "pressedTileRect",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:35",
+   "px": [
+    1000,
+    0,
+    36,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "已翻开的凹陷地板砖（720 帧渐变，= normalTileRect + 500 逻辑单位）",
+   "crop": null,
+   "frames": 720,
+   "worst_frame": 0
+  },
+  {
+   "ref": "RECT_FLAG",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:41",
+   "px": [
+    800,
+    1120,
+    36,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "红旗",
+   "crop": "RECT_FLAG.png"
+  },
+  {
+   "ref": "RECT_QUESTION",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:43",
+   "px": [
+    840,
+    1120,
+    36,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "问号",
+   "crop": "RECT_QUESTION.png"
+  },
+  {
+   "ref": "RECT_HILITE",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:45",
+   "px": [
+    880,
+    1120,
+    36,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "悬停高亮（相加混合）",
+   "crop": "RECT_HILITE.png"
+  },
+  {
+   "ref": "RECT_MISFLAG",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:47",
+   "px": [
+    920,
+    1120,
+    36,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "错旗红叉",
+   "crop": "RECT_MISFLAG.png"
+  },
+  {
+   "ref": "RECT_SHADOW_U",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:49",
+   "px": [
+    960,
+    1120,
+    36,
+    6
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "上边黑边（18×3）",
+   "crop": "RECT_SHADOW_U.png"
+  },
+  {
+   "ref": "RECT_SHADOW_L",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:51",
+   "px": [
+    2024,
+    0,
+    6,
+    36
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "左边黑边（3×18）",
+   "crop": "RECT_SHADOW_L.png"
+  },
+  {
+   "ref": "INLINE_SHADOW_L_LOW",
+   "sheet": "blueSheet.png",
+   "where": "GameController.ets:436",
+   "px": [
+    2024,
+    6,
+    6,
+    30
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "内联字面量：角落时从黑边下方开始的左黑边",
+   "crop": "INLINE_SHADOW_L_LOW.png"
+  },
+  {
+   "ref": "RECT_COUNTER",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:53",
+   "px": [
+    0,
+    1160,
+    80,
+    42
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "计数器凹槽面板",
+   "crop": "RECT_COUNTER.png"
+  },
+  {
+   "ref": "digitRect(1..8)",
+   "sheet": "blueSheet.png",
+   "where": "Theme.ets:56",
+   "px": [
+    2000,
+    0,
+    24,
+    30
+   ],
+   "size": [
+    2034,
+    1206
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "彩色数字 1..8（12×15 逻辑槽）",
+   "crop": null,
+   "frames": 8,
+   "worst_frame": 0
+  },
+  {
+   "ref": "RECT_MINE",
+   "sheet": "minesweeperSheet.png",
+   "where": "Theme.ets:63",
+   "px": [
+    54,
+    0,
+    36,
+    36
+   ],
+   "size": [
+    94,
+    54
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "格下地雷",
+   "crop": "RECT_MINE.png"
+  },
+  {
+   "ref": "RECT_PANEL_MINE",
+   "sheet": "minesweeperSheet.png",
+   "where": "Theme.ets:65",
+   "px": [
+    0,
+    0,
+    50,
+    50
+   ],
+   "size": [
+    94,
+    54
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "状态条「雷图标」圆钮",
+   "crop": "RECT_PANEL_MINE.png"
+  },
+  {
+   "ref": "WinDialog.win.icon",
+   "sheet": "minesweeperSheet.png",
+   "where": "WinDialog.ets:303",
+   "px": [
+    0,
+    0,
+    50,
+    50
+   ],
+   "size": [
+    94,
+    54
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "胜利对话框里的雷图标（字面量）",
+   "crop": "WinDialog_win_icon.png"
+  },
+  {
+   "ref": "RECT_CLOCK",
+   "sheet": "otherSheet.png",
+   "where": "Theme.ets:70",
+   "px": [
+    1810,
+    850,
+    50,
+    50
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "状态条时钟图标",
+   "crop": "RECT_CLOCK.png"
+  },
+  {
+   "ref": "Anim.explodeRect",
+   "sheet": "otherSheet.png",
+   "where": "Anim.ets:55",
+   "px": [
+    1456,
+    0,
+    114,
+    114
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "踩雷爆炸动画 23 帧",
+   "crop": null,
+   "frames": 23,
+   "worst_frame": 0
+  },
+  {
+   "ref": "Anim.disarmRect",
+   "sheet": "otherSheet.png",
+   "where": "Anim.ets:115",
+   "px": [
+    0,
+    0,
+    100,
+    300
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "胜利拆雷光束 38 帧",
+   "crop": null,
+   "frames": 38,
+   "worst_frame": 0
+  },
+  {
+   "ref": "Anim.SCAN_BAR",
+   "sheet": "otherSheet.png",
+   "where": "Anim.ets:85",
+   "px": [
+    0,
+    1824,
+    550,
+    124
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "胜利扫描条",
+   "crop": "Anim_SCAN_BAR.png"
+  },
+  {
+   "ref": "Theme.tripRect(DEAD)",
+   "sheet": "otherSheet.png",
+   "where": "Theme.ets:74",
+   "px": [
+    1456,
+    0,
+    114,
+    114
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "未引用：与 Anim.explodeRect 完全相同",
+   "crop": null,
+   "frames": 23,
+   "worst_frame": 0
+  },
+  {
+   "ref": "Theme.disarmRect(DEAD)",
+   "sheet": "otherSheet.png",
+   "where": "Theme.ets:82",
+   "px": [
+    0,
+    0,
+    100,
+    300
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "未引用：与 Anim.disarmRect 完全相同",
+   "crop": null,
+   "frames": 38,
+   "worst_frame": 0
+  },
+  {
+   "ref": "Theme.RECT_SCAN_BAR(DEAD)",
+   "sheet": "otherSheet.png",
+   "where": "Theme.ets:89",
+   "px": [
+    0,
+    1824,
+    550,
+    124
+   ],
+   "size": [
+    2048,
+    2016
+   ],
+   "over": 0,
+   "ox": 0,
+   "oy": 0,
+   "use": "未引用：与 Anim.SCAN_BAR 完全相同",
+   "crop": "Theme_RECT_SCAN_BAR_DEAD.png"
+  }
+ ],
+ "oob": [],
+ "dup": [
+  [
+   "RECT_PANEL_MINE",
+   "WinDialog.win.icon",
+   "minesweeperSheet.png",
+   [
+    0,
+    0,
+    50,
+    50
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    0,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    0,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    0,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    118,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    118,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    118,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    236,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    236,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    236,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    354,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    354,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    354,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    472,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    472,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    472,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    590,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    590,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    590,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    708,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    708,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1692,
+    708,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1456,
+    826,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.explodeRect",
+   "Theme.tripRect(DEAD)",
+   "otherSheet.png",
+   [
+    1574,
+    826,
+    114,
+    114
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    104,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    208,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    312,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    416,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    520,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    624,
+    0,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    104,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    208,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    312,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    416,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    520,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    624,
+    304,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    104,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    208,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    312,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    416,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    520,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    624,
+    608,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    104,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    208,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    312,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    416,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    520,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    624,
+    912,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    104,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    208,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    312,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    416,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    520,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    624,
+    1216,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    1520,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    104,
+    1520,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.disarmRect",
+   "Theme.disarmRect(DEAD)",
+   "otherSheet.png",
+   [
+    208,
+    1520,
+    100,
+    300
+   ]
+  ],
+  [
+   "Anim.SCAN_BAR",
+   "Theme.RECT_SCAN_BAR(DEAD)",
+   "otherSheet.png",
+   [
+    0,
+    1824,
+    550,
+    124
+   ]
+  ]
+ ],
+ "unref": {
+  "blueSheet.png": [
+   [
+    0,
+    1044,
+    2034,
+    76,
+    154584
+   ],
+   [
+    1900,
+    240,
+    134,
+    768,
+    102912
+   ],
+   [
+    900,
+    0,
+    100,
+    1008,
+    100800
+   ],
+   [
+    80,
+    1160,
+    1954,
+    42,
+    82068
+   ],
+   [
+    956,
+    1126,
+    1078,
+    30,
+    32340
+   ],
+   [
+    0,
+    1120,
+    800,
+    36,
+    28800
+   ],
+   [
+    1900,
+    0,
+    100,
+    240,
+    24000
+   ],
+   [
+    1720,
+    1008,
+    314,
+    36,
+    11304
+   ],
+   [
+    720,
+    1008,
+    280,
+    36,
+    10080
+   ],
+   [
+    0,
+    1156,
+    2034,
+    4,
+    8136
+   ],
+   [
+    0,
+    1202,
+    2034,
+    4,
+    8136
+   ],
+   [
+    996,
+    1120,
+    1038,
+    6,
+    6228
+   ],
+   [
+    2024,
+    36,
+    10,
+    204,
+    2040
+   ]
+  ],
+  "minesweeperSheet.png": [
+   [
+    50,
+    36,
+    44,
+    14,
+    616
+   ],
+   [
+    0,
+    50,
+    94,
+    4,
+    376
+   ]
+  ],
+  "otherSheet.png": [
+   [
+    308,
+    1520,
+    1740,
+    300,
+    522000
+   ],
+   [
+    724,
+    1216,
+    1324,
+    300,
+    397200
+   ],
+   [
+    724,
+    940,
+    1324,
+    272,
+    360128
+   ],
+   [
+    550,
+    1824,
+    1498,
+    124,
+    185752
+   ],
+   [
+    0,
+    1948,
+    2048,
+    68,
+    139264
+   ],
+   [
+    724,
+    0,
+    732,
+    114,
+    83448
+   ],
+   [
+    724,
+    118,
+    732,
+    114,
+    83448
+   ],
+   [
+    724,
+    354,
+    732,
+    114,
+    83448
+   ],
+   [
+    724,
+    472,
+    732,
+    114,
+    83448
+   ],
+   [
+    724,
+    708,
+    732,
+    114,
+    83448
+   ],
+   [
+    724,
+    608,
+    732,
+    96,
+    70272
+   ],
+   [
+    724,
+    826,
+    732,
+    82,
+    60024
+   ],
+   [
+    724,
+    236,
+    732,
+    64,
+    46848
+   ],
+   [
+    724,
+    304,
+    732,
+    46,
+    33672
+   ],
+   [
+    1806,
+    0,
+    242,
+    114,
+    27588
+   ],
+   [
+    1806,
+    118,
+    242,
+    114,
+    27588
+   ],
+   [
+    1806,
+    236,
+    242,
+    114,
+    27588
+   ],
+   [
+    1806,
+    354,
+    242,
+    114,
+    27588
+   ],
+   [
+    1806,
+    472,
+    242,
+    114,
+    27588
+   ],
+   [
+    1806,
+    590,
+    242,
+    114,
+    27588
+   ],
+   [
+    1806,
+    708,
+    242,
+    114,
+    27588
+   ],
+   [
+    724,
+    912,
+    732,
+    28,
+    20496
+   ],
+   [
+    1688,
+    900,
+    360,
+    40,
+    14400
+   ],
+   [
+    724,
+    590,
+    732,
+    14,
+    10248
+   ],
+   [
+    1860,
+    850,
+    188,
+    50,
+    9400
+   ],
+   [
+    1688,
+    826,
+    360,
+    24,
+    8640
+   ],
+   [
+    0,
+    1212,
+    2048,
+    4,
+    8192
+   ],
+   [
+    0,
+    1516,
+    2048,
+    4,
+    8192
+   ],
+   [
+    0,
+    1820,
+    2048,
+    4,
+    8192
+   ],
+   [
+    1688,
+    850,
+    122,
+    50,
+    6100
+   ],
+   [
+    0,
+    300,
+    1456,
+    4,
+    5824
+   ],
+   [
+    0,
+    604,
+    1456,
+    4,
+    5824
+   ],
+   [
+    0,
+    908,
+    1456,
+    4,
+    5824
+   ],
+   [
+    724,
+    114,
+    1324,
+    4,
+    5296
+   ],
+   [
+    724,
+    232,
+    1324,
+    4,
+    5296
+   ],
+   [
+    724,
+    350,
+    1324,
+    4,
+    5296
+   ],
+   [
+    724,
+    468,
+    1324,
+    4,
+    5296
+   ],
+   [
+    724,
+    586,
+    1324,
+    4,
+    5296
+   ],
+   [
+    724,
+    704,
+    1324,
+    4,
+    5296
+   ],
+   [
+    724,
+    822,
+    1324,
+    4,
+    5296
+   ],
+   [
+    100,
+    0,
+    4,
+    300,
+    1200
+   ],
+   [
+    204,
+    0,
+    4,
+    300,
+    1200
+   ],
+   [
+    308,
+    0,
+    4,
+    300,
+    1200
+   ],
+   [
+    412,
+    0,
+    4,
+    300,
+    1200
+   ],
+   [
+    516,
+    0,
+    4,
+    300,
+    1200
+   ],
+   [
+    620,
+    0,
+    4,
+    300,
+    1200
+   ],
+   [
+    100,
+    304,
+    4,
+    300,
+    1200
+   ],
+   [
+    204,
+    304,
+    4,
+    300,
+    1200
+   ],
+   [
+    308,
+    304,
+    4,
+    300,
+    1200
+   ],
+   [
+    412,
+    304,
+    4,
+    300,
+    1200
+   ],
+   [
+    516,
+    304,
+    4,
+    300,
+    1200
+   ],
+   [
+    620,
+    304,
+    4,
+    300,
+    1200
+   ],
+   [
+    100,
+    608,
+    4,
+    300,
+    1200
+   ],
+   [
+    204,
+    608,
+    4,
+    300,
+    1200
+   ],
+   [
+    308,
+    608,
+    4,
+    300,
+    1200
+   ],
+   [
+    412,
+    608,
+    4,
+    300,
+    1200
+   ],
+   [
+    516,
+    608,
+    4,
+    300,
+    1200
+   ],
+   [
+    620,
+    608,
+    4,
+    300,
+    1200
+   ],
+   [
+    100,
+    912,
+    4,
+    300,
+    1200
+   ],
+   [
+    204,
+    912,
+    4,
+    300,
+    1200
+   ],
+   [
+    308,
+    912,
+    4,
+    300,
+    1200
+   ],
+   [
+    412,
+    912,
+    4,
+    300,
+    1200
+   ],
+   [
+    516,
+    912,
+    4,
+    300,
+    1200
+   ],
+   [
+    620,
+    912,
+    4,
+    300,
+    1200
+   ],
+   [
+    100,
+    1216,
+    4,
+    300,
+    1200
+   ],
+   [
+    204,
+    1216,
+    4,
+    300,
+    1200
+   ],
+   [
+    308,
+    1216,
+    4,
+    300,
+    1200
+   ],
+   [
+    412,
+    1216,
+    4,
+    300,
+    1200
+   ],
+   [
+    516,
+    1216,
+    4,
+    300,
+    1200
+   ],
+   [
+    620,
+    1216,
+    4,
+    300,
+    1200
+   ],
+   [
+    100,
+    1520,
+    4,
+    300,
+    1200
+   ],
+   [
+    204,
+    1520,
+    4,
+    300,
+    1200
+   ],
+   [
+    1570,
+    0,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    0,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    118,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    118,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    236,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    236,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    354,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    354,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    472,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    472,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    590,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    590,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    708,
+    4,
+    114,
+    456
+   ],
+   [
+    1688,
+    708,
+    4,
+    114,
+    456
+   ],
+   [
+    1570,
+    826,
+    4,
+    114,
+    456
+   ]
+  ]
+ },
+ "scalars": [
+  [
+   "Theme.TRIP_FRAMES",
+   "Theme.ets:73",
+   "23",
+   "Anim.EXPLODE_FRAMES 同值，未引用"
+  ],
+  [
+   "Theme.TRIP_OFFSET",
+   "Theme.ets:78",
+   "[-18,-18]",
+   "Anim.EXPLODE_OFFSET 同值，未引用"
+  ],
+  [
+   "Theme.DISARM_FRAMES",
+   "Theme.ets:81",
+   "38",
+   "Anim.DISARM_FRAMES 同值，未引用"
+  ],
+  [
+   "Theme.DISARM_OFFSET",
+   "Theme.ets:86",
+   "[-18,-69]",
+   "Anim.DISARM_OFFSET 同值，未引用"
+  ],
+  [
+   "SpriteAtlas.frameSheet",
+   "SpriteAtlas.ets:27",
+   "PixelMap|null",
+   "声明了但从不赋值、从不使用（Frame.png 也没进 rawfile）"
+  ]
+ ]
+}
