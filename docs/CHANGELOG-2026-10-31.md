@@ -4,7 +4,7 @@
 
 - 应用仓：`C:\Users\19161\saolei`（HarmonyOS 7 / API 26，ArkTS）
 - 规格仓：`D:\software\harmony\projects\minesweeper`
-- **今天 13:05 之后应用仓的 4 个提交**（本文提到的所有代码改动都在这 4 个里）：
+- **今天 13:05 之后应用仓的 6 个提交**（本文提到的所有代码改动都在这 6 个里）：
 
   | commit | 内容 |
   |---|---|
@@ -12,13 +12,18 @@
   | `9e7befe` | 版式适配重做 + 对话框缩放按物理密度 + 菜单残留 + 换难度按钮 |
   | `9a70112` | 抬一档规则的副作用修复（`LEAD-CHANGE-AUDIT` 的 L1/L4）+ 帮助窗口像素化 |
   | `c130326` | 帮助窗口插图没画出来（vp / 设备像素换算方向写反） |
+  | `f261aa9` | 自定义难度对话框的三处还原度（custom-agent 裁决 P4/P6 + 夹取回显） |
+  | `a2b635f` | 七段数码管计数器 + Win7「颜色(C)」外观对话框与绿棋盘/花园玩法 + 对话框像素级修正 |
 
-- 本轮上下文材料：`BUTTON-INVENTORY.md`、`CUSTOM-DIALOG-AUDIT.md`、`LAYOUT-MATRIX.md`、`SPRITE-COVERAGE.md`、
-  `STATUS-STRIP-VERDICT.md`、`CLICK-MATRIX-X7.md`、`CLICK-MATRIX-90P.md`、`LEAD-CHANGE-AUDIT.md`、
-  `HELP-WINDOW-NOTES.md`、`WIN7-FEATURE-GAP.md`
-- 无 emoji。行号取自 **2026-10-31 13:58** 对应用仓**当前工作区**的快照
-  （应用仓在 14:03 已全部提交，`c130326` 为 HEAD；源码此后未再改动，**行号仍然有效**）。
-  核对时**以函数名为准**。
+- 本轮上下文材料：`BUTTON-INVENTORY.md`、`CUSTOM-DIALOG-AUDIT.md`、`CUSTOM-DIALOG-VERDICT.md`、
+  `LAYOUT-MATRIX.md`、`SPRITE-COVERAGE.md`、`STATUS-STRIP-VERDICT.md`、`CLICK-MATRIX-X7.md`、
+  `CLICK-MATRIX-90P.md`、`LEAD-CHANGE-AUDIT.md`、`HELP-WINDOW-NOTES.md`、`SEVEN-SEG-COUNTER.md`、
+  `APPEARANCE-DIALOG.md`、`DIALOG-PIXEL-DIFF.md`、`LEAD-VERIFY-2026-10-31.md`、`WIN7-FEATURE-GAP.md`
+- 无 emoji。
+- **引用约定**：代码位置一律写成**函数名 / 常量名**（如 `GameController.layout()`、
+  `Theme.MIN_CELL_PX`），**不写行号** —— 应用仓当天仍在并行改动，行号会漂移，
+  函数名不会。核对时按函数名找。
+
 
 ---
 
@@ -38,6 +43,10 @@
 | 10 | **「抬一档」规则曾有 HIGH 级缺陷** | 初始视图顶部可能藏在菜单栏下 | **已修**（`9a70112`：抬档加前提 + 纵向溢出顶对齐），**修正后未复测**，见 §5.3b |
 | 11 | **对话框缩放只按宽度封顶** | 短画布上对话框超出屏幕高度、底部按钮点不到 | 已修（`9a70112`，`computeDialogScale` 增加高度封顶） |
 | 12 | **帮助窗口的 Win7 原版插图没画出来** | 帮助对话框里没有那张 256×192 的原版插图 | 已修（`c130326`，vp / 设备像素换算方向写反），**已复测**（§10.4） |
+| 13 | **状态条计数器不是七段数码管** | 用粗体白字冒充原版的七段显示 | 已修（`a2b635f`），**「粗体白字不是降级」那条旧裁决已撤回**，见 §12.1 |
+| 14 | **菜单里没有「颜色(C)」** | 原版的 Change Appearance（F7）对话框、绿棋盘、花园玩法都没有 | 已修（`a2b635f`），**已实测通过**，见 §12.2 |
+| 15 | **状态条在超宽盘面上两端跑出屏幕** | 30 列的局在窄屏上既看不到计时也看不到剩余雷数 | 已修（`a2b635f`，两端贴屏幕边），**已实测**，见 §12.3 |
+| 16 | **对话框「像素级还原」只有目测** | 不知道差在哪、差多少 | 已量化（`tools\pixel_diff.py`），并据此修掉四处，见 §12.4 |
 
 ---
 
@@ -55,10 +64,10 @@
 
 **证据**：
 
-- 代码：`SoundPlayer.ets:76-122`（`ensurePlayer`），其中错误原文在 `SoundPlayer.ets:81`，
-  监听在 `SoundPlayer.ets:102-115`，`prepare()` 在 `SoundPlayer.ets:119`。
+- 代码：``SoundPlayer.ensurePlayer()``（`ensurePlayer`），其中错误原文在 ``SoundPlayer.play()``，
+  监听在 ``SoundPlayer.ensurePlayer()` 的 `stateChange` 回调`，`prepare()` 在 ``SoundPlayer.ensurePlayer()` 的 `stateChange` 回调`。
 - 修复位置：commit `8925f0e`。
-- 旧版症状与修法记录在 `SoundPlayer.ets:79-83` 的注释里（真机踩到，不是推测）。
+- 旧版症状与修法记录在 ``SoundPlayer.play()`` 的注释里（真机踩到，不是推测）。
 
 **未验证**：本条只到「代码改对」为止。**音效是否真的出声、在真机/模拟器上听感如何，本轮没有实测记录。**
 
@@ -78,16 +87,16 @@ if (this.controller.inputLocked) { return; }   // 旧写法
 对话框的按钮也是画在这块画布上的，于是按钮的点击被同一个锁挡掉了。
 
 **修法**：改成「**锁定只禁平移与捏合，点击照常通过**」——
-`MinefieldCanvas.ets:157-170` 里 `inputLocked` 为真时只拦 `Move`/`双指` 路径，`Down`/`Up` 继续往下走，
+``MinefieldCanvas.handleTouch()`` 里 `inputLocked` 为真时只拦 `Move`/`双指` 路径，`Down`/`Up` 继续往下走，
 让菜单、对话框、统计窗口、自定义框各自去处理。
 
 **证据**：
 
-- 代码：`MinefieldCanvas.ets:157-158` 的注释「有对话框 / 统计窗口 / 自定义框开着时：**只让点击通过**，不做平移与捏合。」
-- `GameController.ets:109-111` 的 `inputLocked` 派生属性定义。
+- 代码：``MinefieldCanvas.handleTouch()`` 的注释「有对话框 / 统计窗口 / 自定义框开着时：**只让点击通过**，不做平移与捏合。」
+- ``GameController.inputLocked`` 的 `inputLocked` 派生属性定义。
 - 修复位置：commit `8925f0e`。
 - `CUSTOM-DIALOG-AUDIT.md` §0 问题三的核实结论也指向同一处：「模态锁也没有吃掉按钮点击
-  （`MinefieldCanvas.ets:157-170` 只放行 Down/Up 而不是直接 return）」。
+  （``MinefieldCanvas.handleTouch()`` 只放行 Down/Up 而不是直接 return）」。
 
 ---
 
@@ -102,14 +111,14 @@ if (this.controller.inputLocked) { return; }   // 旧写法
 - (b) 绘制时左栏是按 `selected` 画选中条的，但 `selected` 永远是 0 —— 根本没有「选中哪一行」的命中测试。
 
 **修法**：
-- 把红叉矩形抽成 `StatsWindowPainter.titleCloseRect()`（`StatsWindow.ets:236`），**画与点共用同一组常量**，
-  新增 `hitTitleClose()`（`StatsWindow.ets:510`）。
-- 新增 `listItemRect(index)`（`StatsWindow.ets:244`）与 `hitListItem()`（`StatsWindow.ets:254`），
+- 把红叉矩形抽成 `StatsWindowPainter.titleCloseRect()`（``StatsWindowPainter.titleCloseRect()``），**画与点共用同一组常量**，
+  新增 `hitTitleClose()`（``StatsWindowPainter.hitTitleClose()``）。
+- 新增 `listItemRect(index)`（``StatsWindowPainter.listItemRect()``）与 `hitListItem()`（``StatsWindowPainter.hitListItem()``），
   点中第 i 行就把 `selected` 改成 i，中栏「最佳时间」随之切换到那一档的纪录。
 
 **证据**：
 
-- 代码：`StatsWindow.ets:236` / `:244` / `:254` / `:510`；命中分发在 `GameController.ets:1267`（`hitListItem` 调用点）。
+- 代码：``StatsWindowPainter.titleCloseRect()`` / `:244` / `:254` / `:510`；命中分发在 ``GameController.statsLayout()``（`hitListItem` 调用点）。
 - 修复位置：commit `8925f0e`。
 - 静态审计的原始发现记录在 `SPRITE-COVERAGE.md` §5.3 与本仓 `BUTTON-INVENTORY.md` §7.3。
 - **实机验证（旧 build，13:41 之前）**：`CLICK-MATRIX-90P.md` 第 18 项「统计窗口→重置(R)」通过
@@ -140,7 +149,7 @@ if (this.controller.inputLocked) { return; }   // 旧写法
 **根因**：`restart()` 用的是 `configOf(this.difficulty)` —— 按**难度预设**取行列与雷数，
 而不是**当前盘面**的参数。自定义局不改变 `this.difficulty`，于是它被当成上一次选的那个难度重开。
 
-**修法**：`GameController.ets:166-177` 改成直接取引擎当前的行列与雷数：
+**修法**：``GameController.restart()`` 改成直接取引擎当前的行列与雷数：
 
 ```ts
 const rows = this.engine.rowCount;
@@ -153,7 +162,7 @@ const mines = this.engine.mineCount;
 
 **证据**：
 
-- 代码：`GameController.ets:155-177`（含坑的完整注释），标记位 `GameController.ets:1360`。
+- 代码：``GameController.restart()``（含坑的完整注释），标记位 ``GameController.openCustom()``。
 - 修复位置：commit `8925f0e`。
 - 原始发现：`CUSTOM-DIALOG-AUDIT.md` 的 **P1 [HIGH]**「自定义局的「新建 / 再玩一局」会把盘面换成难度预设」。
 - 统计侧独立核实（`CUSTOM-DIALOG-AUDIT.md` §0 问题二）：`GameStats.record()` 是全工程唯一会动
@@ -174,7 +183,7 @@ const mines = this.engine.mineCount;
 （`drawBoardArea()` 只在棋盘矩形内填白地板加三边 1px 凹槽线）。
 那 59/62 单位纯属白占缩放预算，把高级局在窄屏上压到 n=1（格边 36 设备像素 ≈ 10~13 vp，手指根本点不准）。
 
-**修法**（`GameController.ets:242-284`）：预算只按**真正画出来的东西**算：
+**修法**（``GameController.layout()``）：预算只按**真正画出来的东西**算：
 
 ```
 横向预算：棋盘宽 = 列数 × 18 × 2n
@@ -182,7 +191,7 @@ const mines = this.engine.mineCount;
 ```
 
 配套：**棋盘 + 状态条这一组在菜单栏以下的区域居中**（菜单栏进竖向预算），
-见 `GameController.ets:322-326`（`frameY = menuBarPx() + round((canvasH - menuBarPx() - frameH)/2) + panY`）。
+见 ``GameController.applyGeometry()``（`frameY = menuBarPx() + round((canvasH - menuBarPx() - frameH)/2) + panY`）。
 
 **证据**：`LAYOUT-MATRIX.md` v2.0 §7 的旧新对照表，**7 个组合各升一档**：
 
@@ -200,7 +209,7 @@ const mines = this.engine.mineCount;
 
 **问题**：平移夹紧用 `|(画布 - 底板)/2|`，即使整盘放得下，初级局也能被拖偏几百像素。
 
-**修法**：`GameController.ets:343` 的 `clampPan()` 改成按「棋盘比视口大多少」夹，
+**修法**：``GameController.clampPan()`` 的 `clampPan()` 改成按「棋盘比视口大多少」夹，
 放得下时平移量归零；比视口大时才允许拖，两边都能拖到。
 
 **证据**：`LAYOUT-MATRIX.md` v1.0 的 **P2-6**（v2.0 编号下并入 §4 的取舍类）；
@@ -211,7 +220,7 @@ const mines = this.engine.mineCount;
 **问题**：`LAYOUT-MATRIX.md` v2.0 判定为 **P0-1**：30 列的局在窄屏上宽度是**几何必然**装不下，
 装得下的那一档只有 n=1（格边 36 设备像素 ≈ 10~13 vp），手指点不准。
 
-**修法**（`GameController.ets:275-284`）：装得下的那一档如果格边小于**最小可点格边 48 设备像素**，
+**修法**（``GameController.layout()``）：装得下的那一档如果格边小于**最小可点格边 48 设备像素**，
 就往上抬**一档**，让棋盘横向超出画布，靠平移看（`clampPan` 本来就支持）。
 
 ```ts
@@ -220,12 +229,12 @@ if (TILE * 2 * fit < MIN_CELL_PX && fit < MAX_SCALE_INDEX) {
 }
 ```
 
-常量 `MIN_CELL_PX = 48` 定义在 `Theme.ets:149`。
+常量 `MIN_CELL_PX = 48` 定义在 ``Theme.MIN_CELL_PX``。
 
 **依据**：用户原话「外屏不接受降级，我希望可以拖动放大」——
 **宁可超宽也要能点准**，而不是给一个点不中的棋盘。
 
-**证据**：`GameController.ets:263-284` 的注释、`Theme.ets:138-149` 的常量说明。
+**证据**：``GameController.layout()`` 的注释、``Theme.MIN_CELL_PX`` 的常量说明。
 
 > **重要提醒**：`LAYOUT-MATRIX.md` v2.0 的数据表是 **13:35** 写的，
 > 而 `MIN_CELL_PX` 抬一档规则是 **13:39** 才加进 `Theme.ets` 的。
@@ -255,10 +264,10 @@ if (TILE * 2 * fit < MIN_CELL_PX && fit < MAX_SCALE_INDEX) {
 > - 中级 16×16 同样：n=1 完全装得下（648×776）→ 抬到 n=2 → 纵超 352px、初始 `frameY=-104`。
 >
 > **修法（13:51 已落地）**：
-> 1. **抬档加前提**（`GameController.ets:275-284`）：抬到 `fit+1` 那一档后，
+> 1. **抬档加前提**（``GameController.layout()``）：抬到 `fit+1` 那一档后，
 >    只有「抬完纵向仍装得下」（`fitsV`）**或**「横向本来就装不下」（`widthBinding`）才真的抬；
 >    两个都不满足就**保持原档** —— 宁可格边小一点也不把棋盘顶藏起来。
-> 2. **纵向溢出改顶对齐**（`GameController.ets:322-326`）：
+> 2. **纵向溢出改顶对齐**（``GameController.applyGeometry()``）：
 >    `frameH > 可用高度` 时 `frameY = 菜单栏下沿`，把溢出全放到下面（滚动语义）；
 >    否则仍在菜单栏以下的剩余空间里居中。
 >
@@ -276,7 +285,7 @@ if (TILE * 2 * fit < MIN_CELL_PX && fit < MAX_SCALE_INDEX) {
 **问题**：`v(px)` 原来直接 `px * pxScale`，于是**落在分数设备像素上**的矩形与文字会被抗锯齿糊掉
 （对话框的缩放是小数，按钮、文字全在半像素上）。像素级复刻要求边缘锐利。
 
-**修法**（`GameController.ets:232-234`）：先取整再换算。
+**修法**（``GameController.v()``）：先取整再换算。
 
 ```ts
 private v(px: number): number {
@@ -284,7 +293,7 @@ private v(px: number): number {
 }
 ```
 
-**证据**：`GameController.ets:232-235`（含坑的注释，标注来源为 LAYOUT-MATRIX 审计 P2-6）；
+**证据**：``GameController.v()``（含坑的注释，标注来源为 LAYOUT-MATRIX 审计 P2-6）；
 `LAYOUT-MATRIX.md` v2.0 §1.1 表最后一行也记着 `v(px) = Math.round(px) * pxScale`。
 
 ### 5.5 对话框缩放统一（原来自定义框一直用陈旧初值 1）
@@ -294,14 +303,14 @@ private v(px: number): number {
 正文文字每汉字约 **8~9 设备像素高（约 2.7 vp）**，而同屏的菜单栏文字是 43.75 设备像素（14vp），
 **两者差 5 倍**；数字键盘每个按键只有约 **32 × 32 设备像素（约 10 vp）**，手指点按容错极低。
 
-**修法**：`GameController.ets:1120` 的 `computeDialogScale(refWidth, refHeight)` 统一三个对话框
+**修法**：``GameController.computeDialogScale()`` 的 `computeDialogScale(refWidth, refHeight)` 统一三个对话框
 （结束框、统计窗、自定义框）的缩放，公式按**物理密度**算 + 保证放得下 + **封顶 2 倍**：
 
 ```
 s = max(1, min(2, density, (canvasW - 32) / refWidth))
 ```
 
-调用点：`GameController.ets:1133`（结束框）、`:1180`（统计窗）、`:1281`（自定义框，
+调用点：``GameController.computeDialogScale()``（结束框）、`:1180`（统计窗）、`:1281`（自定义框，
 注释明写「自己算缩放，别用 dialogLayout() 的陈旧值」）。
 
 **证据**：`CLICK-MATRIX-X7.md` 异常 A1（实测尺寸与公式推导）；
@@ -321,7 +330,7 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 
 ### 5.6 菜单栏预算整数化
 
-`menuBarPx()`（`GameController.ets:332`）把菜单栏高度换算成整数设备像素，
+`menuBarPx()`（``GameController.menuBarPx()``）把菜单栏高度换算成整数设备像素，
 修掉 `LAYOUT-MATRIX.md` v1.0 的 **P3-8**「菜单栏预算 58 px 与画出来 57.75 px 差 0.25 px，分隔线发虚」。
 
 > `LAYOUT-MATRIX.md` v2.0 的 **P2-3** 仍把这条列为待修（它写的是「菜单栏预算（58 px）与绘制（57.75 px）差 0.25 px」），
@@ -337,11 +346,11 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 **根因**：换难度类动作走 `startNewGame()`，里面把 `menuOpenId` 清了，所以看着正常；
 但「标记(?)」「声音」走的是 `refreshMenu()`，**不清 `menuOpenId`**，结果菜单面板留在屏幕上。
 
-**修法**（`GameController.ets:1541`）：在**选中条目**的地方统一先关菜单，后面的动作怎么处理都不影响。
+**修法**（``GameController.drawMenu()``）：在**选中条目**的地方统一先关菜单，后面的动作怎么处理都不影响。
 
 **证据**：
 
-- 代码：`GameController.ets:1528-1548`（`menuActionAt` 的下拉分支），注释点名来源为 `CLICK-MATRIX-90P 异常 1`。
+- 代码：``GameController.buildMenu()``（`menuActionAt` 的下拉分支），注释点名来源为 `CLICK-MATRIX-90P 异常 1`。
 - 实机复现：`CLICK-MATRIX-90P.md` 第 8 项「游戏→标记(?)」与第 9 项「游戏→声音」，
   截图 `P90_06_flag.jpeg` / `P90_09_sound.jpeg`，判定均为**异常**：
   「选完以后下拉菜单没有消失，整块菜单面板留在画布上（白底行 212..1074）」。
@@ -359,12 +368,12 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 
 **根因**：`Index.ets` 的 `onDialogAction` 里 `'menu'` 分支只调了 `closeDialog()`，没有打开菜单。
 
-**修法**：新增 `GameController.openGameMenu()`（`GameController.ets:1513`），
+**修法**：新增 `GameController.openGameMenu()`（``GameController.buildMenu()``），
 `Index.ets` 的 `'menu'` 分支改成「关框 → `openGameMenu()`」，真的把「游戏」菜单打开让用户选难度。
 
 **证据**：
 
-- 代码：`GameController.ets:1513-1520`（`openGameMenu`）、`Index.ets` 的 `onDialogAction` `'menu'` 分支。
+- 代码：``GameController.buildMenu()``（`openGameMenu`）、`Index.ets` 的 `onDialogAction` `'menu'` 分支。
 - 实机复现：`CLICK-MATRIX-90P.md` 第 15 项「结束框→换个难度(D)」，点击 (640,1529)，
   截图 `P90_19_after_difficulty.jpeg`，判定**异常**：「对话框关闭，但**画面上没有任何难度菜单弹出**」。
 - 修复位置：commit 9e7befe。
@@ -392,10 +401,10 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 
 **修法**：
 
-- `CustomField.ets:543` 改成 `return MAX_MINES;`（常量 `MAX_MINES = 668`，`CustomField.ets:82`）。
+- ``CustomField.maxOfField()`` 改成 `return MAX_MINES;`（常量 `MAX_MINES = 668`，``CustomField.MAX_MINES``）。
 - **输入**上限 = 668；**确定时**仍由 `clampSpec` 按盘面夹成 `min(668, (h-1)(w-1)+1)`，引擎 `reset()` 再夹一次，
   用户看到的数字与实际布雷数始终一致。
-- 提示行（`CustomField.ets:401`）同时写出「本盘面最多 N」，避免用户以为填 668 就有 668 颗雷。
+- 提示行（``CustomField.draw()` 的提示行`）同时写出「本盘面最多 N」，避免用户以为填 668 就有 668 颗雷。
 
 **依据**（两条独立参考）：
 
@@ -405,7 +414,7 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 
 **证据**：
 
-- 代码：`CustomField.ets:82` / `:394` / `:533`。
+- 代码：``CustomField.MAX_MINES`` / `:394` / `:533`。
 - 修复位置：commit `8925f0e`。
 - 原始发现：`CUSTOM-DIALOG-AUDIT.md` 的 **P2 [MEDIUM]**「面板层雷数上限与 SPEC §8-2 的决定不一致」，
   以及 §2.5「雷数上限到底是 668 全局还是按格数」。
@@ -424,7 +433,7 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 底部按钮跑到屏幕外点不到。
 实测例：900×400 画布 @密度 2.75，396×340 的胜利框 ×2 = 792×680，按钮全在屏外。
 
-**修法**（`GameController.ets:1125-1132`）：`computeDialogScale` 把**高度也纳入封顶**。
+**修法**（``GameController.computeDialogScale()``）：`computeDialogScale` 把**高度也纳入封顶**。
 
 ```ts
 const density = 1 / this.pxScale;
@@ -433,7 +442,7 @@ const maxByHeight = Math.max(1, (this.canvasH - 32) / refHeight);
 return Math.max(0.5, Math.min(2, density, maxByWidth, maxByHeight));
 ```
 
-另外 `dialogLayout()`（`GameController.ets:1144-1148`）在对话框比画布还高时改成**顶对齐**，
+另外 `dialogLayout()`（``GameController.dialogLayout()``）在对话框比画布还高时改成**顶对齐**，
 不再居中（居中会让上下各露一半，底部按钮够不着）—— 对应 `LEAD-CHANGE-AUDIT` 的 **L4**。
 
 **修复位置**：commit `9a70112`。
@@ -621,7 +630,142 @@ longClick 插旗、doubleClick 和弦、「帮助(H)」对话框这三项，
 
 ---
 
-## 12. 相关文档
+## 12. 第三轮：commit `a2b635f`（19:00 之后落地的四件大事）
+
+前面 §1~§11 记的是 13:05~19:00 的三轮。19:00 之后又落地一个大提交
+**`a2b635f`**（七段数码管计数器、Win7 颜色(外观)对话框与绿棋盘/花园玩法、对话框像素级修正），
+逐条记在这里。
+
+### 12.1 状态条计数器改成**真七段数码管**
+
+**问题**：状态条上的计时与剩余雷数用 `ctx.font = bold …px sans-serif` 画白字，
+**不是原版的形制**。
+
+**根因与证据**：2026-10-31 上午本文件曾写「计数器用粗体白字**不是降级**」，
+理由是「参考实现 `linux-minesweeper/src/ui/BoardWidget.cpp:552-559` 就是
+`setBold(true)` + `setPen(Qt::white)` + `drawText` 居中」。
+**这个论证是错的** —— 参考实现怎么画只能说明**那一份复刻**怎么画，
+不能证明**原版**长什么样。
+
+**权威证据**：**微软原图 `win7-assets\images\helpBoard.png`** 的状态条里「18」「40」
+**逐像素反推**，能读出七段的结构、负号是独立的一段、右对齐不补零。
+完整几何表（逐段坐标、置信度、出处）在 **`docs\SEVEN-SEG-COUNTER.md`**。
+
+**修法**：新增 `common\SevenSeg.ets`（Canvas 画段），接线在 `GameController.drawStatusStrip()`。
+
+| 项 | 值 |
+|---|---|
+| 面板 / 槽位 | 40×21 参考像素，**3 槽**，槽距 **13** |
+| 对齐 | **右对齐、不补零** |
+| 负号 | 独立的一段（中段 g） |
+| 显示区间 | [-99, 999]，超出钳到端点 |
+| 亮段颜色 | `#FAFAFC` |
+| 「1」的形状 | 带原版的**衬线小旗 + 底横**（第 8 段 `SEG_FLAG`，掩码 `0x0E`） |
+| 槽位起点 | 面板内 **x = 0**（不是 XP 的 x = 1）—— 面板精灵右缘有 2 像素斜角高光，数字贴上去会糊成一片 |
+
+> **模拟器上的实拍证据**：docs\verify\V4P90_strip_right.png —— 雷数「99」的
+> **七段字形清晰可见**（上横 / 上下竖 / 中横 / 下横逐段分明），与旁边银色尖刺地雷图标同框。
+
+**素材里没有笔段**这件事仍然成立（`otherSheet.png` 存储像素
+`x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014` 实测是两片纯灰渐变的窗口边框片），
+但结论不是「所以用粗体白字」而是「**所以要自己画**」。
+
+**证据**：`docs\SEVEN-SEG-COUNTER.md`；预览图 `docs\verify\sprites\sevenseg_preview.png`
+（第一行微软原图，第二行合成到真实面板精灵上的实现）。
+**七段渲染器本身过了对抗性复审**：Codex 裁定 **BLOCKER**（3 个 P1 + 1 个 P2），已按意见修完
+（数字格改成 12×16 避开面板边框、可达到的负数钳到区间端点、`Infinity` 防护、
+颜色统计改成逐连通域取核心像素）。复审原文 `docs\verify\sevenseg-review\review.txt`。
+
+### 12.2 「颜色(C)」外观对话框 + 绿色棋盘 + 花园玩法
+
+**问题**：菜单里没有「颜色」项，绿色棋盘与花园玩法都没有。
+
+**根因**：原版 Win7 扫雷的「游戏」菜单里有一项 **"Change Appearance"（F7）**，
+弹出对话框让玩家选**游戏样式**（扫雷 / 花园）与**棋盘样式**（银蓝 / 绿色）。
+
+**修法**：新增 `common\Appearance.ets`（画布自绘对话框），
+并改 `WinMenu` / `WinDialog` / `Theme` / `SpriteAtlas` 与 6 张图 + 3 段音频。
+
+- 菜单项在「最佳成绩」之后、「退出」之前（**倒数第二项**，F7）
+- 对话框 420×340 参考像素，两个分组框 + 四枚缩略图 + 选中蓝框
+  + 置灰的「随机选择游戏样式和棋盘」复选框 + 确定/取消
+- **点「确定」才生效**（原版帮助原文 "Make your choices, and then click OK"），不是即时生效
+- 绿色棋盘用 `greenSheet.png`；花园玩法用 `flowerGardenSheet.png` + 三段 `flowerLose*.wav`
+  （按**剩余雷数** ≤10 / ≤40 / 更多分段播）
+- **外观设置已写入 preferences**（原版行为；存 `GameStats.saveStyle()` / `GameStats.load()` 里的
+  `boardStyle` / `gameStyle` 两个键，代码层面已核对）。
+  **但「重启后还在」这一步没有实测记录** —— `APPEARANCE-DIALOG.md` §7 的六步实测里没有这一步。
+
+**中文名「颜色(C)」的来源**：lead 于 2026-10-31 直接问过用户，
+用户本人 Win7 的「游戏(G)」菜单里**确实有「颜色(C)」这一项** ——
+这是关于「原版到底有没有这一项、叫什么」的**唯一权威来源**。
+代码里是 `Appearance.ets` 的 `MENU_APPEARANCE_LABEL`。
+（`docs\APPEARANCE-DIALOG.md` §1.1 里写的「外观(C) / 未确证」是定名前的版本。）
+
+**证据**：`docs\APPEARANCE-DIALOG.md` §7 的六步真机实测（Mate X7 内屏）：
+菜单能开（`[Menu] 菜单动作 appearance`）→ 点「绿色」选中框移动 → 点「确定」棋盘变绿
+（绿色像素 43 589 → 2 304 302）→ 点「取消」棋盘保持不变 → 选「花园」后雷图标变成白雏菊。
+
+### 12.3 状态条在超宽盘面上的可见性修复（**原版没有**的真 bug）
+
+**问题**：30 列的局在窄屏上，棋盘比屏幕宽 **837~880 px**。
+旧实现把时钟和雷数计数器**钉在棋盘两端** → 两端都落在屏外 440 px，
+默认视图里**既看不到用了多久，也看不到还剩几颗雷**（数字是居中画在面板里的，
+露出来的那条面板边并不含数字）。
+
+**根因**：锚点直接用棋盘边缘的坐标，没有考虑棋盘可能比画布宽。
+
+**修法**（`GameController.drawStatusStrip()`）：两端改成**贴住屏幕边** ——
+左端 `clockX = max(棋盘左沿 + margin, margin)`，
+右端 `iconX = min(棋盘右沿 - margin - 图标宽, 画布宽 - margin - 图标宽)`。
+
+**证据**：Mate 90 Pro 高级局实测 —— 时钟 + 计时贴左沿、雷数「99」+ 雷图标贴右沿
+（截图 `docs\verify\V4P90_strip_left.png` / `V4P90_strip_right.png` /
+`V4P90_strip_fixed.png`）。
+
+### 12.4 对话框的逐像素比对与四处修正
+
+**问题**：之前对「像素级还原」只有目测，没有量化。
+
+**方法**：新工具 `tools\pixel_diff.py` 把真机截图与原版 `loss.jpg` / `about.jpg`
+**逐像素**比对（最近邻重采样；`--auto-scale` 会暴力试 k=1..8 + 滑窗 SAD 自动定位）。
+全过程与全部差异判定见 **`docs\DIALOG-PIXEL-DIFF.md`**。
+
+**结论**：**「像素级」这件事是成立的** —— 两个框在真机上的缩放都是**整数 2 倍**
+（失败框 966 = 483×2、576 = 288×2；关于框 628 = 314×2、394 = 197×2），
+每个参考像素正好占 2 个设备像素，没有半像素、没有插值。
+
+| 对话框 | 客户区一致率 | 整框一致率 |
+|---|---|---|
+| 游戏失败框 | **92.50%** | 81.36% |
+| 关于扫雷框 | **86.27%** | 68.28% |
+
+**据此修掉四处「我们画错了」**：
+
+| # | 改了什么 | 说明 |
+|---|---|---|
+| 1 | **按钮描边** | 从 `Math.max(1, sVp)`（= 1 vp = 3.5 设备像素、非整数抗锯齿、且**跨在按钮边外**）改成**内侧平涂 1 参考像素**。这一条占失败框客户区差异的 **42%** |
+| 2 | **标题栏分隔线与客户区整体下移 1 参考像素** | 原版分隔线在 ref y=29、客户区从 30 起 |
+| 3 | **关于框的雷图标换素材** | 从状态条的「银色圆钮装地雷」换成**黑白尖刺地雷**（`minesweeperSheet` 里 x≈58..92） |
+| 4 | **关于框「确定」按钮描边** | `#4f7c93` → `#d7e0e9`（原版浅蓝） |
+
+剩下的差异属于**参考图与实现本来就不同**，不用改：标题栏 Aero 渐变、系统窗口阴影、
+字体光栅化（Windows GDI 点阵 vs ArkUI 无衬线）、运行期数据、有意改动的文案。
+
+### 12.5 这一轮**没有**验证的
+
+| 项 | 状态 |
+|---|---|
+| 外观设置在**重启后**是否真的保留 | 代码已就位（GameStats.saveStyle() / GameStats.load()），但**没有任何重启实测记录** —— APPEARANCE-DIALOG.md 的六步实测里没有这一步 |
+| 花园玩法**判负瞬间的完整开花序列** | 只验了图标与帧的位置，**没跑过完整序列** |
+| 「随机选择游戏样式和棋盘」复选框 | 按原版**置灰不可点**（Linux 复刻同样未实现），**不算未验证** |
+| 对话框像素级比对 | 只比了失败框与关于框两个；**胜利框与自定义框没比** |
+| 七段数码管在**真机**上的观感 | 只在模拟器上看过 |
+| 状态条超宽修复在**折叠外屏**上的观感 | 只在 Mate 90 Pro 上验过 |
+
+---
+
+## 13. 相关文档
 
 | 文档 | 内容 |
 |---|---|
@@ -638,3 +782,7 @@ longClick 插旗、doubleClick 和弦、「帮助(H)」对话框这三项，
 | `docs/HELP-WINDOW-NOTES.md` | 帮助对话框改用原版 helpBoard.png 插图（584×280） |
 | `docs/CLICK-MATRIX-X7.md` / `docs/CLICK-MATRIX-90P.md` | 两台设备的点击矩阵（各含旧 build 与新 build 两轮） |
 | `docs/LEAD-VERIFY-2026-10-31.md` | lead 亲手在设备上量的记录（helpBoard 插图像素级成立 / 统计窗 4 控件可用 / c130326 全量回归） |
+| `docs/SEVEN-SEG-COUNTER.md` | 七段数码管的逐段几何表、置信度与出处（**几何的唯一来源**） |
+| `docs/APPEARANCE-DIALOG.md` | 「颜色(C)」外观对话框的实现记录、版式、配色出处与六步实测 |
+| `docs/DIALOG-PIXEL-DIFF.md` | 对话框逐像素比对报告（失败框 92.50% / 关于框 86.27% 与四处修正） |
+| `docs/CUSTOM-DIALOG-VERDICT.md` | 自定义对话框的键盘裁决（原版没有键盘，我们的是有意增强） |

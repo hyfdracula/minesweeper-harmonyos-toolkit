@@ -3,8 +3,10 @@
 > 只读分析，未改动工程代码。
 > 盘点日期：2026-10-31
 > 本项目现状以 `C:\Users\19161\saolei\entry\src\main\ets\` 下的 `.ets` 为准（只读）。
-> **行号说明**：盘点期间 `saolei` 工程正在被并行修改（`GameController.ets` 从 37 879 B 变成 40 001 B）。
-> 本文的行号取自 2026-10-31 约 08:40~08:55 读取到的那一版，**函数名/常量名比行号更可靠**，核对时请以函数名为准。
+> **引用约定**：代码位置一律写成**函数名 / 常量名**（如 `GameController.layout()`、
+> `Theme.MIN_CELL_PX`），**不写行号** —— 盘点期间 `saolei` 工程一直在被并行修改
+> （`GameController.ets` 当天从 37 879 B 涨到 60 000 B 以上），行号会漂移，函数名不会。
+> 核对时请按函数名找。
 > 无 emoji。
 >
 > **2026-10-31 收口**：当天 13:05 之后主线程又改了一批代码，本文已按今天的结论重新标注。
@@ -68,8 +70,8 @@ Help:  &View Help(F1) | &About Minesweeper
 | 游戏 → 自定义 | 有（`CustomField.ets`） | 等价 | — |
 | 游戏 → **统计(F4)** | **缺**（只有菜单栏里的「最佳成绩」） | Win7 有独立的统计窗口，见 §3.7 | 中 |
 | 游戏 → **选项(F5)** | **缺** | Win7 的选项窗口把难度/标记/声音/颜色/最佳成绩/重置记录收在一起，见 §3.8 | 大 |
-| 游戏 → **外观/颜色(F7)** | **缺** | 见 §3.2（绿色主题），素材已就位 | 小 |
-| 游戏 → 标记(?) | 有 | **等价**：关闭后 `toggleMark` 只走「无→旗→无」两态（`MinesweeperEngine.ets:285-303`） | — |
+| 游戏 → **颜色(C)(F7)** | **有**（commit `a2b635f`） | 见 §3.2（外观对话框：游戏样式 + 棋盘样式）。**中文名取自用户本人 Win7 的真名** | — |
+| 游戏 → 标记(?) | 有 | **等价**：关闭后 `toggleMark` 只走「无→旗→无」两态（``MinesweeperEngine.toggleMark()``） | — |
 | 游戏 → 声音 | 有 | 等价 | — |
 | 游戏 → **最佳成绩** | 有（`openInfoDialog('best')`） | 缺「最多连胜/最多连败/当前连赢」和「重置」按钮，见 §3.7 | 中 |
 | 游戏 → 退出 | 有 | — | — |
@@ -89,28 +91,29 @@ Help:  &View Help(F1) | &About Minesweeper
 | 1 | 悬停高亮用了普通合成而不是**相加混合** | 小 | 必须（是 bug） | **已解决** |
 | 2 | 状态条两个 LED **左右颠倒** + `face.png` 实为时钟不是笑脸 | 小 | 必须（是 bug） | **已解决** |
 | 3 | **自定义局的成绩被记到了当前难度名下** | 小 | 必须（是 bug） | **已解决** |
-| 4 | 「颜色(F7)」绿色主题 | 小 | 可有可无（但性价比最高） | **仍存在** |
+| 4 | 「颜色(C)」外观对话框 + 绿色主题 | 中 | 可有可无（但性价比最高） | **已解决**（commit `a2b635f`） |
 | 5 | **新开局的发牌动画**（1100 ms 逐格波浪淡入） | 中 | 可有可无 | **已解决** |
 | 6 | **判负时其它雷逐个烧红的级联** | 中 | 可有可无 | **仍存在** |
 | 7 | 洪泛开格的**涟漪淡出**动画 | 中 | 可有可无 | **已解决** |
 | 8 | 统计窗口缺「连胜/连败」与「重置」 | 中 | 可有可无 | **已解决** |
 | 9 | **独立帮助窗口(F1)** | 中 | 可有可无 | **已解决**（做成对话框，含原版插图） |
 | 10 | 「选项(F5)」独立设置窗口 | 大 | 可有可无（菜单栏已覆盖大部分功能） | **故意差异** |
-| 11 | 计时器/雷数用真**七段数码管** | 中 | 可有可无 | **不是差距（已裁决）** |
+| 11 | 计时器/雷数用真**七段数码管** | 中 | 可有可无 | **已实现**（commit `a2b635f`） |
 
 ### 2.1 17 条逐项状态（2026-10-31 收口）
 
 | § | 行为 | 状态 | 依据 / 说明 |
 |---|---|---|---|
 | 3.1 | 独立帮助窗口(F1) | **已解决**（做成画布对话框，但**含 Win7 原版插图**） | `WinDialog.helpSpec()` 584×280，左边放微软原版 `helpBoard.png`（256×192，整数倍放大 + 最近邻），右边 6 行中文说明，底部「确定」。菜单「帮助(H)」项已接线，**实测通过**（`CLICK-MATRIX-X7.md` 收尾补测第 35 项：帮助下拉正常展开两项 —— 帮助(H)、关于扫雷）。**不是**原版那种模型化可复用的帮助查看器，仍是对话框 —— 形态上算简化，但**视觉素材是原版的**。插图曾有一次没画出来（vp/设备像素换算方向写反），已修（commit `c130326`），实测见 `docs\verify\HELP_p90.jpeg` |
-| 3.2 | 「颜色(F7)」绿色主题 | **仍存在** | 本轮没动。素材齐（`greenSheet.png` 与蓝表逐区域同构，只差胜利拆雷动画的基址），成本 15~25 行 + 2 个文件拷贝 |
+| 3.2 | 「颜色(C)」外观对话框 + 绿色主题 | **已解决** | 原版 Win7 扫雷的「游戏」菜单里有一项 **"Change Appearance"（F7）**，弹出对话框选**游戏样式**（扫雷 / 花园）与**棋盘样式**（银蓝 / 绿色）。本轮落地：菜单项在「最佳成绩」之后、「退出」之前；对话框 420×340 参考像素，两个分组框 + 四枚缩略图 + 置灰的「随机选择」复选框 + 确定/取消，**点「确定」才生效**（原版帮助原文 "Make your choices, and then click OK"）；绿色棋盘用 `greenSheet.png`，花园玩法用 `flowerGardenSheet.png` + 三段 `flowerLose*.wav`（按剩余雷数 ≤10 / ≤40 / 更多分段播）；**外观设置已写入 preferences**（`GameStats.saveStyle()` / `GameStats.load()`，代码层面已核对；**「重启后还在」没有实测记录**）。实现与版式见 `docs\APPEARANCE-DIALOG.md`（commit `a2b635f`） |
+| 3.18 | 花园玩法（Flower Garden） | **已实现** | 随「颜色(C)」一起落地：`flowerGardenSheet.png`（花朵代替地雷的踩雷动画）+ 面板上的花朵图标 + 三段判负音效。**未验证**：判负瞬间的完整开花序列（本轮只验了图标与帧的位置）。**「随机选择游戏样式和棋盘」复选框按原版置灰不可点**（Linux 复刻同样未实现） |
 | 3.3 | 判负后「其它雷逐个烧红」级联 | **仍存在** | 本轮只做了**踩到那一格**的 23 帧爆炸动画；「其它雷逐个烧红」的时序队列未做 |
 | 3.4 | 胜利扫描条 + 逐雷拆解 | **已解决**（本来就不是缺口） | 已实现，参数与原版一致 |
 | 3.5 | 首点 / 新开局的发牌动画 | **已解决** | `DealIn.ets`，1100ms 逐格弹起（commit `c2a7a5e`） |
 | 3.6 | 洪泛开格的涟漪淡出 | **已解决** | `Ripple.ets`，切比雪夫方环分层、每圈 30ms、单格 150ms（commit `2cadec5`） |
 | 3.7 | 统计 / 最佳成绩窗口 | **已解决**（4 个控件实测全部可用） | `StatsWindow.ets` 完整还原 `information.jpg`：左栏难度列表（可点选中）、中栏最佳时间（跟随切换）、右栏六项统计、底部关闭(C)/重置(R)、标题栏红叉（可点）。**实测通过**：左栏难度列表、标题栏红叉、关闭(C)、重置(R) **四个控件全部可用**，日志 `[Stats] 选中难度 1` / `[Stats] 点击关闭`。<br>注：补测一度把这 4 项全记为异常（B1），**2026-10-31 14:02 撤销** —— 是测试方坐标量偏 2 px（红叉命中区左边界 x=1699，点的是 1697），**不是应用缺陷**。见该报告异常 **C2** |
 | 3.8 | 「选项(F5)」独立设置窗口 | **故意差异** | 功能上没缺口（难度四项 + 标记(?) + 声音 + 自定义 + 统计 + 重置都摊平在菜单栏里了），只是没有 Win7 那个「一个窗口装完」的形态。**决定不做** |
-| 3.9 | 「重新开局」vs「重开同一盘」 | **已解决** | `restart()` 改成保留当前盘面参数（`GameController.ets:166-177`，commit `8925f0e`）。**注意**：保留的是**盘面参数**（行列+雷数），**雷位仍会重新随机**；「同盘雷位重开」这条本身仍与 Win7 有差异，但 §3.9 关心的是「不要换成难度预设」，已达成 |
+| 3.9 | 「重新开局」vs「重开同一盘」 | **已解决** | `restart()` 改成保留当前盘面参数（``GameController.restart()``，commit `8925f0e`）。**注意**：保留的是**盘面参数**（行列+雷数），**雷位仍会重新随机**；「同盘雷位重开」这条本身仍与 Win7 有差异，但 §3.9 关心的是「不要换成难度预设」，已达成 |
 | 3.10 | 键盘快捷键 | **仍存在** | 手机没有物理键盘，F2/X/A 只是画在菜单右边的提示文字。本轮没接 `onKeyEvent` |
 | 3.11 | 悬停高亮的混合模式 | **已解决** | 改成加法混合（commit `d21e2e9`） |
 | 3.12 | 状态条左右顺序 + `face.png` 误标 | **已解决** | 状态条回退为 `[时钟][计时]…[雷数][雷图标]`（commit `d21e2e9`）；`RECT_FACE` 与 `rawfile/face.png` 已移除。**裁决依据见 `docs\STATUS-STRIP-VERDICT.md` 结论 A** |
@@ -118,32 +121,62 @@ Help:  &View Help(F1) | &About Minesweeper
 | 3.14 | 计时器 999 上限 / 雷数负数 | **已实现**（本来就不是缺口） | 保持 |
 | 3.15 | 和弦的细节 | **仍存在（疑似）** | 和弦引爆（旗插错）那一路仍没有爆炸音效，`Sound.BOMB_START` 只在 `tap()` 里播。本轮没动 |
 | 3.16 | 问号格被翻开 / 插旗又取消 | **已实现**（本来就不是缺口） | 保持；音效差异仍**无证据**，不作缺口 |
-| 3.17-1 | 七段数码管显示雷数/计时 | **不是差距（已裁决）** | 见下面 §2.2 |
+| 3.17-1 | 七段数码管显示雷数/计时 | **已实现** | 见下面 §2.2 |
 | 3.17-2 | 鼠标移出按下格取消待开的格 | **故意差异** | 触屏为主，基本不适用 |
 | 3.17-3 | 点一下跳过爆炸级联 | **仍存在** | 本轮的爆炸动画仍是「播完才弹框」，不能中途跳过。可有可无 |
 
-### 2.2 关于「七段数码管」—— 此前是误判，已更正
+### 2.2 关于「七段数码管」—— 上午的判断错了两次，现在才对
 
-§3.17 第 1 条与 `docs\ASSET-AUDIT.md` §3 / §5 都曾写「素材里有现成的七段笔段，
-在 `otherSheet.png` 存储像素 `x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014`」。
+这一条在一天里被**判了两次**，两个方向都判错过，记下来免得再犯：
 
-**2026-10-31 实测复核：那块区域里没有七段笔段，也没有数字字形** ——
-它是**两片纯灰渐变的窗口边框片**（把该区域放大 3 倍看，只有两片灰渐变面板和一条竖直接缝）。
-此前把它当成七段数码管是**读图错误**。
+**第一次（上午）判「不是差距」**，理由两条：
+(a) 参考实现 `linux-minesweeper/src/ui/BoardWidget.cpp:552-559` 就是
+`setBold(true)` + `setPen(Qt::white)` + `drawText` 居中，注释写「原版配置里的 PanelLabelTextColor」，
+本项目画法与之逐项一致；
+(b) 素材里没有七段数码管 —— `otherSheet.png` 存储像素
+`x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014` 实测是**两片纯灰渐变的窗口边框片**
+（此前把它当成七段笔段是读图错误，`docs\ASSET-AUDIT.md` 里那两处已更正）。
 
-再加上参考实现本身就画粗体白字（`linux-minesweeper/src/ui/BoardWidget.cpp:552-559`：
-`setBold(true)` + `setPen(Qt::white)` + `drawText` 居中，注释写「原版配置里的 PanelLabelTextColor」），
-**本项目现在的画法与参考实现逐项一致，不是降级**。
+**第二条 (b) 是对的**（那块区域确实没有笔段素材）；**第一条 (a) 是错的** ——
+**参考实现怎么画，只能说明那一份复刻怎么画，不能证明原版长什么样。**
 
-→ **这一条从差距清单里去掉。** `docs\ASSET-AUDIT.md` 里对应的两处已更正。
+**第二次（19:00 后）判「确实是七段」**：**原版的两个计数器确实是七段数码管**，
+权威证据是**微软原图 `win7-assets\images\helpBoard.png`** 的状态条里「18」「40」
+**逐像素反推**（`docs\SEVEN-SEG-COUNTER.md` 有完整几何表、逐段坐标与置信度标注）。
+
+→ **结论改成：素材里没有笔段，不是「所以用粗体白字」，而是「所以要自己画」。**
+本轮已按 `SEVEN-SEG-COUNTER.md` 的几何**用 Canvas 画出来**（`common\SevenSeg.ets`，
+接线在 `GameController.drawStatusStrip()`，commit `a2b635f`）：
+
+| 项 | 值 |
+|---|---|
+| 面板 / 槽位 | 40×21 参考像素，**3 槽**，槽距 **13** |
+| 对齐 | **右对齐、不补零** |
+| 负号 | 独立的一段（中段 g），占紧挨数字左边那一槽 |
+| 显示区间 | [-99, 999]，超出钳到端点 |
+| 亮段颜色 | `#FAFAFC` |
+| 「1」的形状 | 带原版的**衬线小旗 + 底横**（第 8 段 `SEG_FLAG`，掩码 `0x0E`） |
+| 槽位起点 | 面板内 **x = 0**（不是 XP 的 x = 1）—— 面板精灵右缘有 2 像素斜角高光，数字贴上去会糊成一片 |
+
+> **模拟器上的实拍证据**：docs\verify\V4P90_strip_right.png —— 雷数「99」的
+> **七段字形清晰可见**（上横 / 上下竖 / 中横 / 下横逐段分明），与旁边银色尖刺地雷图标同框。
+
+**七段渲染器本身也过了对抗性复审**：Codex 裁定 **BLOCKER**（3 个 P1 + 1 个 P2），
+已按意见修完（数字格改成 12×16 避开面板边框、可达到的负数钳到区间端点、
+`Infinity` 防护、颜色统计改成逐连通域取核心像素）。复审原文：
+`docs\verify\sevenseg-review\review.txt`。
+
+→ **这一条现在是「已实现」，不再是差距。**
 
 ### 2.3 三条要特别记住的「不是 bug」
 
 | 现象 | 结论 | 依据 |
 |---|---|---|
 | 状态条上时钟 / 雷图标**点不动** | **正确行为**，原版就是装饰 | `docs\STATUS-STRIP-VERDICT.md` 结论 A；`BoardWidget.cpp:783-813` 只对棋盘格做命中测试 |
-| 计数器用**粗体白字**而不是七段数码管 | **不是降级**，与参考实现一致 | `BoardWidget.cpp:552-559` |
+| 状态条在**超宽盘面**上两端跑出屏幕 | **这是我们自己的 bug，已修**（原版没有这个问题，因为原版窗口从不超宽） | 30 列的局在窄屏上棋盘比屏宽 837~880 px，旧实现把时钟与雷数**钉在棋盘两端** → 两端都在屏外 440 px，默认视图里既看不到用了多久、也看不到还剩几颗雷。现改为**两端贴住屏幕边**。实测截图 `docs\verify\V4P90_strip_left.png` / `V4P90_strip_right.png` / `V4P90_strip_fixed.png` |
 | 首点**必开一片空地**（角落≥4/中心≥9） | **故意差异**，产品决定 | `docs\SPEC.md` §3.1；真 Win7 是「首点安全但可能开出一个数字」 |
+
+> **「计数器用粗体白字不是降级」那条已撤回**，理由见 §2.2。现在状态条上是七段数码管。
 
 ### 2.4 自定义对话框右边那块画布数字键盘 —— **已裁决：有意增强，不是差距**
 
@@ -199,7 +232,7 @@ Help:  &View Help(F1) | &About Minesweeper
 
 ---
 
-### 3.2 「颜色(F7)」—— 缺，但素材已就位，复用成本极小 ｜ **今日状态：仍存在**
+### 3.2 「颜色(C)」外观对话框 + 绿色主题 ｜ **今日状态：已实现**（commit `a2b635f`）
 
 **原版确切表现**
 - **[REV] `resource.h:36`**：`#define ID_MENUITEM_COLOR 529`。
@@ -209,11 +242,26 @@ Help:  &View Help(F1) | &About Minesweeper
   - **Select Board**：`thumbBlue.png`（Silver and Blue）/ `thumbGreen.png`（Green）
 - **[QT] `MainWindow.cpp:187-189`**：配色是一个持久化设置（`boardStyle` = blue|green），随时可切。
 
-**本项目现状**
-- 菜单里没有「颜色」项（`buildMenu()` 约 940~965 行）。
-- `Theme.ets` 没有任何 `BoardStyle` 概念；`disarmRect`（`Theme.ets` 91~94 行）硬编码蓝色基址。
-- `SpriteAtlas.ets` 只加载 `blueSheet.png`。
-- `rawfile/` 里**没有** `greenSheet.png`。
+**本项目现状（19:00 后）**
+
+- 菜单里**已有**「颜色(C)」项，位置在「最佳成绩」之后、「退出」之前（倒数第二项，F7）。
+- 新增 `common\Appearance.ets`（画布自绘的外观对话框）：420×340 参考像素，
+  两个分组框 + 四枚缩略图 + 选中蓝框 + 置灰的「随机选择游戏样式和棋盘」复选框 + 确定/取消。
+- **点「确定」才生效**（原版帮助原文 "Make your choices, and then click OK"），不是即时生效。
+- `Theme.ets` 加了 `BoardStyle`，`SpriteAtlas.ets` 按主题选图集，
+  `rawfile/` 里已有 `greenSheet.png` / `thumbBlue.png` / `thumbGreen.png` /
+  `thumbMines.png` / `thumbFlowers.png` / `flowerGardenSheet.png`。
+- **外观设置已写入 preferences**（原版行为；存 `GameStats.saveStyle()` / `GameStats.load()` 里的
+  `boardStyle` / `gameStyle` 两个键，代码层面已核对）。
+> **但「重启后还在」这一步没有实测记录** —— `docs\APPEARANCE-DIALOG.md` §7 的六步实测里没有这一步。
+- 花园玩法：花朵踩雷动画 + 面板花朵图标 + 三段 `flowerLose*.wav`
+  （按**剩余雷数** ≤10 / ≤40 / 更多分段播）。
+
+**中文名「颜色(C)」的来源**：lead 于 2026-10-31 直接问过用户，
+用户本人 Win7 的「游戏(G)」菜单里**确实有「颜色(C)」这一项** ——
+这是关于「原版到底有没有这一项、叫什么」的**唯一权威来源**。
+代码里这个字串是 `Appearance.ets` 的 `MENU_APPEARANCE_LABEL`，要改写法只改这一行。
+（`docs\APPEARANCE-DIALOG.md` §1.1 记的还是占位名「外观(C)」与「未确证」，那是定名前的版本。）
 
 **素材侧结论（本次盘点实测，见 `ASSET-AUDIT.md` §2.1）**
 - `blueSheet.png` 与 `greenSheet.png` **同为 2034×1206，逐区域同构**。
@@ -222,14 +270,13 @@ Help:  &View Help(F1) | &About Minesweeper
 - **唯一必须改的坐标**：胜利拆雷动画的基址 —— 蓝色在逻辑 `x=0`，绿色在逻辑 `x=364`（`otherSheet.png` 存储像素 `x 728..1455`）。
 - 现成的预览图：`thumbBlue.png` / `thumbGreen.png`（各 109×109，1:1 原图，6×6 方砖马赛克）。
 
-**工作量估计：小（< 30 行）**
-1. `rawfile/` 拷 `greenSheet.png`（+2.4 MB）与 `thumbBlue.png`/`thumbGreen.png`
-2. `Theme.ets` 加 `BoardStyle`，`disarmRect(frame, style)` 加 baseX（蓝 0 / 绿 364）
-3. `SpriteAtlas.ets` 按主题选图集
-4. 菜单加 `{ id: 'color', label: '颜色' }`，弹一个两图选择对话框
-合计约 15~25 行代码 + 2 个文件拷贝。
+**实测通过**（Mate X7 内屏，见 `docs\APPEARANCE-DIALOG.md` §7）：
+菜单项能开（`[Menu] 菜单动作 appearance`）→ 点「绿色」缩略图选中框移动 →
+点「确定」棋盘变绿（绿色像素 43 589 → 2 304 302）→ 点「取消」棋盘保持不变 →
+选「花园」后剩余雷数旁的图标变成白雏菊。
 
-**附注**：花园区（Flower Garden）**不建议做** —— 需要额外的 `flowerGardenSheet.png`、花朵踩雷动画（`otherSheet` 逻辑 `905+38*(f%3)`）、3 条 `flowerLose*.wav`，与「扫雷」定位不符。
+> **附注（这条已过时）**：早先这里写「花园区（Flower Garden）**不建议做**」——
+> **本轮做了**，见上。理由当时是「与『扫雷』定位不符」，但原版本来就有这个玩法。
 
 ---
 
@@ -245,7 +292,7 @@ Help:  &View Help(F1) | &About Minesweeper
 - **[JPG] `exploding.jpg`** 正是这个级联进行中的画面：雷已经全部露出，右半边散布着深色的爆炸精灵，且**越靠近爆炸源越密、越远越稀**。
 
 **本项目现状**
-- `MinesweeperEngine.ets:488-500` `lose()`：**一次性**把所有未插旗的雷 `revealed = true`，**没有逐个烧红的时序**。
+- ``MinesweeperEngine.lose()`` `lose()`：**一次性**把所有未插旗的雷 `revealed = true`，**没有逐个烧红的时序**。
 - `GameController.ets` 约 619~621 行：踩雷后 `Anim.startTrip(cell)` 播**那一格**的 23 帧爆炸动画（约 619 行）。
 - 音效三段时序**已做对**：`BOMB_START` → 575 ms → `BOMB_RUN` → 3949 ms → `BOMB_END`（`GameController.ets` 约 700~710 行 `playBombTail()`）。
 
@@ -264,7 +311,8 @@ Help:  &View Help(F1) | &About Minesweeper
 **本项目现状：已实现，且逐帧参数与原版一致**
 - `Anim.ets`：已把爆炸帧改成**原版 23 帧**（`EXPLODE_FRAMES=23`，步距 59），并新增胜利动画：`DISARM_FRAMES=38`、`DISARM_FRAME_MS=2000/38`、`SWEEP_MS=3000`、`SCAN_BAR=[0,912,275,62]`、`startWin()`、`beamFrame()`。
 - `GameController.ets`：`startWinSweep()`（约 645~664 行）按行算每颗雷的起始时刻并调 `Anim.startWin(cells, times)`；约 670~676 行用 `Anim.winElapsed / Anim.SWEEP_MS` 算扫描条进度。
-- **判定：不是缺口。**（若主线程要复核，注意 `Anim.disarmRect` 的基址仍写死蓝色 `52*(f%7)`，接绿色主题时要改成 `364 + 52*(f%7)`。）
+- **判定：不是缺口。**（绿色主题已实现 —— commit `a2b635f` 把胜利拆雷动画的基址
+  从写死蓝色改成按 `BoardStyle` 取：蓝 0 / 绿 364。）
 
 ---
 
@@ -331,7 +379,7 @@ Help:  &View Help(F1) | &About Minesweeper
 - **[Lmy] `Resource.h`**：`IDD_STATISTIC 142`；**[REV] `resource.h`**：`ID_DIALOG_WINNERS 700` + `ID_DIALOG_WINNERS_BTN_RESET_SCORES 707`（**有重置按钮**）。
 
 **本项目现状**
-- `GameStats.ets` 只存：`played`、`won`、`best_<难度>`、`bestDate_<难度>`（`GameStats.ets:19-28`）。
+- `GameStats.ets` 只存：`played`、`won`、`best_<难度>`、`bestDate_<难度>`（``GameStats` 的连胜/连败字段`）。
 - **没有**：连胜/连败/当前连赢的统计，**也没有「重置记录」按钮**。
 - `GameController.openInfoDialog('best')`（约 800 行附近）画的行是 `难度 + 最佳时间 + 日期` 三列 + `played/won/percent`。
 
@@ -383,7 +431,7 @@ Help:  &View Help(F1) | &About Minesweeper
 
 **本项目现状**
 - 菜单项上标了快捷键文字（`buildMenu()` 里 `accelerator: 'F2'` / `'X'` / `'A'`），但**那是画在菜单右边的提示文字**。
-- `Index.ets` 只接了 `this.controller.onMenuAction = (action: string) => {...}`（`Index.ets:51`）这一条回调；`grep` 全 `entry/src/main/ets` **没有找到任何 key/keyDown/keyEvent 处理**。
+- `Index.ets` 只接了 `this.controller.onMenuAction = (action: string) => {...}`（``Index.ets` 的 `onMenuAction` 回调`）这一条回调；`grep` 全 `entry/src/main/ets` **没有找到任何 key/keyDown/keyEvent 处理**。
 - → **F2 / X / A 的提示在界面上写着，但很可能按了没反应。**
 
 **判定**：**疑似**未接线（未找到键盘事件处理代码）。
@@ -399,7 +447,7 @@ Help:  &View Help(F1) | &About Minesweeper
 - 素材侧实测：`blueSheet.png` 的 `RECT_HILITE`（逻辑 `[440,560,18,18]` → 存储像素 `880..915, 1120..1155`）是一块 **100 % 不透明**的深青灰方块（平均 RGB ≈ 32,64,63）。
 
 **本项目现状**
-- `Theme.ets:44-45` 的注释已经写明「悬停高亮（**相加混合**）」。
+- ``Theme.RECT_HILITE`` 的注释已经写明「悬停高亮（**相加混合**）」。
 - 但 `GameController.drawBoard()`（约 445~447 行）用的是普通 `this.atlas.drawLogical(ctx, this.atlas.boardSheet, RECT_HILITE, x, y, u);` —— **普通 alpha 合成**，没有设置加法混合。
 - 后果：因为那块方块 100 % 不透明，普通合成会把整格砖块**整个涂成深青灰**；原版是**加法**，表现为砖块上浮起一层微亮的高光。
 
@@ -425,7 +473,7 @@ Help:  &View Help(F1) | &About Minesweeper
 - `GameController.drawStatusStrip()`（约 464~497 行）：
   - 左端：`face.png`（`RECT_FACE`）+ **雷数**面板
   - 右端：**计时**面板 + `RECT_PANEL_MINE`（地雷图标）
-- `Theme.ets:71-79` 把 `rawfile/face.png` 注释成「**笑脸按钮**（从真 Win7 素材 helpBoard.png 的帮助插图里抠出来的 14×14 原图）」，并写「真 Win7 的状态条顺序见 SPEC §5.5：**左侧 [笑脸][雷数面板] …… [计时面板][雷图标]**」。
+- ``Theme.tripRect()`` 把 `rawfile/face.png` 注释成「**笑脸按钮**（从真 Win7 素材 helpBoard.png 的帮助插图里抠出来的 14×14 原图）」，并写「真 Win7 的状态条顺序见 SPEC §5.5：**左侧 [笑脸][雷数面板] …… [计时面板][雷图标]**」。
 - **但那个抠出来的图是时钟，不是笑脸**（见 `docs/audit_helpboard_lefticon.png`）。
 - 净效果：项目画出的是 `[时钟][雷数LED] ····· [计时LED][地雷图标]` —— **两个 LED 的左右位置与真 Win7 相反**。
 
@@ -453,7 +501,7 @@ Help:  &View Help(F1) | &About Minesweeper
 - **[QT] `MainWindow.cpp:262`**：自定义局的结束对话框里，`played/won/percent` 也用**空统计**（`preset ? Stats::load(...) : Stats::Data()`）。
 
 **本项目现状**
-- `GameStats.ets:100-102` `levels()` 只返回 `['初级','中级','高级']` → 最好成绩不记自定义局，**这一半是对的**。
+- ``GameStats.saveStyle()`` `levels()` 只返回 `['初级','中级','高级']` → 最好成绩不记自定义局，**这一半是对的**。
 - **但**：`GameController.buildDialog()`（约 752~756 行）无条件调
   ```ts
   const cfg = GameController.configOf(this.difficulty);
@@ -462,7 +510,7 @@ Help:  &View Help(F1) | &About Minesweeper
   ```
   而自定义局走 `startNewGame(s.height, s.width, s.mines)`（约 885 行）**不会改 `this.difficulty`** —— `this.difficulty` 仍是上一次选的那个难度。
   → **自定义局的成绩被记到了「初级/中级/高级」的名下**，并且会污染该难度的最佳纪录。
-- 另外 `GameStats.record()` 里的 `played += 1` / `won += 1` 是**无条件累加**的（`GameStats.ets:56-63`），所以自定义局的**总局数/胜局数/胜率也被算进去了**，与 Win7「自定义局完全不进统计」不一致。
+- 另外 `GameStats.record()` 里的 `played += 1` / `won += 1` 是**无条件累加**的（``GameStats.load()``），所以自定义局的**总局数/胜局数/胜率也被算进去了**，与 Win7「自定义局完全不进统计」不一致。
 
 **判定**：**这是 bug**（不是缺功能）。
 **工作量估计：小（< 30 行）** —— 给 `startNewGame` / `buildDialog` 加一个 `isCustom` 标志；自定义时跳过 `GameStats.record()`，并且结束对话框里的 `played/won/percent` 用空统计。
@@ -502,28 +550,27 @@ Help:  &View Help(F1) | &About Minesweeper
 
 ### 3.17 其它视觉细节 —— 三条 ｜ **今日状态：见 §2.1 的对应行**
 
-1. **七段数码管显示雷数/计时** —— **今日状态：不是差距，已裁决不做**
-   ~~真 Win7 的两个 LED 是**七段数码管**（**[HELP]** 里能看到 "18" / "-40" 的段状笔画，负号也是一段）。~~
-   ~~素材里**有现成的七段笔段**：`otherSheet.png` 存储像素 `x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014`（两组各 3 个字位）。~~
+1. **七段数码管显示雷数/计时** —— **今日状态：已实现**（commit `a2b635f`）
 
-   **2026-10-31 更正 —— 这条此前写错了两处：**
+   **真 Win7 的两个 LED 是七段数码管** —— 这条**原判是对的**，今天上午被误改成了「不是差距」，
+   现在改回来：权威证据是**微软原图 `helpBoard.png`** 的状态条里「18」「40」的**逐像素反推**
+   （`docs\SEVEN-SEG-COUNTER.md` 有完整几何表、逐段坐标、置信度与出处）。
 
-   - **参考实现本身就是粗体白字。** `linux-minesweeper/src/ui/BoardWidget.cpp:552-559`：
-     ```cpp
-     QFont font = p.font();
-     font.setBold(true);
-     font.setPixelSize(qMax(9, int(12 * f)));
-     p.setFont(font);
-     p.setPen(Qt::white);   // PanelLabelTextColor in the original's config
-     p.drawText(timeBox, Qt::AlignCenter, QString::number(m_seconds));
-     ```
-     本项目用 `ctx.font = bold ${12*u}px sans-serif` 画白字，**与之逐项一致，不是降级**。
-   - **素材里没有七段笔段。** 2026-10-31 把 `otherSheet.png` 存储像素
-     `x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014` 放大 3 倍实测，
-     那是**两片纯灰渐变的窗口边框片**（一条竖直接缝），**既没有数字字形也没有笔段**。
-     此前把它当成「七段笔段」是读图错误。`docs\ASSET-AUDIT.md` §3 / §5 已同步更正。
+   **素材里没有现成的七段笔段** —— 这条**仍然成立**：
+   `otherSheet.png` 存储像素 `x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014`
+   放大 3 倍实测是**两片纯灰渐变的窗口边框片**（一条竖直接缝），**既没有数字字形也没有笔段**。
+   此前把它当成「七段笔段」是读图错误，`docs\ASSET-AUDIT.md` §3 / §5 已同步更正。
 
-   → **本条从差距清单里去掉**，不做。
+   **上午那个「不是降级」的论证是错的**：拿参考实现
+   `linux-minesweeper/src/ui/BoardWidget.cpp:552-559`（`setBold(true)` + `setPen(Qt::white)` +
+   `drawText` 居中）当依据，只能证明**那一份复刻**怎么画，不能证明**原版**长什么样。
+
+   → **所以本轮的做法是「自己画」**：按 `SEVEN-SEG-COUNTER.md` 的几何用 Canvas 画段
+   （`common\SevenSeg.ets`，接线在 `GameController.drawStatusStrip()`）。
+   3 槽 / 槽距 13 / 右对齐不补零 / 负号独立一段 / 显示区间 [-99, 999] /
+   亮段 `#FAFAFC` / 「1」带衬线小旗 + 底横（`SEG_FLAG`）/ 槽位起点取面板内 x=0。
+
+   **本条从差距清单里去掉（已实现）。**
 
 2. **鼠标移出按下格会取消待开的格**
    **[QT] `BoardWidget.cpp:823`**：「Sliding off the pressed tile cancels the pending reveal (Win7 lets you ...)」。
@@ -545,7 +592,7 @@ Help:  &View Help(F1) | &About Minesweeper
 | 1 | `face.png` 是时钟不是笑脸（§3.12）。建议改代码并把文件/常量改名 | **已裁决并落地**：状态条回退为 `[时钟][计时]…[雷数][雷图标]`；`RECT_FACE` 与 `rawfile/face.png` 已移除。裁决依据见 `docs\STATUS-STRIP-VERDICT.md` 结论 A |
 | 2 | 首点音效归属疑似对调（§3.5）：原版 `firstPaint.wav` 配的是**发牌动画**，项目把它挂在首点开格上，发牌只用 `gameStart.wav` | **仍疑似，未动**。发牌动画（`DealIn.ets`）本轮已实现，但**首点音效归属没有重新核对**。另：`firstPaint` 是 11 个已落地音效之外的 4 个之一（`SPEC.md` §8-4），尚未接线 |
 | 3 | 和弦引爆没有爆炸音效（§3.15），标记疑似 | **仍疑似，未动** |
-| 4 | 「再玩一局」是否要同盘重来（§3.9），标记疑似 | **部分解决**：`restart()` 现在保留**盘面参数**（行列 + 雷数），不再换成难度预设（`GameController.ets:166-177`）。但**雷位仍会重新随机**，与 Win7 的「同盘雷位重开」仍有差异 —— 这一半仍留着 |
+| 4 | 「再玩一局」是否要同盘重来（§3.9），标记疑似 | **部分解决**：`restart()` 现在保留**盘面参数**（行列 + 雷数），不再换成难度预设（``GameController.restart()``）。但**雷位仍会重新随机**，与 Win7 的「同盘雷位重开」仍有差异 —— 这一半仍留着 |
 | 5 | 键盘快捷键疑似未接线（§3.10），标记疑似 | **仍存在**。手机无物理键盘，F2 / X / A 只是画在菜单右边的提示文字 |
 | 6 | [HELP] 与 [JPG] 的证据一致（都是「计时+时钟在左、雷数+雷在右」），所以 §3.12 的判定可以放心改 | **已裁决并落地**，见第 1 条 |
 
@@ -562,7 +609,7 @@ Help:  &View Help(F1) | &About Minesweeper
 （推演：外屏 1323×1000 上高级局 n=1 本来完全装得下 → 抬到 n=2 后 `frameY = -104`，
 菜单栏压住 176px 棋盘）。
 
-**L1 已修（commit `9a70112`）**：`GameController.ets:275-284` 抬档加前提
+**L1 已修（commit `9a70112`）**：``GameController.layout()`` 抬档加前提
 「抬完纵向仍装得下或横向本来就装不下」+ `:322-326` 纵向溢出改顶对齐。
 **但修正后的行为尚未在设备上复测。**
 **L2~L8 另 7 条 MEDIUM/LOW 一条未修**，完整清单见该报告 §1。
@@ -577,6 +624,11 @@ Help:  &View Help(F1) | &About Minesweeper
 **（c）仍需独占设备重跑的三项**：longClick 插旗、doubleClick 和弦、「帮助(H)」对话框 ——
 收尾补测时**设备被并发操作**（lead 也在同一台 5555 上点击），
 屏幕被模态对话框覆盖，**无法定性，不是应用缺陷**（`docs\CLICK-MATRIX-X7.md` 异常 C1 / C4）。
+
+**（d）「计数器用粗体白字不是降级」这条裁决已撤回**：理由与新结论见 §2.2。
+**（e）外观对话框的中文名**：最终取「**颜色(C)**」，依据是 lead 直接问用户得到的
+**用户本人 Win7 上的真名**；`docs\APPEARANCE-DIALOG.md` §1.1 里「外观(C) / 未确证」
+是定名前的版本，以本节与 `Appearance.ets` 的 `MENU_APPEARANCE_LABEL` 为准。
 
 > 另注：`docs\LAYOUT-MATRIX.md` v2.0 的数据快照是 13:35，本规则 13:39 才加，
 > v2.0 表里「窄屏 + 高级 16×30 = n=1（格边 36）」那几行**已过期**（现应为 n=2 / 格边 72）。

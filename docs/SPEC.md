@@ -2,6 +2,11 @@
 
 版本 v0.2 · 2026-10-30 · 状态：UI 层已能在 Pura X Max 真机跑通（初级/中级/高级三盘、开格、插旗、计时、胜负结算）；手势缩放与折叠适配未做
 
+> **引用约定**：本文提到代码位置时一律写成**函数名 / 常量名**（如 `GameController.layout()`、
+> `Theme.MIN_CELL_PX`），**不写行号** —— 应用仓在 2026-10-31 当天一直在被并行修改
+> （`GameController.ets` 从 37 879 B 涨到 60 000 B 以上），行号会漂移，函数名不会。
+> 核对时请按函数名找。
+
 ---
 
 ## 0. 目标与边界
@@ -234,20 +239,20 @@ frame = r * 30 + c
 30 列的局在窄屏上宽度是**几何必然**装不下。装得下的那一档格边只有 36 设备像素
 （≈10~13 vp），手指根本点不准。**这时宁可让棋盘横向超出画布（靠平移看），也不要给一个点不中的棋盘。**
 
-规则（`GameController.ets:275-284`）：
+规则（``GameController.layout()``）：
 
 ```
 若 36 × 2 × fit < MIN_CELL_PX 且 fit < MAX_SCALE_INDEX：
     抬到 fit+1 的那一档，若「抬完纵向仍装得下」或「横向本来就装不下」，才真的 fit = fit + 1
 ```
 
-常量 `MIN_CELL_PX = 48`（`Theme.ets:149`，48 px 是经典的最小点按目标尺寸）。
+常量 `MIN_CELL_PX = 48`（``Theme.MIN_CELL_PX``，48 px 是经典的最小点按目标尺寸）。
 
 **「不能无条件抬」**：抬档会让棋盘同时纵向溢出，而纵向若用**居中**，
 棋盘顶部会被推到菜单栏底下 —— 那几行既看不见也点不着（菜单栏的点击归菜单）。
 所以抬档的前提是「抬完纵向仍然装得下」，或者「横向本来就装不下」
 （反正要平移，纵向溢出无所谓，只需**顶对齐**）。
-纵向对齐因此也分两种（`GameController.ets:322-326`）：
+纵向对齐因此也分两种（``GameController.applyGeometry()``）：
 
 ```
 frameH > 可用高度  →  顶对齐（frameY = 菜单栏下沿），把溢出全放到下面
@@ -263,13 +268,13 @@ frameH > 可用高度  →  顶对齐（frameY = 菜单栏下沿），把溢出�
 底部按钮跑到屏幕外点不到。实测例：900×400 画布 @密度 2.75，
 396×340 的胜利框 ×2 = 792×680，按钮全在屏外。
 
-现在宽度与高度都参与封顶（`GameController.ets:1125-1132`）：
+现在宽度与高度都参与封顶（``GameController.computeDialogScale()``）：
 
 ```
 s = max(0.5, min(2, density, (canvasW - 32) / refWidth, (canvasH - 32) / refHeight))
 ```
 
-并且对话框比画布还高时**顶对齐**（`GameController.ets:1144-1148`），不再居中
+并且对话框比画布还高时**顶对齐**（``GameController.dialogLayout()``），不再居中
 （居中会让上下各露一半，底部按钮够不着）—— 这是 `LEAD-CHANGE-AUDIT` 的 **L4**。
 
 依据是用户原话：「**外屏不接受降级，我希望可以拖动放大**」。
@@ -282,7 +287,7 @@ s = max(0.5, min(2, density, (canvasW - 32) / refWidth, (canvasH - 32) / refHeig
 
 `v(px)` 原来直接 `px * pxScale`，落在**分数设备像素**上的矩形与文字会被抗锯齿糊掉
 （对话框的缩放是小数，按钮、文字全在半像素上）。像素级复刻要求边缘锐利，所以改成**先取整再换算**
-（`GameController.ets:232-234`）：
+（``GameController.v()``）：
 
 ```
 v(px) = Math.round(px) * pxScale
@@ -291,13 +296,13 @@ v(px) = Math.round(px) * pxScale
 #### 对话框缩放统一（2026-10-31）
 
 结束对话框、统计窗口、自定义难度框三者的缩放统一走 `GameController.computeDialogScale(refWidth, refHeight)`
-（`GameController.ets:1120`），按**物理密度**算、保证放得下、**封顶 2 倍**：
+（``GameController.computeDialogScale()``），按**物理密度**算、保证放得下、**封顶 2 倍**：
 
 ```
 s = max(1, min(2, density, (canvasW - 32) / refWidth))
 ```
 
-调用点：`GameController.ets:1133`（结束框）、`:1180`（统计窗）、`:1281`（自定义框）。
+调用点：``GameController.computeDialogScale()``（结束框）、`:1180`（统计窗）、`:1281`（自定义框）。
 自定义框此前一直用**陈旧初值 1**，在 Mate X7 内屏上只有约 260×190 设备像素（正文约 2.7 vp，
 与同屏菜单栏的 14 vp 差 5 倍），数字键盘每个键只有约 32×32 设备像素 —— 见 `docs\CLICK-MATRIX-X7.md` 异常 A1。
 
@@ -330,34 +335,62 @@ s = max(1, min(2, density, (canvasW - 32) / refWidth))
 
 - 离沿距离随棋盘宽度缩放：`margin = max(0, (cols - 12.5) × 18 / 7)`（30 列 → 45，16 列 → 9，9 列 → 0）
 - 竖直方向：状态条在棋盘下沿以下 32 单位高的带子里（图标高 25 → 顶边 +3，面板高 21 → 顶边 +5）
-- 面板里的数字是**白色粗体**（不是七段数码管），字号约 12 单位高，居中
+- 面板里的数字是**七段数码管**（不是字体），几何见下面「状态条计数器用七段数码管」
 - 时钟图标取自 `otherSheet.png` 的 (905,425,25,25)（即 Frame.bmp 左上角那组「时钟+计数器+雷图标」中的时钟）
 - **真 Win7 的状态条没有笑脸按钮**；XP 才有那个会变哭脸/墨镜脸的笑脸。
 
-#### 计数器用粗体白字**不是降级**（2026-10-31 裁决）
+#### 状态条计数器用**七段数码管**（2026-10-31 实现，之前「粗体白字」的结论已撤回）
 
-此前有一处误判：「真 Win7 的两个 LED 是七段数码管，我们用 sans-serif 粗体字模拟，形制不同」。
-**这条不成立**，理由有两条：
+**先撤回一条旧结论。** 2026-10-31 上午本文件写的是「计数器用粗体白字**不是降级**」，
+理由是「参考实现 `BoardWidget.cpp:552-559` 就是粗体 + 白字 + 居中」。
+**这条撤回。** 参考实现怎么画，只能说明**那一份复刻**怎么画，
+不能证明**原版**长什么样。**原版的两个计数器确实是七段数码管**，权威证据是
+微软原图 `win7-assets\images\helpBoard.png` 的状态条里「18」「40」的**逐像素反推**。
 
-1. **参考实现就是这么画的**。linux-minesweeper 的 `src/ui/BoardWidget.cpp:552-559`：
+**几何与接线**全部记在 `docs\SEVEN-SEG-COUNTER.md`（含逐段坐标表、置信度与出处），
+渲染器在 `common\SevenSeg.ets`，接线在 `GameController.drawStatusStrip()`。
+要点：
 
-   ```cpp
-   QFont font = p.font();
-   font.setBold(true);
-   font.setPixelSize(qMax(9, int(12 * f)));
-   p.setFont(font);
-   p.setPen(Qt::white);   // PanelLabelTextColor in the original's config
-   p.drawText(timeBox, Qt::AlignCenter, QString::number(m_seconds));
-   p.drawText(mineBox, Qt::AlignCenter, QString::number(m_board->minesRemaining()));
-   ```
+| 项 | 值 |
+|---|---|
+| 面板 | 40 × 21 参考像素（`Theme.RECT_COUNTER`） |
+| 槽位 | **3 槽**，槽距 **13** 参考像素 |
+| 对齐 | **右对齐、不补零**（2 位数占右两槽，左槽空着） |
+| 负号 | 独立的一段（中段 g），占紧挨数字左边那一槽 |
+| 显示区间 | [-99, 999]，超出钳到端点 |
+| 亮段颜色 | `#FAFAFC` |
+| 「1」的形状 | 带原版的**衬线小旗 + 底横**（第 8 段 `SEG_FLAG`，掩码 `0x0E`） |
+| 槽位起点 | 面板内 **x = 0**（不是 XP 的 x = 1）—— 面板精灵右缘有 2 像素斜角高光，数字贴上去会糊成一片 |
 
-   即**粗体 + 白字 + 居中**，注释还直接写「原版配置里的 PanelLabelTextColor」。
-   本项目的画法与之逐项一致，**不是降级**。
+> **模拟器上的实拍证据**：docs\verify\V4P90_strip_right.png —— 雷数「99」的
+> **七段字形清晰可见**（上横 / 上下竖 / 中横 / 下横逐段分明），与旁边银色尖刺地雷图标同框。
 
-2. **素材里没有七段数码管**。`otherSheet.png` 存储像素 `x 1..252, y 1953..2014` 与
-   `x 255..450, y 1953..2014` 这两块区域，2026-10-31 实测是**两片纯灰渐变的窗口边框片**，
-   里面既没有数字字形也没有笔段（此前把它误判成「七段笔段」是读图错误）。
-   `docs\ASSET-AUDIT.md` 里那条已更正。
+**素材里没有七段笔段**这条仍然成立，但**结论要改**：不是「所以用粗体白字」，
+而是「所以要**自己画**」。`otherSheet.png` 存储像素 `x 1..252, y 1953..2014` 与
+`x 255..450, y 1953..2014` 实测是**两片纯灰渐变的窗口边框片**（此前把它误判成「七段笔段」
+是读图错误，`docs\ASSET-AUDIT.md` 已更正）—— 原版的那两个字形**不在图集里**，
+所以我们按 `SEVEN-SEG-COUNTER.md` 的几何**用 Canvas 画出来**。
+
+> **七段渲染器本身也过了对抗性复审**：Codex 裁定 **BLOCKER**（3 个 P1 + 1 个 P2），
+> 已按意见修完（数字格改成 12×16 避开面板边框、可达到的负数钳到区间端点、
+> `Infinity` 防护、颜色统计改成逐连通域取核心像素）。复审原文在
+> `docs\verify\sevenseg-review\review.txt`。
+
+#### 状态条在超宽盘面上的可见性（2026-10-31 修，这是**原版没有**的真 bug）
+
+30 列的局在窄屏上，棋盘比屏幕宽 **837~880 px**。旧实现把时钟和雷数计数器
+**钉在棋盘两端** → 两端都落在屏外 440 px，默认视图里**既看不到用了多久，
+也看不到还剩几颗雷**（数字是居中画在面板里的，露出来的那条面板边并不含数字）。
+
+现在改成**两端贴住屏幕边**（`GameController.drawStatusStrip()`）：
+
+- 左端：`clockX = max(棋盘左沿 + margin, margin)`
+- 右端：`iconX = min(棋盘右沿 - margin - 图标宽, 画布宽 - margin - 图标宽)`
+
+无论棋盘多宽，**两个计数器始终同时可见**。
+实测（Mate 90 Pro 高级局）：时钟 + 计时贴左沿，雷数「99」+ 雷图标贴右沿
+（截图 `docs\verify\V4P90_strip_left.png` / `V4P90_strip_right.png` /
+`V4P90_strip_fixed.png`）。
 
 #### 状态条上那两个圆钮**点不动是正确的，不是 bug**（2026-10-31 裁决）
 
@@ -461,6 +494,65 @@ Select-String -Path 'D:\software\DevEco Studio\sdk\default\openharmony\ets\build
 > 「像素级复刻的模态对话框」这个前提。**该键盘不是原版元素，不得据此推断原版版式。**
 > 详见 `docs\WIN7-FEATURE-GAP.md` §2.4。
 
+### 5.8c 「颜色(C)」外观对话框 —— 游戏样式 + 棋盘样式（2026-10-31 实现）
+
+原版 Win7 扫雷的「游戏」菜单里有一项 **"Change Appearance"（F7）**，
+弹出一个对话框让玩家选**游戏样式**（扫雷 / 花园）与**棋盘样式**（银蓝 / 绿色）。
+实现记录、版式常量、配色出处、实测步骤全部在 `docs\APPEARANCE-DIALOG.md`。
+
+**菜单项的位置**：「最佳成绩」之后、「退出」之前（**倒数第二项**，F7）。
+
+**中文名「颜色(C)」的来源（这是关于「原版到底有没有这一项、叫什么」的唯一权威来源）**：
+lead 于 2026-10-31 直接问过用户，用户本人 Win7 的「游戏(G)」菜单里**确实有「颜色(C)」这一项**。
+代码里这个字串是 `Appearance.ets` 的 `MENU_APPEARANCE_LABEL`，**要改回别的写法只改这一行**。
+（`docs\APPEARANCE-DIALOG.md` §1.1 记的还是占位名「外观(C)」与「未确证」，那是定名前的版本。）
+
+**对话框**：420 × 340 参考像素，Aero 玻璃标题栏，标题「颜色」，右上角红 X。
+
+| 区域 | 内容 |
+|---|---|
+| 第 1 组「游戏样式」 | 两枚 64×64 缩略图：**扫雷**（`thumbMines.png`）/ **花园**（`thumbFlowers.png`） |
+| 第 2 组「棋盘」 | 两枚 76×76 缩略图：**银蓝**（`thumbBlue.png`）/ **绿色**（`thumbGreen.png`） |
+| 复选框 | 「随机选择游戏样式和棋盘」，**按原版置灰不可点** |
+| 按钮 | 「确定(O)」/「取消(C)」 |
+
+**要点「确定」才生效**（原版帮助原文 "Make your choices, and then click OK"），
+不是即时生效。点缩略图只改**待定值**，点「确定」才真正应用到图集。
+
+**资源**：`greenSheet.png`（绿色棋盘）、`flowerGardenSheet.png`（花园玩法）、
+三段判负音效 `flowerLoseShort/Medium/Long.wav`（按**剩余雷数** ≤10 / ≤40 / 更多分段播）。
+
+**外观设置已写入 preferences**（原版行为；存 `GameStats.saveStyle()` / `GameStats.load()` 里的
+`boardStyle` / `gameStyle` 两个键，代码层面已核对）。
+**但「重启后还在」这一步没有实测记录** —— `docs\APPEARANCE-DIALOG.md` §7 的六步实测里没有这一步。
+
+> **对话框的视觉是「按 Win7 观感设计」的，不是照着 Win7 原图抠的** ——
+> 参考素材里**没有** Win7 外观对话框的原图。配色取自 Linux 复刻的 Win7 取色常量。
+
+### 5.8d 对话框的逐像素比对（2026-10-31）
+
+用 `tools\pixel_diff.py` 把真机截图与原版 `loss.jpg` / `about.jpg` **逐像素**比对
+（方法与全部差异判定见 `docs\DIALOG-PIXEL-DIFF.md`）：
+
+| 对话框 | 尺度 | 客户区一致率 | 整框一致率 |
+|---|---|---|---|
+| 游戏失败框 | **k = 2（整数倍）** | **92.50%** | 81.36% |
+| 关于扫雷框 | **k = 2（整数倍）** | **86.27%** | 68.28% |
+
+**「像素级」这件事成立**：两个框在真机上的缩放都是整数 2 倍，每个参考像素正好占
+2 个设备像素，没有半像素、没有插值。
+
+本轮据此修掉四处「我们画错了」：
+
+1. **按钮描边**：从 `Math.max(1, sVp)`（= 1 vp = 3.5 设备像素，非整数抗锯齿，
+   且**跨在按钮边外**）改成**内侧平涂 1 参考像素**。这一条占失败框客户区差异的 **42%**。
+2. **标题栏分隔线与客户区整体下移 1 参考像素**（原版分隔线在 ref y=29、客户区从 30 起）。
+3. **关于框图标**：从状态条的「银色圆钮装地雷」换成**黑白尖刺地雷**（`minesweeperSheet` 里 x≈58..92）。
+4. **关于框「确定」按钮描边**：`#4f7c93` → `#d7e0e9`（原版浅蓝）。
+
+剩下的差异属于**参考图与实现本来就不同**，不用改：标题栏 Aero 渐变、系统窗口阴影、
+字体光栅化（Windows GDI 点阵 vs ArkUI 无衬线）、运行期数据、有意改动的文案。
+
 ### 5.9 三段动画（发牌 / 洪泛涟漪 / 终局）
 
 三段的顺序与节奏全部有出处，注释写在 `DealIn.ets` / `Ripple.ets` / `Anim.ets` 的文件头。
@@ -562,12 +654,12 @@ Select-String -Path 'D:\software\DevEco Studio\sdk\default\openharmony\ets\build
 | 1 | Win7 到底有没有笑脸按钮？ | **已定论：没有**。2026-10-31 用微软自带的 `win7-assets\images\helpBoard.png`（Win7 帮助窗口里的游戏插图）放大 14 倍逐像素核对：状态条左端那个圆钮**盘面上有指针，是时钟**；左边 LED 的「18」只能是计时，右边 LED 的「-40」只能是雷数（雷数允许为负，这个负号是关键证据）。**笑脸按钮是 XP 才有的**（会变哭脸/墨镜脸），Win7 换成了时钟。所以真 Win7 的状态条 = `[时钟][计时面板]…[雷数面板][雷图标]`（§5.5）。此前「有笑脸」的判断是把小图里的时钟误认成了脸，已作废 | 已按真 Win7 实现：时钟图标取 `otherSheet` 的 (905,425,25,25)，状态条顺序与 §5.5 一致 |
 | 2 | 自定义雷数上限是全局 668 还是随尺寸变？ | **已裁决（2026-10-31）**：**输入上限取全局 668**，按尺寸收的是最终雷数 | 依据两份独立参考：Lmy0217 `Minesweeper.cpp` 自定义面板写「10–668 雷」；linux-minesweeper `OptionsDialog.cpp:88` 是 `m_mines->setRange(10, 668)`，且 `OptionsDialog.cpp:160` 的注释写明「Same clamp as Windows 7: the field can never be all mines」，即确定时按 `(rows-1)*(cols-1)` 收。<br>**实现**：面板 `maxOfField(s,2)` 收 668（原按尺寸收，9×9 只有 65，与本决定冲突）；确定时 `clampSpec` 夹到 `min(668,(h-1)*(w-1)+1)`，引擎 `reset()` 再夹一次，用户看到的数字与实际布雷数一致。<br>引擎公式保留 `+1`：24×30 恰好是 668（与两份参考的「668 雷」上限吻合），且保证剩余空格够放首点 3×3 安全区 |
 | 3 | 首点 3×3 在边界的确切行为 | 本项目按行列裁剪（更合理）；Lmy0217 缺边界判断会误伤远处格子 | 真机验证：首点 (0,8) 时远处格子能否布雷 |
-| 4 | 音效 15 个是否一一对应原版 | **已按事件对表落地 11 个**：`gameStart` / `gameWin` / `gameLose` / `tileSingle` / `tileMultiple` / `invalidMove` / `dbButtonClickFlag` / `mineBombStart` / `mineBombRun` / `mineBombEnd` / `zeroDevelop`（备用）。素材来自 `win7-assets\audio`，已复制进 `rawfile`；播放走 `resourceManager.getRawFd()` → `AVPlayer.fdSrc`。**2026-10-31 13:22 修过一个真 bug**：`fdSrc` 是异步状态机，设完立刻 `prepare()` 会抢跑并抛 `The current state is idle. Prepare operation only supports stopped/initialized`，**结果所有音效都不响**；改成等 `stateChange` 收到 `initialized` 再 `prepare()`（`SoundPlayer.ets:102-119`） | 已对表的 11 个按事件接线；剩余 4 个（`firstPaint`、`flowerLoseLong` / `flowerLoseMedium` / `flowerLoseShort`）暂不接。**音效是否真的出声，本轮没有实测** |
+| 4 | 音效 15 个是否一一对应原版 | **已按事件对表落地 11 个**：`gameStart` / `gameWin` / `gameLose` / `tileSingle` / `tileMultiple` / `invalidMove` / `dbButtonClickFlag` / `mineBombStart` / `mineBombRun` / `mineBombEnd` / `zeroDevelop`（备用）。素材来自 `win7-assets\audio`，已复制进 `rawfile`；播放走 `resourceManager.getRawFd()` → `AVPlayer.fdSrc`。**2026-10-31 13:22 修过一个真 bug**：`fdSrc` 是异步状态机，设完立刻 `prepare()` 会抢跑并抛 `The current state is idle. Prepare operation only supports stopped/initialized`，**结果所有音效都不响**；改成等 `stateChange` 收到 `initialized` 再 `prepare()`（``SoundPlayer.ensurePlayer()` 的 `stateChange` 回调`） | 已对表的 11 个按事件接线；剩余 4 个（`firstPaint`、`flowerLoseLong` / `flowerLoseMedium` / `flowerLoseShort`）暂不接。**音效是否真的出声，本轮没有实测** |
 | 5 | `Frame.bmp` 棋盘底板要不要用 | **已定：不用作九宫格底板**。实测它是上下颠倒的 BMP，左上角还藏着状态条素材图（见 §5.6）；原版只画 8 块边框不画中心区 | 手机版自绘地板 + 凹槽线，原版玻璃边框不要 |
 | 6 | 胜利扫描条是否保留 | **已定：保留并已实现**（3 秒扫描条 + 38 帧拆雷光束，参数与原版动画 XML 一致；扫完才弹胜利对话框） | 已实现 |
 | 7 | 底部两个圆按钮是否可点？ | **已裁决（2026-10-31）：不做 —— 「点不动」是正确行为，不是 bug**。依据 `docs\STATUS-STRIP-VERDICT.md` 结论 A，三条独立证据：(1) 素材层，Win7 精灵表里与状态条有关的**只有两个 25×25 面板图标** `kClock{905,425,25,25}` 与 `kPanelMine{0,0,25,25}`（`linux-minesweeper/src/ui/Theme.h:113` / `:109`），**没有任何笑脸条目**，全套素材的黄色圆盘扫描为 0；(2) 版式层，微软自己的 `helpBoard.png` 插图底部是 `[钟面圆钮][LED "18"] ····· [LED "-40"][地雷圆钮]`，且 `BoardWidget.cpp:522-525` 明说布局照原版 MINESWEEPER.xml CustomLayout；(3) 交互层，Win7 保真复刻的 `BoardWidget.cpp:783-813` **只对棋盘格做命中测试**，棋盘外的点击（含状态条）一律忽略 —— **原版点这两个圆钮本来就没反应** | **不实现**。「点时钟重开」若要做，属于自加的易用性功能，不是复刻，应单独标注为增强功能，不写进「与 Win7 一致」的清单。项目已有 F2 与菜单「新建」两条正路 |
-| 8 | 30 列的局在窄屏上装不下怎么办？ | **已裁决（2026-10-31）：宁可超宽也不降级**。装得下但格边 < 最小可点格边 **48 设备像素**时，缩放档**往上抬一档**，让棋盘横向超出画布、靠单指平移看（`GameController.ets:275-284`，常量 `MIN_CELL_PX = 48` 在 `Theme.ets:149`）。依据 `docs\LAYOUT-MATRIX.md` v2.0 的 **P0-1**，以及用户原话「外屏不接受降级，我希望可以拖动放大」。<br>**已在 13:41 build 上复测**：Mate 90 Pro 高级 30 列从 n=1（格边 36）抬到 **n=2（格边 72）**，棋盘宽 1080→2160 px，在 1280 宽画布上横向出屏 440 px（预期内，可平移），纵向居中正常（上下差 16 px）—— `docs\CLICK-MATRIX-90P.md` R3.1。<br>**L1 [HIGH] 已修（commit 9a70112）**：`docs\LEAD-CHANGE-AUDIT.md` 的 L1 指出抬档只看「格子太小」、不看「抬完会不会反而装不下」，而纵向用**居中**而不是顶对齐 → 内容高于视口时**上半截永久藏在菜单栏下**。现已改成「**只有抬完纵向仍装得下、或横向本来就装不下才抬**」（`GameController.ets:275-284`）+「**纵向溢出改顶对齐**」（`GameController.ets:322-326`）。**L2~L8 另 7 条 MEDIUM/LOW 尚未修** | 规则已实现并复测；L1 的两条修法已落地，**但修正后的行为尚未在设备上复测** |
-| 9 | 计数器要不要用真七段数码管？ | **已裁决（2026-10-31）：不是差距，不用做**。两条理由：(1) **参考实现就是这么画的** —— `linux-minesweeper/src/ui/BoardWidget.cpp:552-559` 是 `setBold(true)` + `setPen(Qt::white)` + `drawText` 居中，注释直接写「原版配置里的 PanelLabelTextColor」，本项目画法与之逐项一致，**不是降级**；(2) **素材里没有七段数码管** —— `otherSheet.png` 存储像素 `x 1..252, y 1953..2014` 与 `x 255..450, y 1953..2014` 实测是**两片纯灰渐变的窗口边框片**，里面既无数字字形也无笔段（此前把它误判成「七段笔段」是读图错误，`docs\ASSET-AUDIT.md` 已更正） | 不做。计数器继续用粗体白字 |
+| 8 | 30 列的局在窄屏上装不下怎么办？ | **已裁决（2026-10-31）：宁可超宽也不降级**。装得下但格边 < 最小可点格边 **48 设备像素**时，缩放档**往上抬一档**，让棋盘横向超出画布、靠单指平移看（``GameController.layout()``，常量 `MIN_CELL_PX = 48` 在 ``Theme.MIN_CELL_PX``）。依据 `docs\LAYOUT-MATRIX.md` v2.0 的 **P0-1**，以及用户原话「外屏不接受降级，我希望可以拖动放大」。<br>**已在 13:41 build 上复测**：Mate 90 Pro 高级 30 列从 n=1（格边 36）抬到 **n=2（格边 72）**，棋盘宽 1080→2160 px，在 1280 宽画布上横向出屏 440 px（预期内，可平移），纵向居中正常（上下差 16 px）—— `docs\CLICK-MATRIX-90P.md` R3.1。<br>**L1 [HIGH] 已修（commit 9a70112）**：`docs\LEAD-CHANGE-AUDIT.md` 的 L1 指出抬档只看「格子太小」、不看「抬完会不会反而装不下」，而纵向用**居中**而不是顶对齐 → 内容高于视口时**上半截永久藏在菜单栏下**。现已改成「**只有抬完纵向仍装得下、或横向本来就装不下才抬**」（``GameController.layout()``）+「**纵向溢出改顶对齐**」（``GameController.applyGeometry()``）。**L2~L8 另 7 条 MEDIUM/LOW 尚未修** | 规则已实现并复测；L1 的两条修法已落地，**但修正后的行为尚未在设备上复测** |
+| 9 | 计数器要不要用真七段数码管？ | **已裁决（2026-10-31 上午）：不是差距** —— 理由是「参考实现 `linux-minesweeper/src/ui/BoardWidget.cpp:552-559` 用 `setBold(true)` + `setPen(Qt::white)` + `drawText` 居中，本项目画法与之逐项一致」+「素材里没有七段数码管」。**该裁决已撤回**：参考实现怎么画不能证明原版长什么样；**原版的两个计数器确实是七段数码管**（证据：微软原图 `helpBoard.png` 状态条里「18」「40」的逐像素反推，见 `docs\SEVEN-SEG-COUNTER.md`）。素材里没有笔段素材这件事仍然成立，但结论不是「用粗体白字」而是「**自己画**」 | **已实现**（commit `a2b635f`）：`common\SevenSeg.ets` 画段，接线在 `GameController.drawStatusStrip()`。3 槽 / 槽距 13 / 右对齐不补零 / 「1」带衬线小旗 + 底横（`SEG_FLAG`）。**粗体白字已撤回** |
 
 > 本表里 **1、2、4、5、6、7、8、9 已裁决**，**只剩第 3 条未裁决**（首点 3×3 在边界的确切行为，需真机验证首点 (0,8) 时远处格子能否布雷）。
 > 各条的依据出处写在「现状」列里，可逐条回溯到具体文件的具体行。
@@ -680,13 +772,15 @@ UI 层验收（待做）：逐格与 Win7 截图对照、折叠展开保活、�
 
 | 菜单 | 项 |
 |---|---|
-| 游戏 | 新建(F2) / ─ / 初级 / 中级 / 高级 / 自定义 / 标记(?) / ─ / 声音 / ─ / 最佳成绩 / ─ / 退出(X) |
+| 游戏 | 新建(F2) / ─ / 初级 / 中级 / 高级 / 自定义 / 标记(?) / ─ / 声音 / ─ / 最佳成绩 / ─ / **颜色(C) F7** / ─ / 退出(X) |
 | 帮助 | 帮助(H) F1 / ─ / 关于扫雷 A |
 
-> 上表按当前 `GameController.buildMenu()`（`GameController.ets:1430-1459`）列出，与
-> `docs\CLICK-MATRIX-90P.md` 的实测截图一致：**游戏下拉 9 项**（新建/初级/中级/高级/自定义/标记(?)/声音/最佳成绩/退出），
+> 上表按当前 `GameController.buildMenu()` 列出。
+> 「颜色(C)」是 commit `a2b635f` 加的（见 §5.8c），所以**游戏下拉现在是 10 项**
+> （新建/初级/中级/高级/自定义/标记(?)/声音/最佳成绩/颜色(C)/退出）。
+> `docs\CLICK-MATRIX-90P.md` 那句「游戏下拉 9 项」是**加「颜色(C)」之前**的实测记录。
 > **帮助下拉 2 项**（帮助(H)、关于扫雷），另各带若干分隔线（分隔线不是可交互元素）。
-> 完整可交互元素清单见 `docs\BUTTON-INVENTORY.md`（49 个）。
+> 完整可交互元素清单见 `docs\BUTTON-INVENTORY.md`（49 个，**未含「颜色(C)」，待更新**）。
 
 - 当前难度在菜单里打勾（打勾符号），与原版一致。
 - 「声音」是可勾选开关，直接控制音效播放。
@@ -763,5 +857,26 @@ UI 层验收（待做）：逐格与 Win7 截图对照、折叠展开保活、�
 **双指捏合缩放**（uitest 注入不了，必须人工在真机上捏一次）、
 **真机 Pura X Max**（内屏 2584×1824 @2.75 / 外屏 1323×1936 @2.75）、**折叠开合**、
 自定义局重开保留盘面、`LEAD-CHANGE-AUDIT` 的 L2~L8 七条。
+
+### 11.10 19:00 之后的第三轮（commit `a2b635f`）
+
+这一轮落了四件大事，逐条证据见 `docs\CHANGELOG-2026-10-31.md` §13：
+
+| # | 改了什么 | 规格位置 | 证据文档 |
+|---|---|---|---|
+| 1 | 状态条两个计数器改成**真七段数码管**（`common\SevenSeg.ets`） | §5.5 | `docs\SEVEN-SEG-COUNTER.md` |
+| 2 | **「颜色(C)」外观对话框** + 绿色棋盘 + 花园玩法 + 外观持久化 + 花园判负音效 | §5.8c | `docs\APPEARANCE-DIALOG.md` |
+| 3 | **状态条在超宽盘面上的可见性修复**（两端贴屏幕边） | §5.5 | `docs\verify\V4P90_strip_*.png` |
+| 4 | **对话框逐像素比对后的四处修正** | §5.8d | `docs\DIALOG-PIXEL-DIFF.md` |
+
+**同时撤回一条本文件上午写的裁决**：§8-9「计数器用粗体白字不是降级」——
+理由是「参考实现 `BoardWidget.cpp:552-559` 就是粗体白字」。
+**参考实现怎么画不能证明原版长什么样。** 原版的两个计数器确实是七段数码管
+（微软原图 `helpBoard.png` 的「18」「40」逐像素反推）。现已按七段实现，粗体白字撤回。
+
+**本轮没有验证的**：外观设置在**重启后**是否真的保留（代码已就位，但**没有重启实测记录**）、
+花园玩法**判负瞬间的完整开花序列**（只验了图标与帧的位置）、
+七段数码管在**真机**上的观感（只在模拟器上看过）、状态条超宽修复在**折叠外屏**上的观感、
+对话框的像素级比对**只做了失败框与关于框**（胜利框与自定义框没比）。
 
 ---
