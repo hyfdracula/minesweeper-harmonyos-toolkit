@@ -1117,13 +1117,15 @@ def run_phase_win(args, templates, mine_tmpl):
     win = False
     for p in paths:
         im = Image.open(p).convert('RGB')
-        bar = find_scan_bar(im, gx, gy, pitch, rows, cols)
+        bar = locate_scan_bar(im, gx, gy, pitch, unit, rows, cols)
         beams = analyse_disarm(im, gx, gy, pitch, unit, rows, cols)
         ex = analyse_explode(im, gx, gy, pitch, unit, rows, cols)
         if bar or beams:
             win = True
         print('  %s  扫描条=%s  光束=%s  爆炸=%s'
-              % (os.path.basename(p), bar, beams, ex))
+              % (os.path.basename(p),
+                 '无' if bar is None else 'y=%d (相似度 %.3f)' % bar,
+                 beams, ex))
     print('[win] 判定：%s' % ('胜利动画（扫描条/拆雷光束）' if win else '没有看到胜利动画'))
     return paths
 
