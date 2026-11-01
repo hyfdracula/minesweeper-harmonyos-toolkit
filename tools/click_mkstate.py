@@ -341,7 +341,7 @@ def main():
     ap.add_argument("--state", choices=["lose", "win"], required=True)
     ap.add_argument("--timeout", type=float, default=120.0,
                     help="等对话框出现的秒数（默认 120）")
-    ap.add_argument("--attempts", type=int, default=3,
+    ap.add_argument("--attempts", type=int, default=6,
                     help="最多造几遍（默认 3；设备负载重的时候 win_probe 会偶发失手，"
                          "偶尔会踩到雷、弹出的是失败框，这时按长宽比核对会发现并重来）")
     args = ap.parse_args()
