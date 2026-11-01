@@ -325,12 +325,15 @@ class Geom:
         self._log_lines = raw.splitlines()
         return self._log_lines
 
-    def refresh_layout(self, retries: int = 8, gap_s: float = 1.5) -> Layout:
+    def refresh_layout(self, retries: int = 24, gap_s: float = 2.0) -> Layout:
         """从 hilog 里取**最后一条**布局日志。
 
         重试几遍：应用刚起来时布局日志可能还没写进 hilog 缓冲区
         （缓冲区也会被刷掉），一次读不到就报「hilog 里没有布局日志」——
         那是**设备状态**问题，不是被测代码的问题（2026-11-01 下午实测到一次）。
+        真机比模拟器慢得多（2026-11-01 晚实测：Pura X Max 上 8 次×1.5 秒不够，
+        会偶发「第 1 步 reset 执行异常: hilog 里没有布局日志」），所以重试给到
+        24 次×2 秒 ≈ 48 秒。
         """
         last_err = ""
         for _ in range(max(1, retries)):
@@ -595,7 +598,13 @@ class Runner:
         self.hdc = Hdc(device)
         self.tag = tag
         self.verbose = verbose
-        self.workdir = os.path.join(os.environ.get("TEMP", "."), "click_matrix_run")
+        # 临时目录**按设备+tag 分开**：两个跑测器进程同时跑（模拟器一台、真机一台）
+        # 会共用同一个目录，其中一个清目录就把另一个的 stable.jpeg 弄没了，
+        # 报成「[Errno 2] No such file or directory: ...\click_matrix_run\stable.jpeg」
+        # —— 看起来像用例失败，其实是两个进程互相踩（2026-11-01 晚踩到）。
+        safe_dev = "".join(c if (c.isalnum() or c in "-_") else "_" for c in device)
+        self.workdir = os.path.join(os.environ.get("TEMP", "."),
+                                    "click_matrix_run_%s_%s" % (safe_dev, tag))
         os.makedirs(self.workdir, exist_ok=True)
         os.makedirs(VERIFY_DIR, exist_ok=True)
         self.geom = Geom(self.hdc, self.workdir)
