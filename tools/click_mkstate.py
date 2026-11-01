@@ -240,6 +240,33 @@ def _run_win_probe(device, phase, outdir):
     return proc.returncode
 
 
+def _dialog_log_type(device, outdir):
+    """问**应用自己**：屏幕上弹的是胜利框还是失败框。
+
+    应用在打开结束框时打一条 `[Dialog] 打开 胜利` / `[Dialog] 打开 失败`
+    （2026-11-01 加）。靠这条日志而不是靠像素猜 —— 像素猜会把失败框
+    认成胜利框（两个框的长宽比只差 12 %，而且亮度分布也不一样）。
+    返回 'win' / 'lose' / None（读不到）。
+    """
+    out = _hdc(device, "shell", "hilog", "-x")
+    if out.returncode != 0:
+        return None
+    data = out.stdout or b""
+    if isinstance(data, bytes):
+        data = data.decode("utf-8", "replace")
+    last = None
+    for ln in data.splitlines():
+        if "[Dialog] 打开 " in ln:
+            last = ln
+    if last is None:
+        return None
+    if "胜利" in last:
+        return "win"
+    if "失败" in last:
+        return "lose"
+    return None
+
+
 def make_state(device, state, timeout=120.0, attempts=2):
     """造出指定局面；返回 True 表示对话框已经出现在屏幕上。
 
@@ -266,13 +293,22 @@ def make_state(device, state, timeout=120.0, attempts=2):
         if _wait_dialog(device, state, rect, outdir, timeout):
             # 框是出现了，但**未必是要的那个框**：win_probe 的「赢一局」偶尔会踩到雷，
             # 弹出来的是失败框；后面按胜利框的坐标点按钮就全是空点。
-            # 这里按**客户区的长宽比**核对一次（胜利框 396×340 / 失败框 483×288）。
-            shot = os.path.join(outdir, "probe.jpeg")
-            ok, why = _dialog_matches(shot, state, rect)
-            if ok:
-                print("[mkstate] %s 框核对通过（%s）" % (state, why))
+            # 判据用**应用自己的日志**（[Dialog] 打开 胜利/失败）✓。
+            got = _dialog_log_type(device, outdir)
+            if got == state:
+                print("[mkstate] %s 框核对通过（应用日志确认）" % state)
                 return True
-            print("[mkstate] %s 框核对**不通过**：%s —— 屏幕上多半是别的框，重来" % (state, why))
+            if got is None:
+                print("[mkstate] 读不到应用的对话框日志，按**像素**的长宽比再核一次")
+                shot = os.path.join(outdir, "probe.jpeg")
+                ok, why = _dialog_matches(shot, state, rect)
+                if ok:
+                    print("[mkstate] %s 框核对通过（%s）" % (state, why))
+                    return True
+                print("[mkstate] %s 框核对**不通过**：%s —— 重来" % (state, why))
+            else:
+                print("[mkstate] 应用日志说弹的是**%s框**，要的是 %s框 —— 重来"
+                      % (got, state))
         print("[mkstate] 第 %d 遍没等到 %s 框" % (attempt, state))
     return False
 
