@@ -4,3 +4,13 @@ docs/codex/
 stable.jpeg
 probe.jpeg
 
+# 跑测器每轮生成的用例截图与诊断截图（可再生，不进仓）
+docs/verify/CM_*.jpeg
+docs/verify/AP[0-9]_*.jpeg
+docs/verify/AP[0-9]_*.png
+docs/verify/WK_*.jpeg
+docs/verify/DEAL_*.jpeg
+docs/verify/CTR_*.jpeg
+docs/verify/IDLE_*.jpeg
+docs/verify/STRIP_now*.jpeg
+docs/verify/STRIP_zoom.png
