@@ -158,6 +158,8 @@ def read_panel(im, panel):
                 score += 1                      # 空槽（右对齐、不补零）也算合法
             elif m == MASK_ONE_STD or m == MASK_ONE_BASE:
                 score += 2
+            elif m == MASK_MINUS:
+                score += 2                      # 负号段也是合法的一槽
             elif m in MASKS:
                 score += 2
         if score > best_score:

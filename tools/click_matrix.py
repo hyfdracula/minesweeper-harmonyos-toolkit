@@ -845,10 +845,36 @@ class Runner:
         self.dirty = True
 
     def act_lose_game(self, step: dict) -> None:
+        self.reset_appearance()
         self._mkstate("lose")
 
     def act_win_game(self, step: dict) -> None:
+        self.reset_appearance()
         self._mkstate("win")
+
+    def reset_appearance(self) -> None:
+        """把外观**恢复成扫雷 + 银蓝**，再开始造赢/输的局。
+
+        为什么必须做（2026-11-01 晚实测）：外观是**存到 preferences 里、重启也保留**的，
+        而颜色框那几条用例会把棋盘切成「花园」玩法。花园玩法里**未翻开的格子是花、
+        雷是一朵炸开的花**，`tools/win_probe.py` 靠读画面判断哪格是雷——
+        它读不懂花园的棋盘，就把雷当成了安全格去点，于是「赢一局」脚本一局都赢不了
+        （实测连续 3 遍都踩雷，弹出来的是失败框）。
+        所以造局面之前先把外观摆回标准样式。
+        """
+        try:
+            self.act_menu({"top": "game", "entry": "颜色(C)"})
+            time.sleep(0.5)
+            for x, y in ((72, 84), (78, 214)):     # 扫雷 / 银蓝
+                sx, sy = self.geom.to_screen("dialog", x, y, dialog="appearance")
+                self.hdc.click(sx, sy)
+                time.sleep(0.5)
+            sx, sy = self.geom.to_screen("dialog", 255, 315, dialog="appearance")  # 确定
+            self.hdc.click(sx, sy)
+            time.sleep(0.8)
+            self.dirty = True
+        except Exception as exc:      # 恢复失败也别中断：造局面失败会报设备状态问题
+            print("   [reset_appearance] 恢复外观失败（忽略）：%s" % exc)
 
     def _mkstate(self, state: str) -> None:
         cmd = [sys.executable, MKSTATE, "--device", self.hdc.device, "--state", state]
