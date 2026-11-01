@@ -43,7 +43,7 @@ KNOWN_LAYOUTS = {
     'phone': {
         'label': '真机 Pura X Max (CM_1201pd_*)',
         'canvas_w': 2584, 'canvas_h': 1644,
-        'strip_top': 1371, 'canvas_y': 0,
+        'strip_top': 1371, 'canvas_y': 110,
         'tile': 144, 'unit': 8,
         'board_x': 644, 'board_y': 75,
         'shot': 'CM_1201pd_board_statusbar_no_open.jpeg',
@@ -51,9 +51,9 @@ KNOWN_LAYOUTS = {
     'emu': {
         'label': '模拟器 Mate 90 Pro (CM_1201a_*)',
         'canvas_w': 1280, 'canvas_h': 2598,
-        'strip_top': 1861, 'canvas_y': 0,
+        'strip_top': 1864, 'canvas_y': -3,
         'tile': 108, 'unit': 6,
-        'board_x': 156, 'board_y': 889,
+        'board_x': 156, 'board_y': 892,
         'shot': 'CM_1201a_board_statusbar_no_open.jpeg',
     },
 }
@@ -160,10 +160,77 @@ def app_panel_geometry(lay):
             'mine_x': mine_x, 'icon_x': icon_x, 'inner': inner}
 
 
+def detect_canvas_y(a, lay):
+    """量画布顶在屏幕上的纵向偏移（棋盘第一行砖色上沿 - 棋盘原点 y）。
+
+    与 click_matrix.probe_canvas_y() 同一口径，但这里直接用饱和色行段
+    （砖块/绿砖都是饱和色，状态条底色不是）。
+    """
+    sat = chroma_mask(a)
+    cnt = sat.sum(axis=1)
+    need = max(20, int(lay['canvas_w'] * 0.5))
+    y = 0
+    while y < len(cnt):
+        if cnt[y] >= need:
+            y0 = y
+            while y < len(cnt) and cnt[y] >= need:
+                y += 1
+            return y0 - lay['board_y']
+        y += 1
+    return None
+
+
+def proposed_boxes(a, y0, canvas_bottom, su):
+    """拟议的修法（主题无关）：用「面板本体=饱和色」找面板，再按 su 归一化内框尺寸。
+
+    这是给 click_matrix._strip_panel_rect 用的替换算法，这里只用来自检。
+    """
+    band = chroma_mask(a)[y0:canvas_bottom, :]
+    out = []
+    min_panel_w = INNER_W * su - 6
+    for x0, x1 in runs(band):
+        if x1 - x0 < min_panel_w:
+            continue
+        sub = band[:, x0:x1 + 1]
+        yy = np.where(sub.any(axis=1))[0]
+        if len(yy) == 0:
+            continue
+        top = int(yy.min())
+        j = top - 1
+        while j >= 0 and band[j, x0:x1 + 1].sum() > (x1 - x0) * 0.6:
+            top = j
+            j -= 1
+        w, h = INNER_W * su, INNER_H * su
+        cx = (x0 + x1) / 2.0
+        cy = top + (int(yy.max()) - top) / 2.0 + y0
+        out.append((int(round(cx - w / 2)), int(round(cy - h / 2)), w, h))
+    return out
+
+
+def self_check(a, boxes):
+    """用 tools/sevenseg_read.py 反解面板里的数字（只读导入，不改那个文件）。"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    try:
+        import sevenseg_read as ss
+    except Exception as exc:                # pragma: no cover
+        print('    (无法导入 sevenseg_read: %r)' % (exc,))
+        return
+    for i, box in enumerate(boxes):
+        digits = ss.read_panel(a, box)
+        if digits is None:
+            print('    面板 %d box=%s 读不出来' % (i, box))
+            continue
+        txt = ''.join(str(t) for t in ss.decode(digits) if t is not None)
+        print('    面板 %d box=%s 掩码=%s 读出=%r' % (i, box, digits, txt))
+
+
 def report(path, lay, thumb=None):
     a = load(path)
     h, w = a.shape[:2]
     cy = lay['canvas_y']
+    auto = detect_canvas_y(a, lay)
     y0 = cy + lay['strip_top']
     print('=' * 78)
     print('%s' % lay['label'])
@@ -172,6 +239,15 @@ def report(path, lay, thumb=None):
              lay['strip_top'], y0))
     print('  格边=%d unit=%d 棋盘原点=(%d,%d)  外观=%s'
           % (lay['tile'], lay['unit'], lay['board_x'], lay['board_y'], lay.get('appearance', '?')))
+    if auto is not None:
+        print('  实测画布顶偏移 canvas_y = %d（棋盘砖色上沿 - 棋盘原点 y）'
+              % auto)
+        if auto != cy:
+            print('  ==> 与内置值 %d 不一致，下面另用实测值重算一遍' % cy)
+            lay = dict(lay)
+            lay['canvas_y'] = auto
+            y0 = auto + lay['strip_top']
+            print('      改用 canvas_y=%d -> 状态条带 y0=%d' % (auto, y0))
     print()
 
     # ---- 1. 绿口径（复现 click_matrix 的报错）-------------------------
@@ -190,10 +266,14 @@ def report(path, lay, thumb=None):
     print()
 
     # ---- 2. 饱和色口径 --------------------------------------------------
+    # 注意：带只取到**画布底**为止。真机截图 y=1644..1828 是系统导航栏（白底），
+    # click_matrix 现在的 band 是 img[y0:]（一直到屏幕底），改用饱和色口径时
+    # 必须先把系统栏裁掉，否则系统栏里的彩色像素会被当成面板。
+    canvas_bottom = min(h, cy + lay['canvas_h'])
     c = chroma_mask(a)
-    cb = c[y0:, :]
+    cb = c[y0:canvas_bottom, :]
     ccols = runs(cb)
-    print('[2] 饱和色口径（chroma = max-min >= %d）' % CHROMA_MIN)
+    print('[2] 饱和色口径（chroma = max-min >= %d，带取到画布底 %d）' % (CHROMA_MIN, canvas_bottom))
     print('    状态条带内饱和像素 = %d   饱和列段 = %s'
           % (int(cb.sum()), [(a_, b_, b_ - a_ + 1) for a_, b_ in ccols]))
     found = []
@@ -216,9 +296,12 @@ def report(path, lay, thumb=None):
     print('    content_top=%d  clock_x=%d  time_x=%d time_y=%d  mine_x=%d  icon_x=%d'
           % (geo['content_top'], geo['clock_x'], geo['time_x'], geo['time_y'],
              geo['mine_x'], geo['icon_x']))
-    print('    面板内区(绿/蓝底那块)预期: %s'
+    print('    面板内区(绿/蓝底那块)预期(画布坐标): %s'
           % [tuple(int(v) for v in t) for t in geo['inner']])
+    print('    面板内区预期(屏幕坐标, 加 canvas_y=%d): %s'
+          % (cy, [(int(t[0]), int(t[1]) + cy, int(t[2]), int(t[3])) for t in geo['inner']]))
     for i, (px, py, pw, ph) in enumerate(geo['inner']):
+        py += cy
         hit = None
         for (fx, fy, fw, fh) in found:
             if abs(fx - px) <= 12 and abs(fy - py) <= 24:
@@ -249,14 +332,23 @@ def report(path, lay, thumb=None):
     print()
 
     # ---- 5. 白色数码管在哪 ---------------------------------------------
-    wmask = a.min(axis=2) > 185
-    wb = wmask[y0:, :]
+    # 数码管是 LED 白 (250,250,252)；状态条底色是 (198,205,221)，
+    # 所以阈值必须卡在两者之间（min>185 会把底色整片算进来）。
+    wmask = a.min(axis=2) >= 235
+    wb = wmask[y0:canvas_bottom, :]
     wr = row_runs(wb)
     wc = runs(wb)
-    print('[5] 状态条带里的白色像素（自绘七段数码管，主题无关）')
-    print('    白色行段 = %s' % [(a_, b_) for a_, b_ in wr][:8])
+    print('[5] 状态条带里的白色像素（自绘七段数码管，主题无关；带取到画布底）')
+    print('    白色行段 = %s' % [(a_ + y0, b_ + y0) for a_, b_ in wr][:8])
     print('    白色列段 = %s' % [(a_, b_, b_ - a_ + 1) for a_, b_ in wc][:8])
     print('    白色像素数 = %d' % int(wb.sum()))
+    print()
+
+    # ---- 6. 拟议修法自检 ------------------------------------------------
+    print('[6] 拟议修法自检（饱和色找面板 + 按 su 归一化内框）')
+    boxes = proposed_boxes(a, y0, canvas_bottom, geo['su'])
+    print('    找到的面板内框 = %s' % (boxes,))
+    self_check(a, boxes)
     print()
 
     if thumb:
@@ -264,12 +356,22 @@ def report(path, lay, thumb=None):
         if not out.lower().endswith('.png'):
             out += '.png'
         os.makedirs(os.path.dirname(os.path.abspath(out)) or '.', exist_ok=True)
-        crop = a[max(0, y0 - 60):min(h, y0 + 320), :]
+        top = max(0, y0 - 60)
+        bottom = min(h, y0 + 320)
+        crop = a[top:bottom, :]
         img = Image.fromarray(crop.astype(np.uint8))
+        try:
+            from PIL import ImageDraw
+            dr = ImageDraw.Draw(img)
+            for (bx, by, bw, bh) in boxes:
+                dr.rectangle([bx, by - top, bx + bw, by + bh - top], outline=(255, 0, 0), width=4)
+            dr.rectangle([0, y0 - top, img.width, canvas_bottom - top], outline=(0, 160, 0), width=3)
+        except Exception as exc:            # pragma: no cover
+            print('    (标注失败: %r)' % (exc,))
         img.thumbnail((1400, 1400))
         img.save(out)
-        print('缩略图已存: %s  (状态条带 %d..%d, 缩略 %dx%d)'
-              % (out, y0, y0 + 320, img.width, img.height))
+        print('缩略图已存: %s  (状态条带 %d..%d, 缩略 %dx%d；红框=面板内区 绿框=状态条带)'
+              % (out, y0, bottom, img.width, img.height))
     return gcols, ccols, found
 
 
