@@ -1,0 +1,59 @@
+{
+ "kind": "explode",
+ "cell": [
+  1,
+  4
+ ],
+ "frames": [
+  [
+   "ANIMF_exp_t578_00.jpeg",
+   4,
+   0.691
+  ],
+  [
+   "ANIMF_exp_t578_01.jpeg",
+   4,
+   0.691
+  ],
+  [
+   "ANIMF_exp_t578_02.jpeg",
+   4,
+   0.691
+  ],
+  [
+   "ANIMF_exp_t578_03.jpeg",
+   4,
+   0.691
+  ],
+  [
+   "ANIMF_exp_t578_00.jpeg",
+   19,
+   0.877
+  ],
+  [
+   "ANIMF_exp_t578_01.jpeg",
+   0,
+   0.837
+  ],
+  [
+   "ANIMF_exp_t578_02.jpeg",
+   0,
+   0.837
+  ],
+  [
+   "ANIMF_exp_t578_03.jpeg",
+   0,
+   0.837
+  ],
+  [
+   "ANIMF_exp_t578_04.jpeg",
+   0,
+   0.837
+  ],
+  [
+   "ANIMF_exp_t578_05.jpeg",
+   0,
+   0.837
+  ]
+ ]
+}

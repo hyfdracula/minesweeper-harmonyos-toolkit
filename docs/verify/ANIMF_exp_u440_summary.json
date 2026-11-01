@@ -1,0 +1,49 @@
+{
+ "kind": "explode",
+ "cell": [
+  1,
+  6
+ ],
+ "frames": [
+  [
+   "ANIMF_exp_u440_00.jpeg",
+   1,
+   0.685
+  ],
+  [
+   "ANIMF_exp_u440_01.jpeg",
+   1,
+   0.685
+  ],
+  [
+   "ANIMF_exp_u440_02.jpeg",
+   1,
+   0.685
+  ],
+  [
+   "ANIMF_exp_u440_03.jpeg",
+   1,
+   0.685
+  ],
+  [
+   "ANIMF_exp_u440_00.jpeg",
+   14,
+   0.909
+  ],
+  [
+   "ANIMF_exp_u440_01.jpeg",
+   19,
+   0.854
+  ],
+  [
+   "ANIMF_exp_u440_02.jpeg",
+   0,
+   0.838
+  ],
+  [
+   "ANIMF_exp_u440_03.jpeg",
+   0,
+   0.838
+  ]
+ ]
+}

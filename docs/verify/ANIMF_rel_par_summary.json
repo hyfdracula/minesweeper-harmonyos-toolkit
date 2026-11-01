@@ -1,0 +1,35 @@
+{
+ "kind": "explode",
+ "style": "mines",
+ "cell": [
+  0,
+  2
+ ],
+ "captured": 2,
+ "frame_ids": [
+  6,
+  19
+ ],
+ "frames": [
+  [
+   "ANIMF_rel_par_c0_00.jpeg",
+   14,
+   0.788
+  ],
+  [
+   "ANIMF_rel_par_c0_01.jpeg",
+   6,
+   0.927
+  ],
+  [
+   "ANIMF_rel_par_c0_02.jpeg",
+   19,
+   0.878
+  ],
+  [
+   "ANIMF_rel_par_c0_03.jpeg",
+   0,
+   0.836
+  ]
+ ]
+}

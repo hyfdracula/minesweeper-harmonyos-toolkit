@@ -1,0 +1,29 @@
+{
+ "kind": "explode",
+ "cell": [
+  2,
+  7
+ ],
+ "frames": [
+  [
+   "ANIMF_exp_u660_00.jpeg",
+   19,
+   0.859
+  ],
+  [
+   "ANIMF_exp_u660_01.jpeg",
+   0,
+   0.839
+  ],
+  [
+   "ANIMF_exp_u660_02.jpeg",
+   0,
+   0.839
+  ],
+  [
+   "ANIMF_exp_u660_03.jpeg",
+   0,
+   0.839
+  ]
+ ]
+}

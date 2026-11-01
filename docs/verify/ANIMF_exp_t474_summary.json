@@ -1,0 +1,39 @@
+{
+ "kind": "explode",
+ "cell": [
+  0,
+  1
+ ],
+ "frames": [
+  [
+   "ANIMF_exp_t474_00.jpeg",
+   15,
+   0.908
+  ],
+  [
+   "ANIMF_exp_t474_01.jpeg",
+   1,
+   0.836
+  ],
+  [
+   "ANIMF_exp_t474_02.jpeg",
+   0,
+   0.835
+  ],
+  [
+   "ANIMF_exp_t474_03.jpeg",
+   0,
+   0.835
+  ],
+  [
+   "ANIMF_exp_t474_04.jpeg",
+   0,
+   0.835
+  ],
+  [
+   "ANIMF_exp_t474_05.jpeg",
+   0,
+   0.835
+  ]
+ ]
+}
