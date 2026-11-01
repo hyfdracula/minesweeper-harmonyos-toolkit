@@ -903,8 +903,18 @@ class Runner:
             prev = c
         runs.append((start, prev))
         panels = []
+        # 面板的最小宽度要跟着**状态条自己的缩放档**走，不能写死 150 像素：
+        # 状态条内容另有一档 su（su = min(u, 两组放得下的最大档)），
+        # 中级/高级局 u 只有 4，su 也是 4 → 面板绿色内区只有 36×4 = 144 像素宽，
+        # 写死 150 会把两个面板全丢掉（Codex 复审 P2）。
+        # 这里照抄 GameController.drawStatusStrip 的算法把 su 算出来。
+        unit = max(1, int(round(float(lay.tile) / 18.0)))
+        group_ref = 25 + 6 + 40                      # 时钟 25 + 间隙 6 + 面板 40
+        max_su = 2 * int(lay.canvas_w / (2 * group_ref) / 2)
+        su = max(2, min(unit, max_su))
+        min_panel_w = 36 * su - 6                    # 面板绿色内区 36 参照像素宽
         for x0, x1 in runs:
-            if x1 - x0 < 150:
+            if x1 - x0 < min_panel_w:
                 continue
             ys = np.where(green[:, x0:x1 + 1].any(axis=1))[0]
             if len(ys) == 0:

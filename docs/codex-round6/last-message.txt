@@ -1,0 +1,9 @@
+The new counter reader fails on supported non-beginner layouts and cannot decode a reachable negative mine count. Both defects affect the verification behavior introduced by this patch.
+
+Full review comments:
+
+- [P2] Size the panel filter for supported layouts — D:\software\harmony\projects\minesweeper\tools\click_matrix.py:907-908
+  On the supported Mate 90 Pro intermediate and expert layouts, the status-strip unit is 4, so a panel's green interior is only 36 × 4 = 144 px wide. This 150 px cutoff discards both panels, causing counter assertions to fail with “找不到绿色面板”. Derive the minimum width from the layout scale or use a smaller bound.
+
+- [P2] Decode the minus segment in counter readings — D:\software\harmony\projects\minesweeper\tools\sevenseg_read.py:171-176
+  When flags exceed the mine count, the remaining-mine counter legitimately becomes negative (SPEC §3.3). Its minus sign is a lone middle segment with mask `0x40`, but `decode()` treats that mask as `?`, so the new reader cannot report or assert a valid negative value such as `-1`. Recognize the minus mask and include it in the decoded value.

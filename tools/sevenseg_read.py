@@ -34,6 +34,11 @@ MASKS = [
     0x3F, 0x186, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F,
 ]
 
+# 负号段：单独一根中横（g），掩码 0x40。
+# 剩余雷数可以是负的（插的旗比雷还多，SPEC §3.3），原版负号占**紧挨数字左边**的那一槽。
+# 0x40 不是任何数字的合法掩码，所以不会和数字混淆（Codex 复审 P2）。
+MASK_MINUS = 0x40
+
 # 「1」的标准写法：只亮 b、c 两段（0x06）。
 # 原版那个「1」还带一面小旗和一道衬线（掩码 0x186），但旗和衬线**不是标准七段**，
 # 反解时只采样标准七段就只会得到 0x06（b+c）；若把衬线底横画在 d 段的位置上，
@@ -168,7 +173,9 @@ def decode(digits):
         if m == 0:
             text.append(None)
             continue
-        if m == MASK_ONE_STD or m == MASK_ONE_BASE:
+        if m == MASK_MINUS:
+            text.append('-')          # 负号段（只剩中横）
+        elif m == MASK_ONE_STD or m == MASK_ONE_BASE:
             text.append('1')          # 标准七段的「1」：只亮 b、c（带衬线底横时多一段 d）
         elif m in MASKS:
             text.append(str(MASKS.index(m)))

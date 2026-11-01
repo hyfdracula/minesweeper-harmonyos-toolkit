@@ -2,6 +2,28 @@
   "domain": "custom",
   "cases": [
     {
+      "id": "custom.restart.keep_board",
+      "desc": "自定义局重开保留盘面：开一局 24×30 → 菜单 游戏→新建 → **盘面仍是 24×30**（不是回到初级 9×9）",
+      "_注": "DEV-CHECKLIST §3 里「自定义局重开保留盘面」一直挂着「代码已就位，待验证」，这里补上。\n      判据用布局日志里的「盘面=24x30」。",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "key", "key": "4"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 86},
+        {"act": "key", "key": "3"},
+        {"act": "key", "key": "0"},
+        {"act": "key", "key": "ok"},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=24x30"},
+        {"act": "menu", "top": "game", "entry": "新建"},
+        {"act": "wait", "ms": 900},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=24x30"},
+        {"act": "shot", "name": "custom_restart_keep_board"}
+      ]
+    },
+    {
       "id": "custom.menu.open",
       "desc": "菜单路径：游戏 → 自定义 → 对话框打开，三个输入框都出现（值区从棋盘像素变成输入框像素）",
       "steps": [

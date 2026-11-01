@@ -158,6 +158,29 @@
       ]
     },
     {
+      "id": "board.counter.negative",
+      "desc": "状态条计数器：插的旗比雷还多时，**剩余雷数显示为负**（初级 10 雷 → 插 11 面旗 → 显示 -1）",
+      "_注": "SPEC §3.3：剩余雷数可以为负。原版负号占紧挨数字左边的那一槽（七段里的独立负号段）。\n      这条用例要求数码管反解能读出负号（掩码 0x40，单根中横）——\n      不然「有没有变」的断言根本发现不了负号画错（Codex 复审 P2）。",
+      "steps": [
+        {"act": "reset"},
+        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "10"},
+        {"act": "longpress", "space": "board", "cell": [0, 0]},
+        {"act": "longpress", "space": "board", "cell": [1, 0]},
+        {"act": "longpress", "space": "board", "cell": [2, 0]},
+        {"act": "longpress", "space": "board", "cell": [3, 0]},
+        {"act": "longpress", "space": "board", "cell": [4, 0]},
+        {"act": "longpress", "space": "board", "cell": [5, 0]},
+        {"act": "longpress", "space": "board", "cell": [6, 0]},
+        {"act": "longpress", "space": "board", "cell": [7, 0]},
+        {"act": "longpress", "space": "board", "cell": [8, 0]},
+        {"act": "longpress", "space": "board", "cell": [0, 1]},
+        {"act": "longpress", "space": "board", "cell": [1, 1]},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "-1"},
+        {"act": "shot", "name": "board_counter_negative"}
+      ]
+    },
+    {
       "id": "board.counter.flag",
       "desc": "状态条计数器：长按插一面旗，**雷数从 10 减到 9**（计时器不该动：还没开局）",
       "_注": "长按插旗走 uitest 的极慢 swipe（设备当成按住不动 → onLongPress）。\n      雷数用「计数器读数」断言 10 → 9，不是只看「有没有变」——数字从 10 变成 11\n      也是「变了」，那种断言太弱（Codex 复审 P2）。",
