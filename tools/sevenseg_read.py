@@ -63,13 +63,13 @@ SLOT_COUNT = 3
 #   SLOT_X0=3 / CELL_Y=2 是相对**面板外框**的，减掉内区原点就都是 0
 SLOT_X0 = 0
 SLOT_PITCH = 12
-CELL_W, CELL_H = 10, 16
-CELL_Y = 0
+CELL_W, CELL_H = 9, 11
+CELL_Y = 5
 
 # (段名, x, y, w, h) —— 相对槽位左上角，**按格宽/格高算，不要写死**
-# （2026-11-02：格宽从 12 改成 10 之后，写死的表把每段采样点全带偏了，
-#   真机上「0」被读成「1」/「?」）。
-_TV, _TH, _HL = 3, 2, 5          # 与 SevenSeg.ets 的 TV / TH / HL 一致
+# （2026-11-02：格宽从 12 改成 10 再改成 9、笔画从 3 改成 1，
+#   写死的表会把每段采样点全带偏，真机上「0」被读成「1」/「?」）。
+_TV, _TH, _HL = 1, 1, 4          # 与 SevenSeg.ets 的 TV / TH / HL 一致
 SEGS = [
     ('a', _TV, 0, CELL_W - 2 * _TV, _TH),
     ('b', CELL_W - _TV, _TH, _TV, _HL),
