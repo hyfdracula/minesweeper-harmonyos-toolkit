@@ -46,30 +46,59 @@ MASK_MINUS = 0x40
 MASK_ONE_STD = 0x06
 MASK_ONE_BASE = 0x0E
 
-# (段名, x, y, w, h) —— 参考像素，相对槽位左上角
-SEGS = [
-    ('a', 3, 2, 6, 2), ('b', 9, 4, 3, 5), ('c', 9, 11, 3, 5),
-    ('d', 3, 16, 6, 2), ('e', 0, 11, 3, 5), ('f', 0, 4, 3, 5),
-    ('g', 3, 9, 6, 2),
-]
+# (段名, x, y, w, h) —— 参考像素，相对槽位左上角。
+# 定义挪到几何常量之后（见文件下方），因为它要用 CELL_W / CELL_H。
 BIT = {'a': SEG_A, 'b': SEG_B, 'c': SEG_C, 'd': SEG_D,
        'e': SEG_E, 'f': SEG_F, 'g': SEG_G}
 
 # 面板（外框）参考像素
 PANEL_W, PANEL_H = 40, 21
-PANEL_BORDER = 2              # 面板精灵四周的边框厚度（逻辑像素）
-INNER_W = PANEL_W - 2 * PANEL_BORDER   # 36：截图里量到的绿色内区宽度
-INNER_H = PANEL_H - 2 * PANEL_BORDER   # 17
+# 2026-11-02 真机实测：面板精灵的**彩色内区**只占 x=3..36、y=2..19（33x17），
+# 外面那圈是斜角高光/暗边。find_panels 量到的是这个内区，
+# 所以下面所有槽位几何都**相对内区左上角**算，不再减边框。
+PANEL_BORDER = 0
+INNER_W, INNER_H = 33, 17
 SLOT_COUNT = 3
+# 与 SevenSeg.ets 的常量对齐（内区坐标）：
+#   SLOT_X0=3 / CELL_Y=2 是相对**面板外框**的，减掉内区原点就都是 0
 SLOT_X0 = 0
-SLOT_PITCH = 13
-CELL_W, CELL_H = 12, 16
-CELL_Y = 2
+SLOT_PITCH = 12
+CELL_W, CELL_H = 10, 16
+CELL_Y = 0
+
+# (段名, x, y, w, h) —— 相对槽位左上角，**按格宽/格高算，不要写死**
+# （2026-11-02：格宽从 12 改成 10 之后，写死的表把每段采样点全带偏了，
+#   真机上「0」被读成「1」/「?」）。
+_TV, _TH, _HL = 3, 2, 5          # 与 SevenSeg.ets 的 TV / TH / HL 一致
+SEGS = [
+    ('a', _TV, 0, CELL_W - 2 * _TV, _TH),
+    ('b', CELL_W - _TV, _TH, _TV, _HL),
+    ('c', CELL_W - _TV, _TH + _HL + _TH, _TV, _HL),
+    ('d', _TV, CELL_H - _TH, CELL_W - 2 * _TV, _TH),
+    ('e', 0, _TH + _HL + _TH, _TV, _HL),
+    ('f', 0, _TH, _TV, _HL),
+    ('g', _TV, _TH + _HL, CELL_W - 2 * _TV, _TH),
+]
 
 
 def _green_mask(im):
+    """计数器面板的「内区」掩码。
+
+    **不只看绿色**（2026-11-02 真机实测纠正）：面板精灵来自 boardSheet，
+    外观是「绿」时面板是绿的（greenSheet: 98,185,91），
+    外观是「蓝」时面板是深蓝的（blueSheet: 99,138,229）—— 玩家把外观切成蓝，
+    真机上就一个「绿色面板」都找不到，跑测器报「状态条上找不到绿色面板」，
+    看起来像应用坏了，其实是反解脚本只认一种颜色。
+
+    改成「高饱和 + 偏蓝或偏绿」（背景是浅灰蓝 198,205,221，饱和很低，不会误判）。
+    """
     r, g, b = im[:, :, 0], im[:, :, 1], im[:, :, 2]
-    return (g > 90) & (g > r + 25) & (g > b + 25)
+    mx = np.maximum(np.maximum(r, g), b)
+    mn = np.minimum(np.minimum(r, g), b)
+    sat = mx - mn
+    green = (g > 90) & (g > r + 25) & (g > b + 25)
+    blue = (b > 120) & (b > r + 60) & (g < 150) & (sat > 60)
+    return green | blue
 
 
 def _white_mask(im):
@@ -126,7 +155,19 @@ def _sample_slots(im, outer_x, outer_y, s):
         for name, rx, ry, rw, rh in SEGS:
             cx = int(round(sx + (rx + rw / 2.0) * s))
             cy = int(round(sy + (ry + rh / 2.0) * s))
-            if 0 <= cy < im.shape[0] and 0 <= cx < im.shape[1] and white[cy, cx]:
+            # 采 3x3 小块取多数：真机截图的框边会差 1~3 个像素，
+            # 单点采样时刚好点在段边界上就会把整段读丢（「0」被读成「1」或「?」）。
+            hit = 0
+            tot = 0
+            for ddy in (-1, 0, 1):
+                for ddx in (-1, 0, 1):
+                    yy = cy + ddy
+                    xx = cx + ddx
+                    if 0 <= yy < im.shape[0] and 0 <= xx < im.shape[1]:
+                        tot += 1
+                        if white[yy, xx]:
+                            hit += 1
+            if tot and hit * 2 > tot:
                 mask |= BIT[name]
         digits.append(mask)
     return digits
@@ -144,10 +185,21 @@ def read_panel(im, panel):
     x0, y0, pw, ph = panel
     if pw < 30 or ph < 10:
         return None
-    # 内区 36 参考像素宽 → 比例；面板外框比内区每边多 2 个参考像素
-    s = pw / float(INNER_W)
-    outer_x = x0 - PANEL_BORDER * s
-    base_y = y0 - PANEL_BORDER * s
+    # 比例 s（设备像素 / 参考单位）：
+    #   应用里的状态条内容档 su **永远是偶数**（SevenSeg 注释：偶数档图集才不会糊），
+    #   而量到的矩形会把斜角高光多算进来几个像素（真机实测 276 而不是 264），
+    #   直接拿 pw/INNER_W 当 s 会偏 4%，三个槽位越往右越偏，左边的竖段就采不到 ——
+    #   表现是「0」被读成「1」（只剩 b、c 两段）。
+    #   所以先按高度估（高度受高光影响小），再吸附到最近的偶数。
+    s_raw = ph / float(INNER_H)
+    s = max(2.0, float(round(s_raw / 2.0) * 2))
+    outer_x = x0
+    base_y = y0
+    # 纵向也锚到**内区的中心**，不用内区顶边：
+    # 内区顶边会随高光/文字被多算或少算几个像素（真机实测两张截图差 3 px），
+    # 而数字格在面板里是垂直居中的（CELL_Y=2、CELL_H=16、面板 21 → 中心重合），
+    # 用中心锚更稳。
+    base_y = y0 + ph / 2.0 - CELL_H * s / 2.0
     best = None
     best_score = -1
     for dy in (-2, -1, 0, 1, 2):
