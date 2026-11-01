@@ -1,0 +1,410 @@
+{
+  "domain": "custom",
+  "cases": [
+    {
+      "id": "custom.menu.open",
+      "desc": "菜单路径：游戏 → 自定义 → 对话框打开，三个输入框都出现（值区从棋盘像素变成输入框像素）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "wait", "ms": 300},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_menu_open"}
+      ]
+    },
+
+    {
+      "id": "custom.key.digit1",
+      "desc": "数字键 1：高度框聚焦后按 1，高度值区从 9 变成 1（像素变化）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "1"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit1"}
+      ]
+    },
+    {
+      "id": "custom.key.digit2",
+      "desc": "数字键 2：高度框聚焦后按 2，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit2"}
+      ]
+    },
+    {
+      "id": "custom.key.digit3",
+      "desc": "数字键 3：高度框聚焦后按 3，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "3"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit3"}
+      ]
+    },
+    {
+      "id": "custom.key.digit4",
+      "desc": "数字键 4：高度框聚焦后按 4，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit4"}
+      ]
+    },
+    {
+      "id": "custom.key.digit5",
+      "desc": "数字键 5：高度框聚焦后按 5，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "5"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit5"}
+      ]
+    },
+    {
+      "id": "custom.key.digit6",
+      "desc": "数字键 6：高度框聚焦后按 6，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "6"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit6"}
+      ]
+    },
+    {
+      "id": "custom.key.digit7",
+      "desc": "数字键 7：高度框聚焦后按 7，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "7"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit7"}
+      ]
+    },
+    {
+      "id": "custom.key.digit8",
+      "desc": "数字键 8：高度框聚焦后按 8，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "8"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit8"}
+      ]
+    },
+    {
+      "id": "custom.key.digit9",
+      "desc": "数字键 9：高度框预填就是 9，直接按 9 值不变（像素也不变），所以先按 1 再按 9 → 框里是 19，高度值区变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "1"},
+        {"act": "key", "key": "9"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit9"}
+      ]
+    },
+    {
+      "id": "custom.key.digit9.same_value",
+      "desc": "数字键 9 的边界：框里预填就是 9，按 9 之后值不变 → 值区 unchanged（不会被追加成 99）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "9"},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit9_same"}
+      ]
+    },
+    {
+      "id": "custom.key.digit0",
+      "desc": "数字键 0：高度框聚焦后按 0，高度值区变化（同时验证下限不在输入阶段夹取：框里显示 0 而不是 9）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "0"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_digit0"}
+      ]
+    },
+    {
+      "id": "custom.key.backspace",
+      "desc": "退格键 ⌫：高度框聚焦（值 9）后退格 → 值区变化（9 变 0，退格删空后回显 0 而不是空）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "back"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_backspace"}
+      ]
+    },
+    {
+      "id": "custom.key.emptycell",
+      "desc": "键盘右下角的空格子（没有键）：点它什么也不该发生，高度值区不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "keypad", "x": 93, "y": 117},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_emptycell"}
+      ]
+    },
+
+    {
+      "id": "custom.focus.width",
+      "desc": "点宽度框 → 数字进宽度框：宽度值区变化，高度值区不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 86},
+        {"act": "key", "key": "7"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_focus_width"}
+      ]
+    },
+    {
+      "id": "custom.focus.mines",
+      "desc": "点雷数框 → 数字进雷数框：雷数值区变化，高度与宽度值区都不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 116},
+        {"act": "key", "key": "5"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_focus_mines"}
+      ]
+    },
+    {
+      "id": "custom.focus.height",
+      "desc": "点高度框 → 数字回高度框：高度值区变化，雷数值区不变（焦点切换后新的一位替换旧值）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 116},
+        {"act": "key", "key": "5"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_focus_height"}
+      ]
+    },
+    {
+      "id": "custom.focus.replace",
+      "desc": "焦点切换即全选：高度框输 19 → 切到宽度框再切回 → 按 5，高度值区变化（此刻框里应是 5 而不是 195，需人工看图核对）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "1"},
+        {"act": "key", "key": "9"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "tap", "space": "custom", "x": 162, "y": 86},
+        {"act": "key", "key": "2"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "5"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_focus_replace"}
+      ]
+    },
+
+    {
+      "id": "custom.limit.height",
+      "desc": "高度越界：先输 2（合法），再输 5 → 25 > 上限 24 → 这一次按键被拒绝，高度值区保持 2 不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "key", "key": "5"},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_limit_height"}
+      ]
+    },
+    {
+      "id": "custom.limit.width",
+      "desc": "宽度越界：先输 3（合法），再输 1 → 31 > 上限 30 → 按键被拒绝，宽度值区保持 3 不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 86},
+        {"act": "key", "key": "3"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "key", "key": "1"},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_limit_width"}
+      ]
+    },
+    {
+      "id": "custom.limit.mines",
+      "desc": "雷数越界：输 6 → 6 → 9，第三位被拒（669 > 全局上限 668），雷数值区保持 66 不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 116},
+        {"act": "key", "key": "6"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "key", "key": "6"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "key", "key": "9"},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 110, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_limit_mines"}
+      ]
+    },
+
+    {
+      "id": "custom.backspace.mid",
+      "desc": "退格逐位删：高度 24 → 退格 → 2 → 退格 → 0，每一步高度值区都变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "key", "key": "back"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "key", "key": "back"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_backspace_mid"}
+      ]
+    },
+    {
+      "id": "custom.backspace.on_zero",
+      "desc": "退格删空后再退格：值已经是 0，再按退格没有变化（值区 unchanged，不会变负）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "back"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "key", "key": "back"},
+        {"act": "expect", "type": "unchanged", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "shot", "name": "custom_backspace_on_zero"}
+      ]
+    },
+
+    {
+      "id": "custom.ok.custom24x30",
+      "desc": "确定 → 真开出一局 24 行 30 列：布局日志应为 格边=72px 棋盘原点=(-440,408)（Mate 90 Pro 1280x2598 @3.5 的 24x30 基线）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "tap", "space": "custom", "x": 162, "y": 86},
+        {"act": "key", "key": "3"},
+        {"act": "key", "key": "0"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "key", "key": "ok"},
+        {"act": "wait", "ms": 600},
+        {"act": "expect", "type": "layout_regex", "re": "当前档n=2 unit=4 格边=72px 棋盘原点=\\(-440,408\\)"},
+        {"act": "shot", "name": "custom_ok_24x30"}
+      ]
+    },
+    {
+      "id": "custom.ok.clamp_lower",
+      "desc": "下限在确定时统一处理：高度输入 0（输入阶段不夹）→ 确定 → 夹到下限 9，开出的仍是 9 行（布局回到初级基线 格边=108px）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "0"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "key", "key": "ok"},
+        {"act": "wait", "ms": 600},
+        {"act": "expect", "type": "layout_regex", "re": "当前档n=3 unit=6 格边=108px 棋盘原点=\\(154,754\\)"},
+        {"act": "shot", "name": "custom_ok_clamp_lower"}
+      ]
+    },
+    {
+      "id": "custom.cancel.no_change",
+      "desc": "取消 → 什么也不该发生：改了高度后按取消，棋盘仍是初级盘（布局日志 格边=108px 棋盘原点=(154,754)）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "key", "key": "cancel"},
+        {"act": "wait", "ms": 400},
+        {"act": "expect", "type": "layout_regex", "re": "当前档n=3 unit=6 格边=108px 棋盘原点=\\(154,754\\)"},
+        {"act": "shot", "name": "custom_cancel"}
+      ]
+    },
+    {
+      "id": "custom.close.redx",
+      "desc": "标题栏红叉关闭：点框右上角的红叉（参考像素 267,10）→ 等同于取消，棋盘不变",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "tap", "space": "custom", "x": 267, "y": 10},
+        {"act": "wait", "ms": 400},
+        {"act": "expect", "type": "layout_regex", "re": "当前档n=3 unit=6 格边=108px 棋盘原点=\\(154,754\\)"},
+        {"act": "shot", "name": "custom_close_redx"}
+      ]
+    },
+
+    {
+      "id": "custom.prefill.current_board",
+      "desc": "预填回归（custom-agent 裁决 P4）：开一局 24x30 → 再打开自定义框 → 什么都不改直接确定，盘面应仍是 24x30（证明预填来自当前盘面而不是难度预设 9/9；若预填错了，会退回 9x9 的 格边=108px）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "tap", "space": "custom", "x": 162, "y": 56},
+        {"act": "key", "key": "2"},
+        {"act": "key", "key": "4"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
+        {"act": "tap", "space": "custom", "x": 162, "y": 86},
+        {"act": "key", "key": "3"},
+        {"act": "key", "key": "0"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
+        {"act": "key", "key": "ok"},
+        {"act": "wait", "ms": 600},
+        {"act": "expect", "type": "layout_regex", "re": "当前档n=2 unit=4 格边=72px 棋盘原点=\\(-440,408\\)"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "wait", "ms": 400},
+        {"act": "shot", "name": "custom_prefill_reopened"},
+        {"act": "key", "key": "ok"},
+        {"act": "wait", "ms": 600},
+        {"act": "expect", "type": "layout_regex", "re": "当前档n=2 unit=4 格边=72px 棋盘原点=\\(-440,408\\)"},
+        {"act": "shot", "name": "custom_prefill_current_board"}
+      ]
+    }
+  ]
+}

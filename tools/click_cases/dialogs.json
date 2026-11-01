@@ -1,0 +1,356 @@
+{
+  "domain": "dialogs",
+  "cases": [
+    {
+      "id": "dialogs.lose.again",
+      "desc": "失败框→再玩一局(P)：关框并同难度重开一局（hilog 记 again）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "lose_game"},
+        {"act": "tap", "space": "dialog", "dialog": "lose", "x": 395, "y": 249},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 again"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "lose", "x": 16, "y": 40, "w": 300, "h": 130}},
+        {"act": "shot", "name": "lose_again"}
+      ]
+    },
+    {
+      "id": "dialogs.lose.menu",
+      "desc": "失败框→换个难度(D)：关框并弹出游戏下拉菜单（历史 bug：以前只关框不弹菜单）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "lose_game"},
+        {"act": "tap", "space": "dialog", "dialog": "lose", "x": 242, "y": 249},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 menu"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "lose", "x": 16, "y": 40, "w": 300, "h": 130}},
+        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 100, "y": 90, "w": 150, "h": 590}},
+        {"act": "shot", "name": "lose_menu"}
+      ]
+    },
+    {
+      "id": "dialogs.lose.close",
+      "desc": "失败框→标题栏红叉 X：关框回主界面，不退出应用",
+      "steps": [
+        {"act": "reset"},
+        {"act": "lose_game"},
+        {"act": "tap", "space": "dialog", "dialog": "lose", "x": 451, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "lose", "x": 16, "y": 40, "w": 300, "h": 130}},
+        {"act": "shot", "name": "lose_close"}
+      ]
+    },
+    {
+      "id": "dialogs.lose.close_hitarea",
+      "desc": "失败框→红块可点区（点红块右侧空白，不点白叉）：整个红块都要能点",
+      "steps": [
+        {"act": "reset"},
+        {"act": "lose_game"},
+        {"act": "tap", "space": "dialog", "dialog": "lose", "x": 465, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "lose", "x": 16, "y": 40, "w": 300, "h": 130}},
+        {"act": "shot", "name": "lose_close_hitarea"}
+      ]
+    },
+    {
+      "id": "dialogs.lose.exit",
+      "desc": "失败框→退出(X)：关框并终止应用（断言进程没了；本域最后一条）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "lose_game"},
+        {"act": "tap", "space": "dialog", "dialog": "lose", "x": 89, "y": 249},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 exit"},
+        {"act": "expect", "type": "app_alive", "alive": false},
+        {"act": "shot", "name": "lose_exit"}
+      ]
+    },
+    {
+      "id": "dialogs.win.again",
+      "desc": "胜利框→再玩一局(P)：关框并同难度重开一局",
+      "steps": [
+        {"act": "reset"},
+        {"act": "win_game"},
+        {"act": "tap", "space": "dialog", "dialog": "win", "x": 91, "y": 265},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 again"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "win", "x": 80, "y": 40, "w": 240, "h": 50}},
+        {"act": "shot", "name": "win_again"}
+      ]
+    },
+    {
+      "id": "dialogs.win.close",
+      "desc": "胜利框→标题栏红叉 X：关框回主界面，不退出应用",
+      "steps": [
+        {"act": "reset"},
+        {"act": "win_game"},
+        {"act": "tap", "space": "dialog", "dialog": "win", "x": 364, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "win", "x": 80, "y": 40, "w": 240, "h": 50}},
+        {"act": "shot", "name": "win_close"}
+      ]
+    },
+    {
+      "id": "dialogs.win.exit",
+      "desc": "胜利框→退出(X)：关框并终止应用（2026-11-01 起文案由 退出(Q) 改成 退出(X)，提交 323a324）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "win_game"},
+        {"act": "tap", "space": "dialog", "dialog": "win", "x": 91, "y": 299},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 exit"},
+        {"act": "expect", "type": "app_alive", "alive": false},
+        {"act": "shot", "name": "win_exit"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.list.beginner",
+      "desc": "统计窗→左栏难度列表「初级」：本来就选中这一档，点它不产生变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "dialog", "dialog": "stats", "x": 45, "y": 52},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "unchanged", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 158, "h": 80}},
+        {"act": "shot", "name": "stats_list_beginner"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.list.intermediate",
+      "desc": "统计窗→左栏难度列表「中级」：选中切到第 1 档，选择条移动",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "dialog", "dialog": "stats", "x": 45, "y": 65},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 选中难度 1"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 158, "h": 80}},
+        {"act": "shot", "name": "stats_list_intermediate"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.list.expert",
+      "desc": "统计窗→左栏难度列表「高级」：选中切到第 2 档，选择条移动",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "dialog", "dialog": "stats", "x": 45, "y": 78},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 选中难度 2"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 158, "h": 80}},
+        {"act": "shot", "name": "stats_list_expert"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.reset",
+      "desc": "统计窗→重置(R)：清空成绩与统计，但窗口不关",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "dialog", "dialog": "stats", "x": 578, "y": 218},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 点击重置"},
+        {"act": "expect", "type": "unchanged", "region": {"space": "dialog", "dialog": "stats", "x": 336, "y": 205, "w": 154, "h": 27}},
+        {"act": "shot", "name": "stats_reset"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.close",
+      "desc": "统计窗→关闭(C)：关掉统计窗口",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "dialog", "dialog": "stats", "x": 413, "y": 218},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 点击关闭"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 620, "h": 160}},
+        {"act": "shot", "name": "stats_close"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.titleclose",
+      "desc": "统计窗→标题栏红叉 X：关掉统计窗口（红叉与底部关闭(C) 走同一条分支）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "dialog", "dialog": "stats", "x": 670, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 点击关闭"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 620, "h": 160}},
+        {"act": "shot", "name": "stats_titleclose"}
+      ]
+    },
+    {
+      "id": "dialogs.stats.outside",
+      "desc": "统计窗→点窗口外（画布空白处）：也关窗，避免误入后找不到出口",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "tap", "space": "canvas", "x": 640, "y": 2000},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 点击关闭"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 620, "h": 160}},
+        {"act": "shot", "name": "stats_outside"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.thumb.mines",
+      "desc": "颜色框→缩略图「扫雷」：本来就是选中态，点它不变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 72, "y": 84},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "unchanged", "region": {"space": "dialog", "dialog": "appearance", "x": 36, "y": 48, "w": 72, "h": 72}},
+        {"act": "shot", "name": "appearance_thumb_mines"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.thumb.flowers",
+      "desc": "颜色框→缩略图「花园」：选中框移过去，但棋盘外观不变（点确定才生效）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 258, "y": 84},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 222, "y": 48, "w": 72, "h": 72}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "shot", "name": "appearance_thumb_flowers"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.thumb.blue",
+      "desc": "颜色框→缩略图「银蓝」：本来就是选中态，点它不变化",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 78, "y": 214},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "unchanged", "region": {"space": "dialog", "dialog": "appearance", "x": 36, "y": 172, "w": 84, "h": 84}},
+        {"act": "shot", "name": "appearance_thumb_blue"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.thumb.green",
+      "desc": "颜色框→缩略图「绿色」：选中框移过去，但棋盘外观不变（点确定才生效）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 264, "y": 214},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 222, "y": 172, "w": 84, "h": 84}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "shot", "name": "appearance_thumb_green"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.checkbox",
+      "desc": "颜色框→置灰复选框「随机选择游戏样式和棋盘」：按原版就是置灰的，点它没有任何反应",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 24, "y": 290},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "unchanged", "region": {"space": "dialog", "dialog": "appearance", "x": 14, "y": 280, "w": 200, "h": 22}},
+        {"act": "shot", "name": "appearance_checkbox"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.ok",
+      "desc": "颜色框→选「绿色」再点确定(O)：棋盘变成绿色（点确定才生效）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 264, "y": 214},
+        {"act": "wait", "ms": 1500},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 255, "y": 315},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "shot", "name": "appearance_ok"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.cancel",
+      "desc": "颜色框→选「绿色」再点取消(C)：棋盘保持原样（不生效）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 264, "y": 214},
+        {"act": "wait", "ms": 1500},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 355, "y": 315},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
+        {"act": "shot", "name": "appearance_cancel"}
+      ]
+    },
+    {
+      "id": "dialogs.appearance.close",
+      "desc": "颜色框→标题栏红叉 X：关框且不生效",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 388, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "shot", "name": "appearance_close"}
+      ]
+    },
+    {
+      "id": "dialogs.help.ok",
+      "desc": "帮助框→确定：关掉帮助框",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "help", "entry": "帮助(H)"},
+        {"act": "tap", "space": "dialog", "dialog": "help", "x": 292, "y": 253},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "help", "x": 16, "y": 37, "w": 250, "h": 190}},
+        {"act": "shot", "name": "help_ok"}
+      ]
+    },
+    {
+      "id": "dialogs.help.close",
+      "desc": "帮助框→标题栏红叉 X：关掉帮助框",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "help", "entry": "帮助(H)"},
+        {"act": "tap", "space": "dialog", "dialog": "help", "x": 552, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "help", "x": 16, "y": 37, "w": 250, "h": 190}},
+        {"act": "shot", "name": "help_close"}
+      ]
+    },
+    {
+      "id": "dialogs.about.ok",
+      "desc": "关于框→确定（蓝框默认按钮）：关掉关于框",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "help", "entry": "关于扫雷"},
+        {"act": "tap", "space": "dialog", "dialog": "about", "x": 250, "y": 165},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "about", "x": 30, "y": 60, "w": 250, "h": 80}},
+        {"act": "shot", "name": "about_ok"}
+      ]
+    },
+    {
+      "id": "dialogs.about.close",
+      "desc": "关于框→标题栏红叉 X（经典蓝灰标题栏，尺寸略大）：关掉关于框",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "help", "entry": "关于扫雷"},
+        {"act": "tap", "space": "dialog", "dialog": "about", "x": 283, "y": 10},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 close"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "about", "x": 30, "y": 60, "w": 250, "h": 80}},
+        {"act": "shot", "name": "about_close"}
+      ]
+    }
+  ]
+}

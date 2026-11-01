@@ -1,0 +1,204 @@
+{
+  "domain": "menu",
+  "_说明": [
+    "菜单栏 14 个可交互元素（2 个顶层标题 + 游戏下拉 10 项 + 帮助下拉 2 项）逐条覆盖。",
+    "元素清单来源：docs\\BUTTON-INVENTORY.md §1（序号 1~14）。",
+    "坐标：菜单栏用 space=menu（画布 vp），对话框用 space=dialog（参考像素），",
+    "      棋盘用 space=board（cell），其余用 space=canvas（画布设备像素）。",
+    "面板区域取的是下拉面板里一块**没有文字**的地方（实测打开时亮度 240、",
+    "关闭时是画布底色 205），所以 region_light(min=230) = 面板在、",
+    "region_dark(max=215) = 面板不在，可以直接判「菜单面板有没有消失」。",
+    "退出(X) 会终止应用，放在最后一条。"
+  ],
+  "cases": [
+    {
+      "id": "menu.game.open",
+      "desc": "菜单栏「游戏(G)」：单击展开游戏下拉面板",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
+        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "shot", "name": "game_menu_open"}
+      ]
+    },
+    {
+      "id": "menu.game.toggle",
+      "desc": "菜单栏「游戏(G)」：再点一次收起下拉面板（开→收）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
+        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "shot", "name": "game_menu_toggle"}
+      ]
+    },
+    {
+      "id": "menu.help.open",
+      "desc": "菜单栏「帮助(H)」：单击展开帮助下拉面板（只有 2 项）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "menu", "x": 90.0, "y": 7.7},
+        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 250, "y": 101, "w": 80, "h": 50}},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 250, "y": 101, "w": 80, "h": 50}},
+        {"act": "shot", "name": "help_menu_open"}
+      ]
+    },
+    {
+      "id": "menu.game.new",
+      "desc": "游戏→新建(F2)：同难度重开一局（棋盘清空、重新计时）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "board", "cell": [4, 4]},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "changed", "region": {"space": "board", "cell": [3, 3], "w": 3, "h": 3}},
+        {"act": "menu", "top": "game", "entry": "新建"},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "changed", "region": {"space": "board", "cell": [3, 3], "w": 3, "h": 3}},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 new"},
+        {"act": "shot", "name": "game_new"}
+      ]
+    },
+    {
+      "id": "menu.game.beginner",
+      "desc": "游戏→初级：切到 9×9/10 雷（布局日志的格边与棋盘原点要变）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "中级"},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 intermediate"},
+        {"act": "expect", "type": "layout_changed"},
+        {"act": "menu", "top": "game", "entry": "初级"},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 beginner"},
+        {"act": "expect", "type": "layout_changed"},
+        {"act": "shot", "name": "game_beginner"}
+      ]
+    },
+    {
+      "id": "menu.game.intermediate",
+      "desc": "游戏→中级：切到 16×16/40 雷（布局要变）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "中级"},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 intermediate"},
+        {"act": "expect", "type": "layout_changed"},
+        {"act": "shot", "name": "game_intermediate"}
+      ]
+    },
+    {
+      "id": "menu.game.expert",
+      "desc": "游戏→高级：切到 30×16/99 雷（布局要变）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "高级"},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 expert"},
+        {"act": "expect", "type": "layout_changed"},
+        {"act": "shot", "name": "game_expert"}
+      ]
+    },
+    {
+      "id": "menu.game.custom",
+      "desc": "游戏→自定义：弹出「自定义」难度框（框 + 右侧数字键盘）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "自定义"},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 custom"},
+        {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 132, "y": 46, "w": 60, "h": 21}},
+        {"act": "shot", "name": "game_custom"}
+      ]
+    },
+    {
+      "id": "menu.game.marks",
+      "desc": "游戏→标记(?)：开关「允许插问号」，且下拉菜单面板必须消失（历史 bug：菜单整块留在画布上）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "menu", "top": "game", "entry": "标记(?)"},
+        {"act": "wait", "ms": 600},
+        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 marks"},
+        {"act": "shot", "name": "game_marks"}
+      ]
+    },
+    {
+      "id": "menu.game.sound",
+      "desc": "游戏→声音：开关音效，且下拉菜单面板必须消失（历史 bug 同上）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "menu", "top": "game", "entry": "声音"},
+        {"act": "wait", "ms": 600},
+        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 sound"},
+        {"act": "shot", "name": "game_sound"}
+      ]
+    },
+    {
+      "id": "menu.game.best",
+      "desc": "游戏→最佳成绩：弹出「扫雷统计信息」窗口",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "最佳成绩"},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 best"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 158, "h": 80}},
+        {"act": "shot", "name": "game_best"}
+      ]
+    },
+    {
+      "id": "menu.game.appearance",
+      "desc": "游戏→颜色(C) F7：弹出「外观」对话框（两组缩略图 + 确定/取消）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 appearance"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
+        {"act": "shot", "name": "game_appearance"}
+      ]
+    },
+    {
+      "id": "menu.help.help",
+      "desc": "帮助→帮助(H) F1：弹出「扫雷 帮助」对话框",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "help", "entry": "帮助(H)"},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 help"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "help", "x": 16, "y": 37, "w": 256, "h": 192}},
+        {"act": "shot", "name": "help_help"}
+      ]
+    },
+    {
+      "id": "menu.help.about",
+      "desc": "帮助→关于扫雷 A：弹出「关于 扫雷」对话框",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "help", "entry": "关于扫雷"},
+        {"act": "wait", "ms": 800},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 about"},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "about", "x": 8, "y": 30, "w": 290, "h": 140}},
+        {"act": "shot", "name": "help_about"}
+      ]
+    },
+    {
+      "id": "menu.game.exit",
+      "desc": "游戏→退出(X)：终止应用（本域最后一条，断言进程没了）",
+      "steps": [
+        {"act": "reset"},
+        {"act": "menu", "top": "game", "entry": "退出"},
+        {"act": "wait", "ms": 1500},
+        {"act": "expect", "type": "hilog_regex", "re": "菜单动作 exit"},
+        {"act": "expect", "type": "app_alive", "alive": false},
+        {"act": "shot", "name": "game_exit"}
+      ]
+    }
+  ]
+}
