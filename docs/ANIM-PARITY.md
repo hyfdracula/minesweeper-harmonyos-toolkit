@@ -181,77 +181,124 @@
 
 ---
 
-## 五、发现的 3 处行为差异（都在 `GameController.ets`，本轮只报告）
+## 五、按 lead 拍板已实施的三处改动（D1 / D2 / D3）
 
-### D1. 拆雷光束的**起跳时刻**（差得最明显，建议 lead 定夺）
+> 2026-11-01 补充：lead 已拍板，三处**全部实施**，下面改成「改了什么」。
+> 本轮**没有装设备**，由 lead 统一构建安装后复测。
+
+### D1. 拆雷光束的**起跳时刻** —— 改成按行号均匀分配（已实施）
 
 * 原版/参考：`start(r) = kScanTicks * (rows - r) / (rows + 1)`
   （`BoardWidget.cpp:244`）——**按行号均匀分配**，
   底部行在 1/(rows+1)、顶部行在 rows/(rows+1) 处开火。
-* 我们：`start = (条的上沿扫到该行上沿的时刻) * 3000`
-  （`GameController.ets:1077-1080`），用的是**条的真实高度**
-  `barH = 棋盘宽 × 62/275`（`GameController.ets:677-680`）。
+* 改前我们算的是「扫描条的上沿扫到该行上沿的时刻」，
+  用的是**条的真实高度** `barH = 棋盘宽 × 62/275`
+  （9×9 时约 2.03 格、30×24 时约 5.41 格），
+  结果**最底下几行的光束会在 0 ms 同时开火**（9×9 底两行、30×24 底六行）。
 
-两种算法在 9×9 初级局上的差（条高 2.03 格）：
-
-| 行 r（0 = 顶） | 我们 | 参考 |
-| --- | --- | --- |
-| 0 | 2324 ms | 2700 ms |
-| 3 | 1324 ms | 1800 ms |
-| 6 | 324 ms | 900 ms |
-| 7 | **0 ms** | 600 ms |
-| 8 | **0 ms** | 300 ms |
-
-**我们这边最底下两行的雷会在 0 ms 同时开火**（参考是 300/600 ms 依次开火）。
-盘面越大差得越多：16×16 时我们最底 4 行同时开火，30×24 时最底 6 行同时开火。
-
-根因：参考实现画条时用真实条高（2~5 格），但**排光束时刻时按「条高 = 1 格」推**，
-（把 `start = kScanTicks*(rows-r)/(rows+1)` 反推回去，得到的正是「条高 = 1 格」的几何关系）；
-我们两处都用真实条高，**自洽但底部会挤在一起**。
-
-**建议**：把 `GameController.ets:1077-1080` 换成参考实现的行号公式即可
-（一行改动，不碰 Anim.ets）：
+**改法**（`GameController.startWinSweep()`，一行）：
 
 ```ts
-// 参考实现：BoardWidget.cpp:244  start = kScanTicks * (rows - r) / (rows + 1)
 const startMs = Math.round(Anim.SWEEP_MS * (e.rowCount - r) / (e.rowCount + 1));
-times.push(startMs);
 ```
 
-> 说明：**原版的 XML 拿不到**（§1.1），所以「哪条更接近原版」无法证明。
-> 参考实现是「最接近 Win7 行为复刻」，但它这一条和自己的条高不自洽；
-> 我们这一条自洽、但底部几行会同时炸。两个都说不通时才需要拍板，
-> 这次的差异属于「两个都不完全确定」那一类，请 lead 定。
+改后的起跳时刻（模拟计算）：
 
-### D2. 判负时的爆炸**级联**
+| 行数 | 各行起跳（ms，r = 0 是顶行） |
+| --- | --- |
+| 9 行 | 2700, 2400, 2100, 1800, 1500, 1200, 900, 600, 300 |
+| 16 行 | 2824, 2647, 2471, 2294, 2118, 1941, 1765, 1588, 1412, 1235, 1059, 882, 706, 529, 353, 176 |
+| 24 行 | 2880, 2760, … 120（每行 120 ms，均匀） |
 
-* 参考：**踩中的那颗先炸，其余没插旗的雷按冲击波环到达的时刻依次炸**
-  （`BoardWidget.cpp:167-206`；起跳 = `max(1, round(距离 × 5))` tick，
-  `kRingStagger = 5`，见 `BoardWidget.cpp:30`；被插旗的雷不炸）。
-* 我们：**只炸踩中的那一颗**（`GameController.ets:1036` 的 `Anim.startTrip(cell)`，
-  `Anim.tripCell` 是单个格索引，`GameController.ets:563` 只在这一格上播）。
+每行的光束依次开火，不再有「底部几行同时炸」。
 
-影响：判负时原版是一片雷接连炸，我们是一颗。
+顺带删掉了因此**变成死代码**的 `GameController.scanBarHeight()`
+（它只被光束计时用；条的高度仍然由 `Anim.scanBarRect()` 自己按原版比例算）。
 
-### D3. 爆炸的**绘制层级**
+### D2. 判负时的爆炸**级联**（已实施）
+
+原版：**踩中的那颗先炸（起跳 0），其余没插旗的雷按冲击波环到达的时刻依次炸**
+（`BoardWidget.cpp:167-206`；起跳 = `max(1, round(距离 × 5))` tick，
+`kRingStagger = 5` 见 `BoardWidget.cpp:30`；被插旗的雷不炸）。
+
+#### 数据结构怎么改的
+
+| | 改前 | 改后 |
+| --- | --- | --- |
+| 状态 | `Anim.tripCell: number`（**一个**格索引）<br>`Anim.tripFrame: number`（**一个**帧号） | `Anim.booms: Boom[]`<br>`Boom = { cell: number; startMs: number }`（**一组**雷 + 各自的起爆时刻） |
+| 开始 | `Anim.startTrip(cellIndex: number)` | `Anim.startTrip(booms: Boom[])` |
+| 取帧号 | 直接读 `Anim.tripFrame` | `Anim.boomFrame(i): number` —— 按**这颗雷自己的**时钟算：<br>`floor((tripElapsed - booms[i].startMs) / 每帧时长)`，<br>没起爆或已放完都返回 -1 |
+| 查某格何时炸 | 无 | `Anim.boomStartMsOfCell(cellIndex): number`（不在这次级联里返回 -1） |
+| 序列何时结束 | `每帧时长 × 23` | `Anim.tripEndMs()` = 所有雷里 `起爆时刻 + 1000ms` 的最大值 |
+| 起爆时刻怎么算 | 无 | `Anim.boomStartMs(dist)` = `max(1, round(dist × 5)) × 30ms` |
+| 结束 | `Anim.stopTrip()` 清空状态 | 同左，另外把 `booms` 清空 |
+
+`GameController` 侧：
+
+* 新增 `buildBoomList(): Boom[]` —— 找出踩中的那颗（`cell.exploded`）当圆心，
+  遍历所有**没插旗**的雷（`cell.mine && cell.mark !== Mark.Flag`，
+  正好就是引擎 `MinesweeperEngine.lose()` 翻开的那些），
+  按欧氏格距算起爆时刻，最后按起爆时刻排序（先炸的先画，后炸的盖在上面）。
+* 判负入口由 `Anim.startTrip(cell)` 改成 `Anim.startTrip(this.buildBoomList())`。
+
+#### 连带改的两处「原版细节」
+
+参考实现同一段代码里还有两条规则，我们一并跟上了：
+
+1. **还没轮到的那颗雷仍然盖在凸起砖下面**（`BoardWidget.cpp:641-645`：
+   画凸起砖然后 `return`），等冲击波扫到它才炸开 —— 我们在画格子的地方
+   按 `Anim.boomStartMsOfCell()` 判断，没轮到就画凸起砖而不是雷。
+2. **花园玩法的花是「从无到有」长出来的**，所以花开完才出现
+   （`BoardWidget.cpp:679`：`Flowers ? finished : started`）——
+   矿雷是起爆就画，花园是花开完才画。
+
+#### 实测（模拟计算，9×9、踩中 (4,4)、10 颗雷）
+
+| 雷 | 距离 | 起爆 | 放完 |
+| --- | --- | --- | --- |
+| (4,4) 踩中的 | 0.00 格 | 0 ms | 1000 ms |
+| (2,6) / (6,2) | 2.83 格 | 420 ms | 1420 ms |
+| (4,8) | 4.00 格 | 600 ms | 1600 ms |
+| (1,1) / (7,7) | 4.24 格 | 630 ms | 1630 ms |
+| (0,0) / (0,8) / (8,0) / (8,8) | 5.66 格 | 840 ms | 1840 ms |
+
+级联总时长 = **1840 ms**（原来只有一颗雷、1000 ms）。
+
+> **关于「tick 基准」的一处说明**（需要 lead 确认）
+> lead 来信写的是「起跳时刻 = 距离 × 5 tick（tick 基准按现有 43.478ms 折算）」。
+> 实现用的是 **30 ms**：因为参考实现的 `kRingStagger` 是按它自己的动画时钟
+> `kTickMs = 30` 定义的（`BoardWidget.cpp:22,30`），
+> 我们的动画计时器间隔也正好是 30 ms（`GameController` 的 `setInterval(..., 30)`）。
+> 43.478 ms 是**每帧时长**（1000/23），不是「时钟走一格多久」，两者不是一回事。
+> 按 30 ms 折算 = 每格距离 150 ms（与参考完全一致）；
+> 若按 43.478 ms 折算则是每格 217 ms，比参考慢 45%，与「以参考为准」的拍板理由冲突。
+> 所以我按参考的 30 ms 实现了；**要换成 43.478 只需改 `Anim.RING_TICK_MS` 一个常量**。
+
+### D3. 爆炸的**绘制层级**（已实施）
 
 * 参考：爆炸在**整块棋盘画完之后**单独画一遍
   （`BoardWidget.cpp:751-775`，注释：「painted over the grid so each fireball can
   spill across its neighbours' tiles」）。
-* 我们：在**格子循环内部**画（`GameController.ets:563-572`），
-  于是**后画的邻格会盖住爆炸溢出到邻格的那部分**。
+* 改前：我们在**格子循环内部**画，后画的邻格会盖住爆炸溢出到邻格的那部分
+  （实测证据：上一轮慢放抓的 `docs\verify\ANIMF_exp_x5_c0_00.jpeg`，爆炸格 (3,8)，
+  溢出到棋盘外那部分没人盖，但格子内侧的被邻格盖）。
 
-实测证据（上一轮慢放抓的帧 `docs\verify\ANIMF_exp_x5_c0_00.jpeg`，爆炸格 (3,8)）：
-爆炸精灵 57×57、偏移 (-18,-18)，确实越出格子边界，
-在棋盘右沿外面能看到溢出的光晕 —— 越界处没人盖，但**格子内侧的溢出部分会被邻格盖住**。
+**改法**：格子循环里的爆炸绘制整段删掉，新增 `GameController.drawExplosions(ctx)`，
+在 `draw()` 里紧接 `drawBoard()` 之后调用：
+
+```
+drawBoardArea → drawBoard → **drawExplosions** → drawScanBar → …
+```
+
+于是火球画在**整块棋盘之上**，能盖住邻格，和原版一致。
 
 ### D4. 问号 / 旗帜：**原版没有小动画**，我们也没有 —— 一致
 
 原版里旗和问号就是棋盘表上的**静态叠加层**（`Theme.h:88-89`，18×18），
 参考实现也只画一帧（`BoardWidget.cpp:630-636`）。
 标记是三态循环：无 → 旗 → 问号 → 无（`game\Board.cpp:141-153`），问号格被翻开时清掉。
-我们的实现：`Theme.ets:41-47` 的矩形一致，`GameController.ets:597-598` 画问号，
-选项里可开关问号（`GameController.ets:1600,1674-1676`）。**一致。**
+我们的实现：`Theme.ets:41-47` 的矩形一致，`GameController` 里画问号，
+选项里可开关问号。**一致。**
 
 ---
 
@@ -270,24 +317,46 @@ times.push(startMs);
 
 ## 七、本轮改动清单
 
+### 第一轮（审计本身）
+
 | 文件 | 改动 | 说明 |
 | --- | --- | --- |
 | `entry/src/main/ets/common/Anim.ets` | 只给 `Anim.disarmRect()` 加了一段注释 | 这个函数只返回**蓝色**主题的拆雷帧，绿色版在 `Theme.disarmRectFor()`。怕后人误用把蓝光束画到绿盘上，加注释指路。**行为零变化** |
 | `docs/ANIM-PARITY.md` | 本文件 | 新文件 |
 
-**引擎单测**：`tools\run_engine_tests.ps1` → **59 passed / 0 failed**。
+### 第二轮（按 lead 拍板实施 D1 / D2 / D3）
+
+| 文件 | 改动 | 说明 |
+| --- | --- | --- |
+| `entry/src/main/ets/common/Anim.ets` | 新增 `Boom` 接口；`tripCell`/`tripFrame` → `booms: Boom[]`；新增 `boomFrame`/`boomStartMsOfCell`/`tripEndMs`/`boomStartMs`/`explodeFrameMs`/`explodeDurationMs`；新增常量 `RING_STAGGER_TICKS = 5`、`RING_TICK_MS = 30`；`tick()` 改为按级联结束 | **D2 的数据结构**。帧数/每帧时长/源矩形/帧序/偏移一处没动 |
+| `entry/src/main/ets/common/GameController.ets` | `startWinSweep()` 改成按行号分配光束起跳（**D1**）；新增 `buildBoomList()`，判负入口改成 `Anim.startTrip(booms)`（**D2**）；新增 `drawExplosions()` 并在 `drawBoard()` 之后调用，格子循环里的爆炸绘制删掉（**D3**）；雷格按级联时刻决定「盖着凸起砖」还是「画雷」，花园按「花开完才出现」；删掉变成死代码的 `scanBarHeight()` | 只碰了动画/爆炸/胜利光束相关段落 |
+| `docs/ANIM-FRAMES.md` | 补上「花园第 0 帧是全透明空图、所以模板匹配永远认不出」这条 | lead 要求补的 |
+| `docs/ANIM-PARITY.md` | 本文件（§五 改成「已实施」，新增 §七 第二节、§八） | |
 
 **没有改动**：帧数、每帧时长、源矩形、帧序、偏移 —— 它们本来就对，一处没动。
 
+**验证**：`tools\build.ps1` → **BUILD SUCCESSFUL**；
+`tools\run_engine_tests.ps1` → **59 passed / 0 failed**（与基线一致）。
+**本轮没有装设备**，按 lead 的安排由 lead 统一安装复测。
+
 ---
 
-## 八、给 lead 的三个待决项
+## 八、留给 lead 的三件事
 
-1. **D1 拆雷光束起跳时刻**：改成参考实现的行号公式（底部行 300 ms 依次开火），
-   还是保留我们自洽但底部会挤在一起的版本？改动在 `GameController.ets:1077-1080`，一行。
-2. **D2 判负爆炸级联**：要不要补成「冲击波环依次引爆」？这会让 `Anim.tripCell`
-   从单格变成一组雷 + 各自的起跳时刻，**要动 `Anim.ets` 的数据结构**
-   （`tripCell`/`startTrip`/`tick`）—— 属于我的范围，但工作量比 D1 大，
-   而且要改 `GameController` 的绘制循环，等 lead 点头再做。
-3. **D3 爆炸绘制层级**：把爆炸的绘制从格子循环里挪到棋盘之后单独一遍。
-   同样要动 `GameController.ets` 的绘制顺序。
+1. **装设备复测这三条**（本轮只做了构建，没装）：
+   - 判负时是否能看到**冲击波级联**（一颗一颗地炸），以及最底下几行的雷
+     是不是在冲击波扫到时才露出来；
+   - 胜利时各行的**拆雷光束**是不是依次开火（不再是底部几行同时亮）；
+   - 花园玩法判负时，**花是不是花开完才出现**。
+2. **D2 的 tick 基准**：实现用的是参考的 30 ms（`Anim.RING_TICK_MS`），
+   理由见 §五 D2 末尾的说明；要改成 43.478 ms 只需改这一个常量。
+3. **两处本轮没做的差异**（都在参考实现里，但不在 lead 拍板的范围内，只报告）：
+   - **判负音效**：参考是**每炸一颗雷就叠一声爆炸**（`Sounds.h:69-75` 的
+     `mineTripped()`，从一个 4 声的池子里轮流取），花园玩法则是放**一段**
+     按雷数分档的「枯萎」音；我们还是「开始音 → 爆炸中音 → 结束音」的固定三段
+     （`GameController.playBombTail()`，575 ms + 3949 ms）。
+     级联变长之后，在大棋盘（30×24）上这个固定三段会**先于动画结束**。
+   - **炸完之后的坑**：参考画的是一个**灰色残坑**（`BoardWidget.cpp:463-464`
+     用程序画的 `remnant(QColor(175,175,175))`，踩中的那颗是红坑 `craterRed`），
+     我们画的是**原来的雷精灵**（花园是雏菊）。
+     参考的坑是程序画的、不是原版精灵表里的，所以「哪个更贴原版」同样无法证明。

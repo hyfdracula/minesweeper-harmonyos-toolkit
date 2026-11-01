@@ -187,20 +187,37 @@ def _run_win_probe(device, phase, outdir):
     return proc.returncode
 
 
-def make_state(device, state, timeout=45.0):
-    """造出指定局面；返回 True 表示对话框已经出现在屏幕上。"""
+def make_state(device, state, timeout=120.0, attempts=2):
+    """造出指定局面；返回 True 表示对话框已经出现在屏幕上。
+
+    会**重试**（默认 2 遍）：设备负载重的时候，win_probe 自己解算/点击的过程会被拖慢，
+    偶尔一次没走通（没踩到雷、框没弹出来）。一次失败就判用例失败的话，
+    失败的是**设备状态**而不是被测代码 —— 所以重来一遍（attempts）。
+    """
     if state not in ("lose", "win"):
         raise ValueError("state 只能是 lose / win，收到 " + repr(state))
     phase = "explode" if state == "lose" else "win"
-    outdir = tempfile.mkdtemp(prefix="cm_mkstate_")
-    # 先在**未开局**的棋盘上量画布顶偏移（赢局之后棋盘全翻开，量不到砖块了）
-    geom, canvas_y = _measure_canvas_offset(device, outdir)
-    rc = _run_win_probe(device, phase, outdir)
-    if rc != 0:
-        print("[mkstate] win_probe 失败（退出码 %d），不再等框" % rc)
-        return False
+    for attempt in range(1, attempts + 1):
+        outdir = tempfile.mkdtemp(prefix="cm_mkstate_")
+        print("[mkstate] 第 %d/%d 遍造 %s 局面" % (attempt, attempts, state))
+        # 先在**未开局**的棋盘上量画布顶偏移（赢局之后棋盘全翻开，量不到砖块了）
+        geom, canvas_y = _measure_canvas_offset(device, outdir)
+        rc = _run_win_probe(device, phase, outdir)
+        if rc != 0:
+            print("[mkstate] win_probe 失败（退出码 %d）" % rc)
+            if attempt < attempts:
+                continue
+            return False
 
-    rect = _client_rect(device, state, outdir, geom, canvas_y)
+        rect = _client_rect(device, state, outdir, geom, canvas_y)
+        if _wait_dialog(device, state, rect, outdir, timeout):
+            return True
+        print("[mkstate] 第 %d 遍没等到 %s 框" % (attempt, state))
+    return False
+
+
+def _wait_dialog(device, state, rect, outdir, timeout):
+    """轮询截图，等对话框出现（客户区里接近 #f0f0f0 的像素过半）。"""
     shot = os.path.join(outdir, "probe.jpeg")
     deadline = time.time() + timeout
     best = -1.0
@@ -225,10 +242,12 @@ def main():
     ap = argparse.ArgumentParser(description="造出失败框/胜利框局面")
     ap.add_argument("--device", default="127.0.0.1:5557")
     ap.add_argument("--state", choices=["lose", "win"], required=True)
-    ap.add_argument("--timeout", type=float, default=45.0,
-                    help="等对话框出现的秒数（默认 45）")
+    ap.add_argument("--timeout", type=float, default=120.0,
+                    help="等对话框出现的秒数（默认 120）")
+    ap.add_argument("--attempts", type=int, default=2,
+                    help="最多造几遍（默认 2；设备负载重的时候 win_probe 会偶发失手）")
     args = ap.parse_args()
-    ok = make_state(args.device, args.state, args.timeout)
+    ok = make_state(args.device, args.state, args.timeout, args.attempts)
     return 0 if ok else 1
 
 

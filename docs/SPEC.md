@@ -511,12 +511,26 @@ Select-String -Path 'D:\software\DevEco Studio\sdk\default\openharmony\ets\build
 |---|---|
 | 窗口骨架 | 1px 外框 + 玻璃边框 + 29px Aero 标题栏；标题「扫雷统计信息」 |
 | 左栏难度列表 | (20,43) 158×80，sunken 白底；「初级」选中条为蓝色渐变；条目间距 13 |
-| 中栏「最佳时间」 | (193,49) 237×107 的 group box，标题压在上边框上；显示最快用时与日期 |
+| 中栏「最快纪录」 | (193,49) 237×107 的 group box，标题压在上边框上；**四行**：最快用时 / 最快百分比 / 最慢百分比 / 最慢用时（标签左对齐 x=202，数值右对齐右缘 x=420，行距 22，字号 12，百分比一位小数） |
 | 右栏六项 | x=443 起，行距 23：已玩游戏 / 已胜游戏 / 获胜率 / 最多连胜 / 最多连败 / 当前连局 |
 | 底部按钮 | 关闭(C) (336,205) 154×27（默认按钮，蓝色边框）；重置(R) (502,205) 152×27 |
 
+**中栏为什么是四项（2026-11-01 补）**：Win7 的「扫雷统计信息」窗口中栏有四项 ——
+最快用时、最快百分比、最慢百分比、最慢用时（Win7 才有百分比，XP 原版的 Winners 框只有
+「最快用时 + 玩家名」，见 `ReversingMinesweeper/windowing.c:304-361`）。
+百分比的**分母是「该难度已玩的局数」**（Lmy 克隆 `io.h:268-271`
+`valueCount[2] = winCount/gameCount*100`，且 `readProfileStatistic(section[level],…)`
+是按难度分节读的）；最快/最慢用时取该难度**获胜局**里的最短/最长一次。
+参照实现的行号见 `docs/DIALOG-PIXEL-DIFF-3.md` §1。
+
+> 相对 `information.jpg` 参考图，中栏由「最佳时间 + 一行」变成「最快纪录 + 四行」，
+> 属于**为对齐 Win7 而主动接受的像素偏差**（XP 参考图没有这四项）。
+
 配套的持久化字段（`GameStats.ets`）：`currentStreak` / `maxStreak` / `currentLoseStreak` /
-`maxLoseStreak`，以及 `reset()`（清局数、连胜连败、各难度最好成绩）。
+`maxLoseStreak`，以及每难度的 `LevelRecord`（`played` / `won` / `slowest` /
+`bestPercent` / `worstPercent`，键前缀 `lv*_`）；老键 `played` / `won` / `best_*` /
+`bestDate_*` **一个没删**，缺新键时按「没有纪录」显示 `---`，老存档不崩不丢。
+`reset()` 一并清空。
 
 > 参考图最后一行文案实测是「当前**连局**」（不是「当前连胜」），按参考图实现。
 
@@ -561,6 +575,20 @@ Select-String -Path 'D:\software\DevEco Studio\sdk\default\openharmony\ets\build
 > （宽度留 0 再确定 → 生效的是下限 9）。
 > 退格删空后回显 `0`（它是一个**中间值**，不是越界值，确定时会被夹到下限）。
 > 原版用系统键盘、编辑框行为未知，所以这条**只作为本项目的既定口径**，不声称与原版一致。
+
+**自定义框的标签与提示行照抄 Win7（2026-11-01 补，原版对照见 `docs/CUSTOM-DIALOG-AUDIT.md` §9）**：
+
+- 标签写成 **「高度(9-24):」「宽度(9-30):」「雷数(10-668):」** —— 上下限**写在标签里**，
+  这正是原版的做法（`Minesweeper.rc:106-108`；linux 复刻 `OptionsDialog.cpp:89-91` 的注释原话
+  *"The Windows 7 custom limits, spelled out in the labels like it does."*）。
+  上限由常量拼出，改上限不会和标签脱节。
+- 提示行**只说动态部分**（「本盘面最多 N 雷」/「本盘面最多 N 雷，当前 M 将按 N 布雷」/
+  「高度/宽度超范围，最多 N 雷」），上下限不再重复一遍（标签里已经写了）。
+- 三个框**互相独立**：改行/列**不会**立刻收回超限的雷数，盘面收只在**按确定**时夹一次
+  （原版 `windowing.c:220-223` 就是这样，也与本项目 §5.8b 的既定口径一致）。
+- **三档最佳成绩不在自定义框里**：原版是另一个菜单项（「最佳成绩」）打开的独立窗口
+  （`ID_DIALOG_WINNERS`，三行 TIME/NAME + 重置成绩按钮，成绩存注册表 `Time1..Time3`）；
+  自定义局**不占**那三行 —— 与我们「自定义局不进统计」一致。
 
 ### 5.8c 「颜色(C)」外观对话框 —— 游戏样式 + 棋盘样式（2026-10-31 实现）
 
@@ -634,8 +662,9 @@ lead 于 2026-10-31 直接问过用户，用户本人 Win7 的「游戏(G)」菜
 |---|---|---|
 | **新局发牌** | 整盘先画成压平的浅色底砖，方砖从四角波浪式弹起，**总时长 1100ms** | Lmy `Minesweeper.cpp:1496-1508`（`speed(1100/(row*col))` 逐格延时）+ `core.h` 的 `getFirstPaintNo()` 顺序 |
 | **洪泛涟漪** | 按**切比雪夫方环**分层，**每圈 30ms**，单格 **150ms** 线性淡入；展开格数 **<6 不涟漪** | Qt 复刻 `BoardWidget.cpp:22/30/31`（`kTickMs=30`、`kRippleStagger`、`kRippleFadeTicks=150/30`）、`:283` 的 `qMax(qAbs(dx),qAbs(dy))`、`:271` 的 `order.size()<6` |
-| **踩雷爆炸** | 23 帧 / 1 秒，帧矩形 `(728+59*(f%3), 59*(f/3), 57, 57)`，偏移 (−18,−18) | Qt `Theme.h` 的 `tripFrame()`（来自原版 `animationMineSweeper_MineTrip.xml`） |
+| **踩雷爆炸** | 23 帧 / 1 秒，帧矩形 `(728+59*(f%3), 59*(f/3), 57, 57)`，偏移 (−18,−18)；**判负是冲击波级联**：踩中的那颗 0ms 起炸，其余未插旗的雷按到中心的格距 `round(距离×5)×30ms` 依次起炸，插了旗的雷不炸；还没轮到的那颗**仍盖在凸起砖下面** | Qt `Theme.h` 的 `tripFrame()`（来自原版 `animationMineSweeper_MineTrip.xml`）；级联依据 Qt `BoardWidget.cpp:167-206`（`kRingStagger` 按 30ms 时钟步长）、`:641-645`（未轮到的雷盖在砖下）、`:679`（花园的花开完才出现） |
 | **胜利扫描条** | 扫描条 3 秒自下而上，横向拉伸到棋盘宽；扫到某行时该行的雷播放 38 帧 / 2 秒的拆雷光束；**全部放完才弹胜利框** | Qt `Theme.h` 的 `kScanBar{0,912,275,62}` 与 `disarmFrame()`（原版 `animationMinesweeper_MineDisarm.xml`） |
+| **拆雷光束的起跳时刻** | **按行号均匀分配**：`startMs = round(3000 × (行数 − r) / (行数 + 1))`（9 行盘 = 300…2700ms 依次亮），**不是**按扫描条的真实高度几何算 —— 几何算法会让最底几行在 0ms 同时开火 | Qt `BoardWidget.cpp:244` 的 `kScanTicks*(rows-r)/(rows+1)`（参照实现自述取自原版 UI XML）；差异与裁决见 `docs/ANIM-PARITY.md` §五 |
 
 **性能约定**：四段动画共用**一个 30ms 帧定时器**（`GameController.tickFrames`），每帧只重画一次。
 早先每个动画各开一个 `setInterval`，重叠时同一帧会把整块画布画三遍，折叠屏上会掉帧。
@@ -666,6 +695,25 @@ lead 于 2026-10-31 直接问过用户，用户本人 Win7 的「游戏(G)」菜
 >
 > 取证用的慢放常量**已改回 1**，发布包的爆炸时长回到原版的 **1 秒 / 23 帧**
 > （commit `b9e8b74`）。
+
+**2026-11-01 补的三条（已实施，判负级联 / 光束时序 / 绘制层级）**：
+
+1. **判负爆炸级联**：数据结构从「单格单帧」（`Anim.tripCell` / `tripFrame`）
+   改成「一组雷 + 各自起爆时刻」（`Anim.booms: Boom[]`，新接口 `Anim.startTrip(booms)` /
+   `boomFrame(i)` / `boomStartMsOfCell()` / `tripEndMs()` / `boomStartMs(dist)`，
+   `GameController.buildBoomList()` 负责造这个表）。
+   9×9 踩中 (4,4)、10 颗雷时：(4,4) 0ms → (2,6)/(6,2) 420ms → (4,8) 600ms →
+   (1,1)/(7,7) 630ms → 四角 840ms，**整条级联 1840ms**（原来只有一颗雷、1000ms）。
+2. **爆炸绘制的层级**：爆炸改到「整块棋盘画完之后」单独画（`GameController.drawExplosions()`，
+   顺序 `drawBoard → drawExplosions → drawScanBar`），火球可以盖住邻格；
+   原来在格子循环里画，后画的邻格会盖住溢出部分。
+3. **时钟步长是 30ms，不是 43.478ms**：43.478ms 是**每帧时长**（1000/23），
+   而级联的「冲击波环到达时刻」是按**时钟走一格多久**算的 —— 参照实现的 `kTickMs = 30`
+   正好也是我们帧定时器的间隔。改这个只需动 `Anim.RING_TICK_MS` 一个常量。
+
+> 判负的**音效**还没跟原版完全一致：原版是「每炸一颗雷叠一声爆炸」，
+> 我们还是固定三段（开始 / 爆炸中 / 结束），且结束音现在跟着级联长度走
+> （`Anim.tripEndMs()`）。花园玩法按**总雷数**分档播枯萎声、**不叠**爆炸三段。
 
 ---
 
@@ -886,9 +934,30 @@ python tools\click_matrix.py --device 127.0.0.1:5557 --only menu.game
 ### 11.5 音效（原版 Win7 素材）
 
 直接用 `win7-assets/audio` 里的微软原版 wav，已复制到 `rawfile`：
-`gameStart / gameWin / gameLose / tileSingle / tileMultiple / invalidMove / dbButtonClickFlag / mineBombStart / mineBombRun / mineBombEnd / zeroDevelop`（`zeroDevelop` 备用）。
+`gameStart / gameWin / gameLose / tileSingle / tileMultiple / invalidMove / dbButtonClickFlag / mineBombStart / mineBombRun / mineBombEnd / zeroDevelop`（`zeroDevelop` 备用）；
+外加花园判负三段 `flowerLoseShort / flowerLoseMedium / flowerLoseLong`，共 **15 个**。
 
 播放用 `resourceManager.getRawFd()` → `AVPlayer.fdSrc`，免去把文件复制到沙箱目录。爆炸是三段连播（间隔 260ms）。
+
+**2026-11-01 的素材与接线审计**（`docs/SOUND-AUDIT.md`）：
+
+- **15 个 wav 与原版逐字节相同**（sha256 全等，44100 Hz / 16 bit），没有改过任何一个。
+- 修了四处接线问题：
+  1. **和弦失败没声音**（P1）：点已翻开的数字格、周围旗数 ≠ 数字时，原来一声不响 ——
+     `invalidMove.wav` 在正常玩法里永远不响。现在响了（Linux 复刻 `BoardWidget.cpp:840`、
+     Lmy 克隆 `Minesweeper.cpp:1357-1359` 都响）。
+  2. **花园玩法叠了 4 条声**（P1）：花园判负时爆炸三段与枯萎声一起响。
+     原版的花园模式 `mineTripped()` 直接 return（Linux 复刻 `Sounds.h:71`），只有枯萎声。
+     现在花园**不播**爆炸三段。
+  3. **终局后点棋盘会响**（P2）：结束框点「换个难度(D)」关掉框后棋局仍是终局，
+     这时再点空格每点一声 `invalidMove`。现在只在**还在玩**的时候响。
+  4. **长按已翻开的格子也响插旗音**（P2）：`toggleMark()` 的返回值被丢掉了，
+     引擎在「已翻开 / 终局」时返回 false —— 现在只在真的插上旗时才响。
+- **花园判负分档用「本局总雷数」**（≤10 Short / ≤40 Medium / 其余 Long），
+  不是剩余雷数（判负前玩家往往已插 30 面旗，用剩余数会整档错位）。
+  参照实现喂的是「待爆雷数」，两者在插旗多时会差一档 —— 口径**以本项目既定裁决为准**（总雷数）。
+- 爆炸结束音现在跟着**级联长度**走（`Anim.tripEndMs()`），放结束音前先停掉爆炸中音
+  （原版是先停循环再放结束音）；`SoundPlayer` 补了 `stop(name)`。
 
 ### 11.6 本轮踩过的 ArkTS 编译坑
 

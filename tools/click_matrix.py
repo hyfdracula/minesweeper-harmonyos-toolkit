@@ -671,6 +671,11 @@ class Runner:
         deadline = time.time() + timeout_ms / 1000.0
         prev = None
         rect = None
+        # 要**连续两次**比一比都没变化才算稳。
+        # 只比一次是不够的：设备负载重时应用自己的定时器会被拖慢（截图要 1~3 秒），
+        # 发牌动画是「一阵一阵」地跳格 —— 两张截图恰好落在两阵之间就会看起来「没变」，
+        # 于是判定成稳定，其实动画还没结束（表现就是棋盘边框的砖忽然变色）。
+        streak = 0
         while time.time() < deadline:
             self.hdc.screenshot(path)
             cur = load_rgb(path)
@@ -683,7 +688,11 @@ class Runner:
                 d = diff_count(prev, cur, rect)
                 area = max(1, rect[2] * rect[3])
                 if d <= max(6, 0.0008 * area):
-                    return True
+                    streak += 1
+                    if streak >= 2:
+                        return True
+                else:
+                    streak = 0
             prev = cur
             time.sleep(gap_ms / 1000.0)
         return False
