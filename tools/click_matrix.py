@@ -924,10 +924,16 @@ class Runner:
         r = band[:, :, 0].astype(int)
         g = band[:, :, 1].astype(int)
         b = band[:, :, 2].astype(int)
-        green = (g > 90) & (g > r + 25) & (g > b + 25)
+        # 面板**不一定是绿的**：外观是「绿」时面板是绿的（greenSheet 98,185,91），
+        # 外观是「蓝」时面板是深蓝的（blueSheet 99,138,229）。
+        # 这里两种都认（2026-11-02：蓝主题下「状态条上找不到绿色面板」，
+        # 三条 counter 用例全挂在这里）。
+        is_green = (g > 90) & (g > r + 25) & (g > b + 25)
+        is_blue = (b > 120) & (b > r + 60) & (g < 150) & ((b - r) > 60)
+        green = is_green | is_blue
         cols = np.where(green.any(axis=0))[0]
         if len(cols) == 0:
-            raise RuntimeError("状态条上找不到绿色面板")
+            raise RuntimeError("状态条上找不到计数面板（绿/蓝都没找到）")
         runs = []
         start = prev = int(cols[0])
         for c in cols[1:]:
