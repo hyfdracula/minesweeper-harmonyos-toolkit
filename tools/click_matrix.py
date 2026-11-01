@@ -206,6 +206,19 @@ class Hdc:
         self.shell("uitest", "uiInput", "click", int(round(x)), int(round(y)),
                    timeout=60, check=True)
 
+    def long_press(self, x: float, y: float, ms: int = 900) -> None:
+        """长按（用来插旗）。
+
+        实现：uitest 没有长按命令，用**极慢的 swipe** 顶替 ——
+        起终点只差 1 个像素、速度给 1 px/s，设备就当成「按住不动」，
+        触发的正是应用的 onLongPress ✓（2026-11-01 实测能插上旗）。
+        """
+        xi = int(round(x))
+        yi = int(round(y))
+        # 速度单位是 px/s：距离 1 px、速度 1 px/s ⇒ 按住约 1 秒
+        self.shell("uitest", "uiInput", "swipe", xi, yi, xi + 1, yi, 1,
+                   timeout=60, check=True)
+
     def screenshot(self, path: str) -> str:
         """截一张全屏图到本机 path（先删旧的，否则 file recv 会失败）。
 
@@ -312,17 +325,25 @@ class Geom:
         self._log_lines = raw.splitlines()
         return self._log_lines
 
-    def refresh_layout(self) -> Layout:
-        """从 hilog 里取**最后一条**布局日志。"""
-        lines = self.read_log()
-        last = None
-        for ln in lines:
-            if "[GameController] 布局" in ln:
-                last = ln
-        if last is None:
-            raise RuntimeError("hilog 里没有布局日志")
-        self.layout = Layout(last)
-        return self.layout
+    def refresh_layout(self, retries: int = 8, gap_s: float = 1.5) -> Layout:
+        """从 hilog 里取**最后一条**布局日志。
+
+        重试几遍：应用刚起来时布局日志可能还没写进 hilog 缓冲区
+        （缓冲区也会被刷掉），一次读不到就报「hilog 里没有布局日志」——
+        那是**设备状态**问题，不是被测代码的问题（2026-11-01 下午实测到一次）。
+        """
+        last_err = ""
+        for _ in range(max(1, retries)):
+            lines = self.read_log()
+            last = None
+            for ln in lines:
+                if "[GameController] 布局" in ln:
+                    last = ln
+            if last is not None:
+                self.layout = Layout(last)
+                return self.layout
+            time.sleep(gap_s)
+        raise RuntimeError("hilog 里没有布局日志" + (("：" + last_err) if last_err else ""))
 
     # ---- 画布顶偏移 -------------------------------------------------------
     def probe_canvas_y(self, retries: int = 3) -> int:
@@ -580,6 +601,7 @@ class Runner:
         self.geom = Geom(self.hdc, self.workdir)
         self.seen_log: set[str] = set()
         self.checkpoint = None            # 基准：上一个**动作**之前的画面（numpy 数组）
+        self.hold = None                  # 参照：hold 动作存下来的画面
         self.before = None                # 最后一个改动动作之前的画面（cell_opened 用）
         self.img = None                   # 最近一次抓的画面
         self.dirty = True                 # 画面是否已过期
@@ -623,11 +645,26 @@ class Runner:
         self.hdc.stop_app()
         self.hdc.start_app()
         self.geom.refresh_layout()
-        # 顺序要紧：**先等画面稳定（发牌动画结束），再量画布顶偏移**。
-        # 发牌动画是从右下往左上报的，动画期间量到的偏移是错的（实测 239 vs 真值 125）。
+        # 顺序要紧：**先戳醒应用，再等画面稳定（发牌动画结束），最后量画布顶偏移**。
+        #
+        # 坑（2026-11-01 晚，四个外观用例稳定复现 19859 px 的差异才查出来）：
+        # 模拟器窗口被别的窗口盖住时，应用会**完全冻结** —— 界面不重绘、
+        # setInterval 也不跑（连状态条上的秒数都不跳）。这��候截到的图是
+        # 「冻结前那一帧」，跑测器把它当基准帧；等后面任何一次点击把应用唤醒、
+        # 待办的发牌动画补完，棋盘的砖块就弹起来了 —— 「棋盘没变」的断言必然失败，
+        # 而且每次失败的像素数一模一样（19859）。这不是被测代码的毛病。
+        #
+        # 唤醒办法：戳一下。戳**菜单栏最右边的空白**（菜单项都在左边）——
+        # 应用被唤醒、开始渲染、把发牌动画跑完，而棋盘/状态条一个像素都不变。
+        self.poke()
         self.wait_board_stable()
         if self.geom.canvas_y is None:
             self.geom.probe_canvas_y()
+            # 量完偏移**再戳一次**（第一次戳的时候还不知道画布顶偏移，可能戳到
+            # 系统状态栏上、应用根本没收到）。
+            self.poke()
+        # 量完偏移**再等一次稳定**（发牌动画可能在量偏移的这段时间里才补完）。
+        self.wait_board_stable()
         diff = step.get("difficulty")
         if diff:
             name = {"beginner": "初级", "intermediate": "中级",
@@ -735,6 +772,51 @@ class Runner:
         time.sleep(0.6)
         self.dirty = True
 
+    def poke(self) -> None:
+        """戳一下应用，把它从「后台冻结」里唤醒。
+
+        坑（2026-11-01 晚）：模拟器窗口被别的窗口盖住时，应用会**完全冻结** ——
+        界面不重绘、setInterval 也不跑（连状态条上的秒数都不跳，实测 5 秒内
+        整屏 0 像素变化）。这时候截到的图是「冻结前那一帧」，跑测器把它当基准帧；
+        等后面任何一次点击把应用唤醒、待办的发牌动画补完，棋盘的砖块就弹起来了 ——
+        「棋盘没变」的断言必然失败，而且每次失败的像素数一模一样（19859）。
+
+        戳哪儿：**菜单栏那一行的空白处**（菜单项都在左边）——
+        应用被唤醒、开始渲染、把发牌动画跑完，而棋盘/状态条一个像素都不变。
+        """
+        lay = self.geom.layout
+        if lay is None:
+            return
+        cy = self.geom.canvas_y
+        if cy is None:
+            # 还没量到画布顶偏移：先按「菜单栏大概在 130 像素那一条」戳（90 Pro 的
+            # 实测值是 125）。戳不到也无妨，后面量完偏移还会再戳一次。
+            x = int(lay.canvas_w / 2)
+            y = 130
+        else:
+            x = int(lay.canvas_w - 24)
+            y = int(cy + 20)
+        try:
+            self.hdc.click(x, y)
+        except Exception:
+            pass
+        time.sleep(0.6)
+
+    def act_longpress(self, step: dict) -> None:
+        """长按一格（插旗）。
+
+        实现走 Hdc.long_press()：uitest 没有长按命令，用极慢的 swipe 顶替 ✓。
+        """
+        space = step.get("space", "board")
+        x = step.get("x", 0)
+        y = step.get("y", 0)
+        sx, sy = self.geom.to_screen(space, x, y,
+                                     dialog=step.get("dialog"),
+                                     cell=step.get("cell"))
+        self.hdc.long_press(sx, sy)
+        time.sleep(0.8)
+        self.dirty = True
+
     def act_key(self, step: dict) -> None:
         """数字键盘的一个键（自定义难度框用）。
 
@@ -786,15 +868,66 @@ class Runner:
         self.geom.refresh_layout()
 
     # ---- 断言 -------------------------------------------------------------
+    def _strip_panel_rect(self, region: dict) -> tuple[int, int, int, int]:
+        """状态条上两个绿色计数器面板的屏幕矩形（panel 0=计时，1=雷数）。
+
+        位置**不写死**：面板的横向位置随棋盘宽度/锚点变（SPEC §5.5），
+        所以从**当前这一帧**里找绿色块 —— 宽超过 150 设备像素的才是面板，
+        棋盘上的绿砖只有 108 像素（18 参考像素 × 6），天然分得开。
+        """
+        img = self.current()
+        if img is None:
+            raise RuntimeError("还没有截图")
+        lay = self.geom.layout
+        if lay is None:
+            raise RuntimeError("还没有布局信息")
+        cy = self.geom.canvas_y or 0
+        y0 = int(cy + lay.strip_top)
+        band = img[y0:, :, :]
+        if band.shape[0] < 10:
+            raise RuntimeError("状态条那一带太矮，量不到")
+        r = band[:, :, 0].astype(int)
+        g = band[:, :, 1].astype(int)
+        b = band[:, :, 2].astype(int)
+        green = (g > 90) & (g > r + 25) & (g > b + 25)
+        cols = np.where(green.any(axis=0))[0]
+        if len(cols) == 0:
+            raise RuntimeError("状态条上找不到绿色面板")
+        runs = []
+        start = prev = int(cols[0])
+        for c in cols[1:]:
+            c = int(c)
+            if c > prev + 3:
+                runs.append((start, prev))
+                start = c
+            prev = c
+        runs.append((start, prev))
+        panels = []
+        for x0, x1 in runs:
+            if x1 - x0 < 150:
+                continue
+            ys = np.where(green[:, x0:x1 + 1].any(axis=1))[0]
+            panels.append((int(x0), int(ys.min()) + y0, int(x1 - x0 + 1),
+                           int(ys.max() - ys.min() + 1)))
+        panels.sort()
+        idx = int(region.get("panel", 0))
+        if idx >= len(panels):
+            raise RuntimeError("状态条上只找到 %d 个计数器面板，要第 %d 个" % (len(panels), idx))
+        return panels[idx]
+
     def expect_changed(self, step: dict, want_change: bool) -> tuple[bool, str]:
         region = step.get("region")
         if not region:
             return False, "changed/unchanged 必须给 region（整屏一直在变：状态条时钟每秒跳）"
-        rect = self.geom.region_to_screen(region)
-        if self.checkpoint is None:
-            return False, "没有检查点（前面没有 reset / expect）"
+        if region.get("space") == "strip":
+            rect = self._strip_panel_rect(region)
+        else:
+            rect = self.geom.region_to_screen(region)
+        base = self.hold if step.get("type", "").endswith("_vs_hold") else self.checkpoint
+        if base is None:
+            return False, "没有基准画面（前面没有 hold / reset / expect）"
         cur = self.current()
-        n = diff_count(self.checkpoint, cur, rect)
+        n = diff_count(base, cur, rect)
         area = max(1, rect[2] * rect[3])
         ratio = n / float(area)
         changed = n >= max(6, 0.0008 * area)
@@ -826,6 +959,19 @@ class Runner:
                 return True, "命中: " + ln.strip()[-140:]
         tail = " / ".join(x.strip()[-60:] for x in new[-3:]) if new else "(没有新日志)"
         return False, "未命中 %r；最近的新日志: %s" % (pat, tail)
+
+    def expect_hilog_absent(self, step: dict) -> tuple[bool, str]:
+        """断言**不该出现**的日志（比「像素没变」更硬）。
+
+        用处：颜色框这类对话框会把棋盘整个盖住，「外观到底生效没有」靠像素
+        比不出来（比到的是框里的选中框），靠日志里的「[Dialog] 应用外观」最准。
+        """
+        pat = step.get("re", "")
+        new = self.log_new_lines()
+        for ln in new:
+            if re.search(pat, ln):
+                return False, "不该出现的日志却出现了: " + ln.strip()[-140:]
+        return True, "没有出现 %r（新日志 %d 行）" % (pat, len(new))
 
     def expect_app_alive(self, step: dict) -> tuple[bool, str]:
         want = step.get("alive", True)
@@ -877,12 +1023,18 @@ class Runner:
             ok, msg = self.expect_changed(step, True)
         elif t == "unchanged":
             ok, msg = self.expect_changed(step, False)
+        elif t == "changed_vs_hold":
+            ok, msg = self.expect_changed(step, True)
+        elif t == "unchanged_vs_hold":
+            ok, msg = self.expect_changed(step, False)
         elif t == "layout_changed":
             ok, msg = self.expect_layout_changed(step)
         elif t == "layout_regex":
             ok, msg = self.expect_layout_regex(step)
         elif t == "hilog_regex":
             ok, msg = self.expect_hilog_regex(step)
+        elif t == "hilog_absent":
+            ok, msg = self.expect_hilog_absent(step)
         elif t == "app_alive":
             ok, msg = self.expect_app_alive(step)
         elif t == "region_light":
@@ -924,8 +1076,17 @@ class Runner:
                 elif act == "key":
                     self._before_capture()
                     self.act_key(step)
+                elif act == "longpress":
+                    self._before_capture()
+                    self.act_longpress(step)
                 elif act == "wait":
                     time.sleep(float(step.get("ms", 500)) / 1000.0)
+                elif act == "hold":
+                    # 存一张「参照画面」，给 changed_vs_hold / unchanged_vs_hold 用。
+                    # 用处：对话框会把棋盘整个盖住时，「棋盘有没有变」只能拿
+                    # **对话框关掉之后**的画面跟**打开之前**的画面比。
+                    self.capture()
+                    self.hold = self.img.copy() if self.img is not None else None
                 elif act == "shot":
                     name = self.save_shot(step.get("name", "shot%d" % i))
                     res.shots.append(name)

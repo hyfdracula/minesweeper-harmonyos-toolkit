@@ -1,0 +1,12 @@
+The patch introduces visible animation desynchronization on clipped boards and incomplete or mistimed loss audio in supported gameplay paths.
+
+Full review comments:
+
+- [P2] Time disarm beams against the visible scan area — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:1140-1142
+  When zooming makes the pinned HUD clip the board, `drawScanBar()` sweeps only to `sweepBottom()`, but this formula still spaces beam starts across every board row. A beam on a visible lower row can therefore start well after the scan bar passed it. Use the same visible geometry for both timings.
+
+- [P2] Keep the running explosion sound alive until the end cue — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:1220-1225
+  On a large board, `tripEndMs()` can exceed the 3,949 ms duration of `BOMB_RUN`. This delays `BOMB_END` without looping or restarting `BOMB_RUN`, leaving seconds of silence during the cascade. The timeout also starts 575 ms after the cascade, so the end cue fires that much later than `tripEndMs()`.
+
+- [P2] Start the explosion sound on chord-triggered losses — C:\Users\19161\saolei\entry\src\main\ets\common\GameController.ets:1091-1094
+  When an incorrect-flag chord reveals a mine, `chord()` calls `notifyGameOver()` without entering `tap()`'s `BOMB_START` branch. The new call to `playBombTail()` now plays `BOMB_RUN` and `BOMB_END` for that loss with no opening sound. Start the sound sequence from the shared loss path.

@@ -142,6 +142,32 @@
         {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 9}},
         {"act": "shot", "name": "board_statusbar_no_open"}
       ]
+    },
+    {
+      "id": "board.counter.timer",
+      "desc": "状态条计数器：点开一格之后**计时器开始走**，而雷数不变（没插旗）",
+      "_注": "2026-11-01 加。计数器是**程序画的七段数码管**（不是字体），\n      面板的位置随棋盘宽度变，所以断言区域用 strip 空间（跑测器从当前帧里\n      找出那两个绿色面板，不写死坐标）。panel 0 = 计时，panel 1 = 雷数。",
+      "steps": [
+        {"act": "reset"},
+        {"act": "tap", "space": "board", "cell": [4, 4]},
+        {"act": "wait", "ms": 2500},
+        {"act": "expect", "type": "changed", "region": {"space": "strip", "panel": 0}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "strip", "panel": 1}},
+        {"act": "shot", "name": "board_counter_timer"}
+      ]
+    },
+    {
+      "id": "board.counter.flag",
+      "desc": "状态条计数器：长按插一面旗，**雷数减 1**（计时器不该动：还没开局）",
+      "_注": "长按插旗走 uitest 的极慢 swipe（设备当成按住不动 → onLongPress）。",
+      "steps": [
+        {"act": "reset"},
+        {"act": "longpress", "space": "board", "cell": [0, 0]},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "changed", "region": {"space": "strip", "panel": 1}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "strip", "panel": 0}},
+        {"act": "shot", "name": "board_counter_flag"}
+      ]
     }
   ]
 }

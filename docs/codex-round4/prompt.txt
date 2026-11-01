@@ -1,0 +1,30 @@
+Adversarially review the pending changes in this repository.
+
+Report as defects:
+- wrong results, crashes, regressions, broken callers
+- silently swallowed or masked errors (a fallback value that hides a failure)
+- unhandled edge cases (zero, empty, null, overflow, missing keys, concurrent access)
+- semantics changed without the caller being able to tell
+
+Do NOT report style, formatting, naming, or documentation preferences, and do not
+invent issues to seem thorough. If the change is genuinely sound, say so plainly.
+
+Environment note (this shell is PowerShell inside Codex's Windows sandbox):
+- Your shell runs in ConstrainedLanguage mode: .NET static calls ([Math]::Min,
+  [IO.Path]::*, type accelerators), Add-Type and reflection are rejected there.
+- If a command fails because of that restriction, do NOT retry it and do NOT keep
+  probing alternatives. Inspect files with Get-Content / Get-ChildItem / Select-String.
+- Never retry the same failing command more than once. If an artifact cannot be
+  inspected, say so explicitly and review what you CAN read - or return
+  VERDICT: UNKNOWN. A timeout with no conclusion is worse than an honest UNKNOWN.
+
+Cite file and line for every finding.
+
+Your answer MUST end with exactly this line (no extra text after it):
+VERDICT: PASS
+or
+VERDICT: CONCERNS
+or
+VERDICT: BLOCKER
+Use BLOCKER for data loss / security / crash risks, CONCERNS for real but non-critical
+defects, PASS when you found nothing. Then list findings as Critical / High / Medium / Low.
