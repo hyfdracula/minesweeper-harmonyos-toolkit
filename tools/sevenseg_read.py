@@ -28,10 +28,10 @@ import numpy as np
 
 # 段位掩码（位序 a,b,c,d,e,f,g）与 SevenSeg.ets 的 DIGIT_MASKS 一致
 SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G = 1, 2, 4, 8, 16, 32, 64
-SEG_FLAG, SEG_BASE1 = 128, 256
+SEG_FLAG, SEG_BASE1, SEG_ONEBAR = 128, 256, 512
 
 MASKS = [
-    0x3F, 0x186, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F,
+    0x3F, 0x586, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F,
 ]
 
 # 负号段：单独一根中横（g），掩码 0x40。
@@ -40,9 +40,11 @@ MASKS = [
 MASK_MINUS = 0x40
 
 # 「1」的标准写法：只亮 b、c 两段（0x06）。
-# 原版那个「1」还带一面小旗和一道衬线（掩码 0x186），但旗和衬线**不是标准七段**，
-# 反解时只采样标准七段就只会得到 0x06（b+c）；若把衬线底横画在 d 段的位置上，
-# 采样到的是 0x0E（b+c+d）。两个都要认成「1」（Codex 复审 P2）。
+# 2026-11-02：原版的「1」是一根**从格顶连到格底、中间不断**的竖笔
+# （画成标准七段的 b+c 会在中横那一行断开，真机上每个「1」都断成两截），
+# 所以反解时 b 和 c 都会采样到 —— 得到的仍是 0x06 ✓。
+# 旗（小方点）和衬线底横都不落在标准七段的采样点上，所以不参与判定。
+# 若把衬线底横画在 d 段的位置上，采样到的是 0x0E（b+c+d），也要认成「1」。
 MASK_ONE_STD = 0x06
 MASK_ONE_BASE = 0x0E
 
@@ -138,8 +140,14 @@ def find_panels(im, strip_box=None):
         ys = np.where(green[:, x0:x1 + 1].any(axis=1))[0]
         if len(ys) == 0:
             continue
-        panels.append((int(x0), int(ys.min()), int(x1 - x0 + 1),
-                       int(ys.max() - ys.min() + 1)))
+        w = int(x1 - x0 + 1)
+        h = int(ys.max() - ys.min() + 1)
+        # 计数面板是 40×21 的横长条（内区 33×17，宽高比 ≈1.9）。
+        # 时钟图标和雷图标是方的，灰蓝色也被掩码捞进来，
+        # 用宽高比把它们剔掉（2026-11-02 模拟器上实测：图标被当成面板了）。
+        if h <= 0 or not (1.45 <= w / float(h) <= 2.6):
+            continue
+        panels.append((int(x0), int(ys.min()), w, h))
     panels.sort()
     return panels
 
@@ -192,31 +200,50 @@ def read_panel(im, panel):
     #   表现是「0」被读成「1」（只剩 b、c 两段）。
     #   所以先按高度估（高度受高光影响小），再吸附到最近的偶数。
     s_raw = ph / float(INNER_H)
-    s = max(2.0, float(round(s_raw / 2.0) * 2))
+    s0 = max(2.0, float(round(s_raw / 2.0) * 2))
     outer_x = x0
-    base_y = y0
     # 纵向也锚到**内区的中心**，不用内区顶边：
     # 内区顶边会随高光/文字被多算或少算几个像素（真机实测两张截图差 3 px），
     # 而数字格在面板里是垂直居中的（CELL_Y=2、CELL_H=16、面板 21 → 中心重合），
     # 用中心锚更稳。
-    base_y = y0 + ph / 2.0 - CELL_H * s / 2.0
+    base_y = y0 + ph / 2.0 - CELL_H * s0 / 2.0
+
+    # 自标定（2026-11-02 模拟器上实测）：不同设备上量到的框有时含面板外沿，
+    # 高度估出来的 s 会整体偏一档，采样点全偏 → 读出「?」。
+    # 这里把 s 的候选都试一遍，取「能解出合法数字最多」的那一档；
+    # 再叠加几个纵向微调，逐个比。
     best = None
     best_score = -1
-    for dy in (-2, -1, 0, 1, 2):
-        digits = _sample_slots(im, outer_x, base_y + dy * s, s)
-        score = 0
-        for m in digits:
-            if m == 0:
-                score += 1                      # 空槽（右对齐、不补零）也算合法
-            elif m == MASK_ONE_STD or m == MASK_ONE_BASE:
-                score += 2
-            elif m == MASK_MINUS:
-                score += 2                      # 负号段也是合法的一槽
-            elif m in MASKS:
-                score += 2
-        if score > best_score:
-            best_score = score
-            best = digits
+    best_lit = -1
+    for s in [s0 - 2, s0, s0 + 2]:
+        if s < 2:
+            continue
+        for dx in (-2, -1, 0, 1, 2):
+            for dy in (-2, -1, 0, 1, 2):
+                digits = _sample_slots(im, outer_x + dx * s, base_y + dy * s, s)
+                # 评分：解出合法数字的槽位 +2；**读不出（非法掩码）的槽位 -3**；
+                # 空槽（右边补零前的空位）算 0 分。
+                # 不能给空槽加分 —— 采样整体偏掉时三个槽位全是空的，
+                # 那样反而会「赢过」真正读对的那一档。
+                score = 0
+                lit = 0
+                for m in digits:
+                    lit += bin(m).count('1') if m else 0
+                    if m == 0:
+                        score += 0                  # 空槽（右对齐、不补零）
+                    elif m == MASK_ONE_STD or m == MASK_ONE_BASE:
+                        score += 2
+                    elif m == MASK_MINUS:
+                        score += 2                  # 负号段也是合法的一槽
+                    elif m in MASKS:
+                        score += 2
+                    else:
+                        score -= 3                  # 非法掩码 = 没采样对
+                if score > best_score or (score == best_score and best is not None
+                                          and lit > best_lit):
+                    best_score = score
+                    best_lit = lit
+                    best = digits
     return best
 
 
