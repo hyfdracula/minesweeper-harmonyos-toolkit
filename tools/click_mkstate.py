@@ -169,6 +169,59 @@ def _client_light(path, rect):
     return float(light) / float(total)
 
 
+def _bright_box(path, hint_rect, pad=80):
+    """在提示矩形附近找出对话框**客户区**（#f0f0f0）的实际外接框。
+
+    为什么要有这个（2026-11-01 晚踩到）：
+    `win_probe` 的「赢一局」偶尔会**踩到雷**（它按解算结果点，设备慢的时候节奏会乱）。
+    于是屏幕上弹的是**失败框**，而用例还在按**胜利框**的坐标点按钮 ——
+    点空 → 对话框不关 → 用例报「按钮坏了」，锅全甩给被测代码。
+    失败框 483×288、胜利框 396×340，**客户区的长宽比差得很远**
+    （1.86 vs 1.24），量一下外接框就能分出来。
+    """
+    if Image is None:
+        return None
+    x, y, w, h = hint_rect
+    im = Image.open(path).convert("RGB")
+    W, H = im.size
+    px = im.load()
+    x0, y0 = max(0, x - pad), max(0, y - pad)
+    x1, y1 = min(W, x + w + pad), min(H, y + h + pad)
+    minx, miny, maxx, maxy = None, None, None, None
+    for j in range(y0, y1):
+        for i in range(x0, x1):
+            r, g, b = px[i, j]
+            if abs(r - 240) <= 4 and abs(g - 240) <= 4 and abs(b - 240) <= 4:
+                if minx is None or i < minx:
+                    minx = i
+                if miny is None or j < miny:
+                    miny = j
+                if maxx is None or i > maxx:
+                    maxx = i
+                if maxy is None or j > maxy:
+                    maxy = j
+    if minx is None:
+        return None
+    return (minx, miny, maxx - minx + 1, maxy - miny + 1)
+
+
+def _dialog_matches(path, state, hint_rect):
+    """屏幕上的这个框，是不是**要的那个**框（胜利框 / 失败框）。
+
+    判据：客户区外接框的长宽比。胜利框 396×340、失败框 483×288，
+    参考比例 1.165 / 1.677，差得开；允许 ±12 % 的余量（缩放取整的误差）。
+    """
+    box = _bright_box(path, hint_rect)
+    if box is None:
+        return False, "画面里找不到客户区（#f0f0f0）"
+    ref_w, ref_h = DIALOGS[state]
+    want = (ref_w - 2 * CLIENT_X) / float(ref_h - CLIENT_Y - 9)
+    got = box[2] / float(max(1, box[3]))
+    ok = abs(got - want) / want <= 0.12
+    return ok, "客户区外接框 %s，长宽比 %.3f（要的是 %.3f，%s框）" % (
+        (box[2], box[3]), got, want, state)
+
+
 def _run_win_probe(device, phase, outdir):
     cmd = [sys.executable, WIN_PROBE, "--device", device, "--phase", phase, "--out", outdir]
     print("[mkstate] 执行:", " ".join(cmd))
@@ -211,7 +264,15 @@ def make_state(device, state, timeout=120.0, attempts=2):
 
         rect = _client_rect(device, state, outdir, geom, canvas_y)
         if _wait_dialog(device, state, rect, outdir, timeout):
-            return True
+            # 框是出现了，但**未必是要的那个框**：win_probe 的「赢一局」偶尔会踩到雷，
+            # 弹出来的是失败框；后面按胜利框的坐标点按钮就全是空点。
+            # 这里按**客户区的长宽比**核对一次（胜利框 396×340 / 失败框 483×288）。
+            shot = os.path.join(outdir, "probe.jpeg")
+            ok, why = _dialog_matches(shot, state, rect)
+            if ok:
+                print("[mkstate] %s 框核对通过（%s）" % (state, why))
+                return True
+            print("[mkstate] %s 框核对**不通过**：%s —— 屏幕上多半是别的框，重来" % (state, why))
         print("[mkstate] 第 %d 遍没等到 %s 框" % (attempt, state))
     return False
 
@@ -244,8 +305,9 @@ def main():
     ap.add_argument("--state", choices=["lose", "win"], required=True)
     ap.add_argument("--timeout", type=float, default=120.0,
                     help="等对话框出现的秒数（默认 120）")
-    ap.add_argument("--attempts", type=int, default=2,
-                    help="最多造几遍（默认 2；设备负载重的时候 win_probe 会偶发失手）")
+    ap.add_argument("--attempts", type=int, default=3,
+                    help="最多造几遍（默认 3；设备负载重的时候 win_probe 会偶发失手，"
+                         "偶尔会踩到雷、弹出的是失败框，这时按长宽比核对会发现并重来）")
     args = ap.parse_args()
     ok = make_state(args.device, args.state, args.timeout, args.attempts)
     return 0 if ok else 1

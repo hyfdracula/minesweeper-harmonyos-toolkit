@@ -220,6 +220,7 @@
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 222, "y": 48, "w": 72, "h": 72}},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 388, "y": 10},
         {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
         {"act": "expect", "type": "hilog_absent", "re": "\\[Dialog\\] 应用外观"},
         {"act": "shot", "name": "appearance_thumb_flowers"}
       ]
@@ -235,6 +236,7 @@
         {"act": "wait", "ms": 1200},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 388, "y": 10},
         {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
         {"act": "expect", "type": "hilog_absent", "re": "\\[Dialog\\] 应用外观"},
         {"act": "shot", "name": "appearance_thumb_blue"}
       ]
@@ -250,6 +252,7 @@
         {"act": "wait", "ms": 1200},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 388, "y": 10},
         {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
         {"act": "expect", "type": "hilog_absent", "re": "\\[Dialog\\] 应用外观"},
         {"act": "shot", "name": "appearance_thumb_green"}
       ]

@@ -1,0 +1,18 @@
+The new counter decoder gives incorrect results on a checked-in screenshot, and several new regression cases can pass without verifying their stated behavior.
+
+Full review comments:
+
+- [P2] Restrict counter detection to the status strip — D:\software\harmony\projects\minesweeper\tools\sevenseg_read.py:54-55
+  On a full screenshot with green board tiles, `green.any(axis=0)` merges tile and counter pixels into false panel bounds. Running this script on `docs/verify/FULL_now.png` reports `888` and `0??` for counters visibly showing `9` and `10`; `strip_box` is accepted but ignored. Search only the status-strip region before grouping columns.
+
+- [P2] Derive digit scale from the full panel bounds — D:\software\harmony\projects\minesweeper\tools\sevenseg_read.py:79-85
+  Even after cropping `FULL_now.png` to its status strip, this decoder reads the visible `9` as `4` and `10` as `??`. The detected green rectangle excludes the panel border, so its width and origin are not the renderer's 40×21 panel bounds; using them directly shifts the segment sample points. Recover the outer panel geometry or account for the inset before sampling.
+
+- [P2] Decode the standard segments of digit one — D:\software\harmony\projects\minesweeper\tools\sevenseg_read.py:112-115
+  For any correctly sampled `1`, `read_panel()` can produce only the seven standard segment bits, giving `0x06`; it never samples the flag or base bits required by `MASKS[1] == 0x186`. Consequently `decode([0x06])` returns `?`. Accept `0x06` as one or explicitly sample the extra strokes.
+
+- [P2] Assert the mine count decreases by one — D:\software\harmony\projects\minesweeper\tools\click_cases\board.json:167-167
+  If a long press changes the counter from `10` to `11`, this new case still passes because it checks only for changed pixels. That does not verify the stated decrement behavior. Decode or otherwise compare the counter values before and after the press and assert `10 → 9`.
+
+- [P2] Verify appearance dialogs actually close — D:\software\harmony\projects\minesweeper\tools\click_cases\dialogs.json:236-238
+  If the title-bar close tap is ignored, the blue and green thumbnail cases still pass: their only assertion is that no `应用外观` log appeared, which is also true while the dialog remains open. Add a positive close-state assertion so these cases cannot pass without exercising dismissal.

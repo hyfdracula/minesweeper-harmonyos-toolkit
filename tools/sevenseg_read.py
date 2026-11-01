@@ -5,17 +5,22 @@ r"""从截图里读出状态条两个七段计数器（计时 / 剩余雷）的�
 （见 entry/src/main/ets/common/SevenSeg.ets），没有 OCR 可用，
 所以这里按同一套几何反解。
 
-几何（参考像素，槽位/格子/段位与 SevenSeg.ets 一一对应）：
-    面板 40×21；槽位 x = 0 / 13 / 26；每槽 12 宽 × 16 高，槽内 y = 2
+几何（参考像素，与 SevenSeg.ets 一一对应）：
+    面板 40×21（**外框**）；面板精灵四周有 1 个逻辑像素的边框，
+    所以截图里量到的**绿色区域是面板内区 38×19** —— 换算比例必须按 38 算，
+    槽位原点还要往外挪 1 个参考像素，否则采样点整体偏移（Codex 复审 P2）。
+    槽位 x = 0 / 13 / 26；每槽 12 宽 × 16 高，槽内 y = 2
     a: (3, 2, 6, 2)   b: (9, 4, 3, 5)   c: (9, 11, 3, 5)
     d: (3, 16, 6, 2)  e: (0, 11, 3, 5)  f: (0, 4, 3, 5)
     g: (3, 9, 6, 2)
 
-做法：先在状态条那一条横带上**找出绿色面板**，再在面板里找出三个槽位，
-最后按每段的中心点是否发白来判段 → 还原数字（槽位从右往左读，右对齐不补零）。
+做法：先**只在状态条那一条横带里**找绿色面板（不限定的话，棋盘上的绿砖
+也会被算进来，量出来的框全是错的 —— Codex 复审 P2），
+再在面板里按几何采样每段的中心点是否发白 → 还原数字
+（槽位从右往左读，右对齐不补零）。
 
-用法：python tools\sevenseg_read.py <截图路径>
-      → 打印 {"panels": [[10, 0], []], ...]}，读不出来会说原因
+用法：python tools\sevenseg_read.py <截图路径> [状态条矩形 x,y,w,h]
+      → 打印每个面板读出来的数字
 """
 import sys
 
@@ -29,6 +34,13 @@ MASKS = [
     0x3F, 0x186, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F,
 ]
 
+# 「1」的标准写法：只亮 b、c 两段（0x06）。
+# 原版那个「1」还带一面小旗和一道衬线（掩码 0x186），但旗和衬线**不是标准七段**，
+# 反解时只采样标准七段就只会得到 0x06（b+c）；若把衬线底横画在 d 段的位置上，
+# 采样到的是 0x0E（b+c+d）。两个都要认成「1」（Codex 复审 P2）。
+MASK_ONE_STD = 0x06
+MASK_ONE_BASE = 0x0E
+
 # (段名, x, y, w, h) —— 参考像素，相对槽位左上角
 SEGS = [
     ('a', 3, 2, 6, 2), ('b', 9, 4, 3, 5), ('c', 9, 11, 3, 5),
@@ -37,7 +49,17 @@ SEGS = [
 ]
 BIT = {'a': SEG_A, 'b': SEG_B, 'c': SEG_C, 'd': SEG_D,
        'e': SEG_E, 'f': SEG_F, 'g': SEG_G}
-EXTRA = {0x186: ('flag', 'base1')}
+
+# 面板（外框）参考像素
+PANEL_W, PANEL_H = 40, 21
+PANEL_BORDER = 2              # 面板精灵四周的边框厚度（逻辑像素）
+INNER_W = PANEL_W - 2 * PANEL_BORDER   # 36：截图里量到的绿色内区宽度
+INNER_H = PANEL_H - 2 * PANEL_BORDER   # 17
+SLOT_COUNT = 3
+SLOT_X0 = 0
+SLOT_PITCH = 13
+CELL_W, CELL_H = 12, 16
+CELL_Y = 2
 
 
 def _green_mask(im):
@@ -49,15 +71,27 @@ def _white_mask(im):
     return im.min(axis=2) > 185
 
 
-def find_panels(im):
-    """在图里找绿色计数器面板，返回 [(x0, x1, y0, y1), ...]（按 x 排序）。"""
+def find_panels(im, strip_box=None):
+    """在图里找绿色计数器面板，返回 [(x0, y0, w, h), ...]（按 x 排序）。
+
+    `strip_box` = (x, y, w, h)：**只在状态条那一条横带里找**。
+    不限定的话，棋盘上的绿砖会被并进同一段列区间，量出来的框全是错的。
+    """
     green = _green_mask(im)
+    if strip_box is not None:
+        sx, sy, sw, sh = [int(v) for v in strip_box]
+        region = np.zeros_like(green)
+        y1 = min(im.shape[0], sy + sh)
+        x1 = min(im.shape[1], sx + sw)
+        region[max(0, sy):y1, max(0, sx):x1] = green[max(0, sy):y1, max(0, sx):x1]
+        green = region
     cols = np.where(green.any(axis=0))[0]
     if len(cols) == 0:
         return []
     runs = []
-    start = prev = cols[0]
+    start = prev = int(cols[0])
     for c in cols[1:]:
+        c = int(c)
         if c > prev + 3:
             runs.append((start, prev))
             start = c
@@ -70,49 +104,74 @@ def find_panels(im):
         ys = np.where(green[:, x0:x1 + 1].any(axis=1))[0]
         if len(ys) == 0:
             continue
-        panels.append((int(x0), int(x1), int(ys.min()), int(ys.max())))
+        panels.append((int(x0), int(ys.min()), int(x1 - x0 + 1),
+                       int(ys.max() - ys.min() + 1)))
+    panels.sort()
     return panels
 
 
-def read_panel(im, panel):
-    """读一个面板里的数字（右对齐，最多三位；带负号时第一位是负号）。"""
-    x0, x1, y0, y1 = panel
-    pw = x1 - x0 + 1
-    ph = y1 - y0 + 1
-    if pw < 30 or ph < 10:
-        return None
-    # 参考像素 → 设备像素的比例：面板 40×21 参考像素
-    s = pw / 40.0
+def _sample_slots(im, outer_x, outer_y, s):
+    """按几何采样三个槽位的七段掩码。"""
     white = _white_mask(im)
-    # 槽位：x = 0 / 13 / 26（相对面板左边），槽宽 12
-    slots = []
-    for i in range(3):
-        sx = x0 + (0 if s < 1 else 0) + i * 13 * s
-        slots.append(sx)
-    # 面板内可能有 1~2 像素的斜角高光，槽位要按右边对齐：三个槽占 0..37
     digits = []
-    for sx in slots:
+    for i in range(SLOT_COUNT):
+        sx = outer_x + (SLOT_X0 + i * SLOT_PITCH) * s
+        sy = outer_y + CELL_Y * s
         mask = 0
         for name, rx, ry, rw, rh in SEGS:
             cx = int(round(sx + (rx + rw / 2.0) * s))
-            cy = int(round(y0 + (ry + rh / 2.0) * s))
+            cy = int(round(sy + (ry + rh / 2.0) * s))
             if 0 <= cy < im.shape[0] and 0 <= cx < im.shape[1] and white[cy, cx]:
                 mask |= BIT[name]
         digits.append(mask)
     return digits
 
 
+def read_panel(im, panel):
+    """读一个面板里的数字（三个槽的掩码列表；空槽为 0）。
+
+    `panel` = (x0, y0, w, h)：绿色**内区**的矩形（见 find_panels）。
+
+    纵向原点有 ±1 个参考像素的不确定（面板精灵的边框上、下不一样厚，
+    而数字是按**外框**原点画的），所以这里沿纵向试几个偏移，
+    取「三个槽都能解成合法数字」的那一个；实在分不出来就取合法槽最多的。
+    """
+    x0, y0, pw, ph = panel
+    if pw < 30 or ph < 10:
+        return None
+    # 内区 36 参考像素宽 → 比例；面板外框比内区每边多 2 个参考像素
+    s = pw / float(INNER_W)
+    outer_x = x0 - PANEL_BORDER * s
+    base_y = y0 - PANEL_BORDER * s
+    best = None
+    best_score = -1
+    for dy in (-2, -1, 0, 1, 2):
+        digits = _sample_slots(im, outer_x, base_y + dy * s, s)
+        score = 0
+        for m in digits:
+            if m == 0:
+                score += 1                      # 空槽（右对齐、不补零）也算合法
+            elif m == MASK_ONE_STD or m == MASK_ONE_BASE:
+                score += 2
+            elif m in MASKS:
+                score += 2
+        if score > best_score:
+            best_score = score
+            best = digits
+    return best
+
+
 def decode(digits):
-    """把三个槽位的掩码还原成数值；读不出的槽位跳过（不补零，右对齐）。"""
+    """把三个槽位的掩码还原成数字串；读不出的槽位跳过（不补零，右对齐）。"""
     text = []
     for m in digits:
         if m == 0:
             text.append(None)
             continue
-        if m in MASKS:
+        if m == MASK_ONE_STD or m == MASK_ONE_BASE:
+            text.append('1')          # 标准七段的「1」：只亮 b、c（带衬线底横时多一段 d）
+        elif m in MASKS:
             text.append(str(MASKS.index(m)))
-        elif m in EXTRA:
-            text.append('1')          # 「1」带旗与衬线
         else:
             text.append('?')
     return text
@@ -120,12 +179,12 @@ def decode(digits):
 
 def read_counters(path, strip_box=None):
     im = np.array(_load(path)).astype(int)
-    panels = find_panels(im)
+    panels = find_panels(im, strip_box)
     out = []
     for p in panels:
         d = read_panel(im, p)
         if d is not None:
-            out.append(decode(d))
+            out.append((p, decode(d)))
     return out
 
 
@@ -135,9 +194,13 @@ def _load(path):
 
 
 if __name__ == '__main__':
-    path = sys.argv[1] if len(sys.argv) > 1 else None
+    args = sys.argv[1:]
+    path = args[0] if args else None
     if path is None:
-        print('用法: python tools\\sevenseg_read.py <截图路径>')
+        print('用法: python tools\\sevenseg_read.py <截图路径> [状态条矩形 x,y,w,h]')
         sys.exit(2)
-    for i, txt in enumerate(read_counters(path)):
-        print('面板 %d: %s' % (i, ' '.join(str(t) for t in txt)))
+    box = None
+    if len(args) >= 5:
+        box = tuple(int(v) for v in args[1:5])
+    for i, (p, txt) in enumerate(read_counters(path, box)):
+        print('面板 %d %s: %s' % (i, p, ' '.join(str(t) for t in txt)))

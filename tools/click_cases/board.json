@@ -149,6 +149,7 @@
       "_注": "2026-11-01 加。计数器是**程序画的七段数码管**（不是字体），\n      面板的位置随棋盘宽度变，所以断言区域用 strip 空间（跑测器从当前帧里\n      找出那两个绿色面板，不写死坐标）。panel 0 = 计时，panel 1 = 雷数。",
       "steps": [
         {"act": "reset"},
+        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "10"},
         {"act": "tap", "space": "board", "cell": [4, 4]},
         {"act": "wait", "ms": 2500},
         {"act": "expect", "type": "changed", "region": {"space": "strip", "panel": 0}},
@@ -158,13 +159,14 @@
     },
     {
       "id": "board.counter.flag",
-      "desc": "状态条计数器：长按插一面旗，**雷数减 1**（计时器不该动：还没开局）",
-      "_注": "长按插旗走 uitest 的极慢 swipe（设备当成按住不动 → onLongPress）。",
+      "desc": "状态条计数器：长按插一面旗，**雷数从 10 减到 9**（计时器不该动：还没开局）",
+      "_注": "长按插旗走 uitest 的极慢 swipe（设备当成按住不动 → onLongPress）。\n      雷数用「计数器读数」断言 10 → 9，不是只看「有没有变」——数字从 10 变成 11\n      也是「变了」，那种断言太弱（Codex 复审 P2）。",
       "steps": [
         {"act": "reset"},
+        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "10"},
         {"act": "longpress", "space": "board", "cell": [0, 0]},
         {"act": "wait", "ms": 1200},
-        {"act": "expect", "type": "changed", "region": {"space": "strip", "panel": 1}},
+        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "9"},
         {"act": "expect", "type": "unchanged", "region": {"space": "strip", "panel": 0}},
         {"act": "shot", "name": "board_counter_flag"}
       ]

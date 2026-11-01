@@ -907,13 +907,47 @@ class Runner:
             if x1 - x0 < 150:
                 continue
             ys = np.where(green[:, x0:x1 + 1].any(axis=1))[0]
-            panels.append((int(x0), int(ys.min()) + y0, int(x1 - x0 + 1),
-                           int(ys.max() - ys.min() + 1)))
+            if len(ys) == 0:
+                continue
+            # 面板的**绿色内区**在状态条上沿之上还会露出来一截
+            # （HUD 模式下状态条内容压在棋盘下沿，计时面板比状态条上沿高），
+            # 所以这里从状态条上沿**往上**找连续的绿色行，找到面板真正的顶边。
+            top = int(ys.min())
+            j = top - 1
+            while j >= 0 and green[j, x0:x1 + 1].sum() > (x1 - x0) * 0.6:
+                top = j
+                j -= 1
+            panels.append((int(x0), top + y0, int(x1 - x0 + 1),
+                           int(ys.max() - top + 1)))
         panels.sort()
         idx = int(region.get("panel", 0))
         if idx >= len(panels):
             raise RuntimeError("状态条上只找到 %d 个计数器面板，要第 %d 个" % (len(panels), idx))
         return panels[idx]
+
+    def expect_counter(self, step: dict) -> tuple[bool, str]:
+        """断言状态条上某个计数器**显示的是哪个数字**（不是「有没有变」）。
+
+        「变了」这种断言太弱：数字从 10 变成 11 也是「变了」（Codex 复审 P2）。
+        这里用 tools/sevenseg_read.py 按七段几何**反解**出数字，直接比对。
+        """
+        region = step.get("region") or {"space": "strip", "panel": 0}
+        want = str(step.get("value", "")).strip()
+        # 现截一张（不要用可能过期的缓存帧）：布局刚变的那一瞬间，缓存帧里的
+        # 状态条还在老位置，照着老位置采样会读到一片「全亮」的假读数。
+        self.capture()
+        rect = self._strip_panel_rect(region)
+        import sevenseg_read as ss
+        img = self.current()
+        if img is None:
+            return False, "还没有截图"
+        box = (rect[0], rect[1], rect[2], rect[3])
+        digits = ss.read_panel(img, box)
+        if digits is None:
+            return False, "面板 %s 量不出来" % (box,)
+        got = "".join(str(d) for d in ss.decode(digits) if d is not None)
+        ok = (got == want)
+        return ok, "计数器读数 %r（要 %r），掩码 %s，面板 %s" % (got, want, digits, box)
 
     def expect_changed(self, step: dict, want_change: bool) -> tuple[bool, str]:
         region = step.get("region")
@@ -1035,6 +1069,8 @@ class Runner:
             ok, msg = self.expect_hilog_regex(step)
         elif t == "hilog_absent":
             ok, msg = self.expect_hilog_absent(step)
+        elif t == "counter":
+            ok, msg = self.expect_counter(step)
         elif t == "app_alive":
             ok, msg = self.expect_app_alive(step)
         elif t == "region_light":
