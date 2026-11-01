@@ -40,23 +40,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WIN_PROBE = os.path.join(HERE, "win_probe.py")
 
 # ---------------------------------------------------------------------------
-#  各对话框在画布上的几何（照抄 GameController 的公式，不另发明）
+#  各对话框的**参考像素**几何（照抄 GameController / WinDialog 的公式，不另发明）
 #    s   = max(0.5, min(2, 密度, (画布宽-32)/参考宽, (画布高-32)/参考高))
 #    ox  = round((画布宽 - 参考宽*s)/2)
 #    oy  = 参考高*s > 画布高 ? 0 : round((画布高 - 参考高*s)/2)
 #    客户区 = 参考像素 (8, 30, 宽-16, 高-30-8-1)
-#  下面是 **5557（Mate 90 Pro 模拟器）** 的实测值：画布 1280x2598、密度 3.5、
-#  画布顶在屏幕上的纵向偏移 138 px。换设备要用 tools\\probe_canvas.py 重量。
+#
+#  **不要**再把「客户区在屏幕像素里的矩形」写死成某一台设备的值 ——
+#  写死的话换设备（Mate X7 / Mate 90 Pro）就量不到框，轮询一直超时，
+#  而失败会被记成「对话框没出现」。Codex 复审 2026-11-01 的 P1 就是这条。
+#  现在改成：**用跑测器自己的几何算**（click_matrix.Geom），单一事实源。
 # ---------------------------------------------------------------------------
-CANVAS_W = 1280
-CANVAS_H = 2598
-CANVAS_TOP = 138
-
-#: 对话框名 -> (参考宽, 参考高, 缩放 s, 客户区在**屏幕**像素里的矩形 x,y,w,h)
 DIALOGS = {
-    "lose": (483, 288, 2.0, (173, 1209, 934, 500)),
-    "win": (396, 340, 2.0, (260, 1157, 760, 618)),
+    "lose": (483, 288),
+    "win": (396, 340),
 }
+
+# 客户区在对话框参考像素里的位置（WinDialog.ets 的版式：标题栏高 30，左右留 8）
+CLIENT_X, CLIENT_Y = 8, 30
 
 
 def _hdc(device, *args, timeout=90):
@@ -65,11 +66,52 @@ def _hdc(device, *args, timeout=90):
 
 
 def _shot(device, path):
-    """截一张全屏图到本机 path。"""
+    """截一张全屏图到本机 path。
+
+    坑（Codex 复审 2026-11-01 的 P2）：`hdc file recv` 在**目标已存在**时会失败，
+    而之前这里既不删旧文件、也不看返回码，于是轮询时一直读到**第一次**那张
+    （框还没出现时）的旧图，判成「框没出现」——假超时。
+    现在：先删旧文件 + 检查返回码。
+    """
     remote = "/data/local/tmp/cm_mkstate.jpeg"
-    _hdc(device, "shell", "snapshot_display", "-f", remote)
-    _hdc(device, "file", "recv", remote, path)
+    r = _hdc(device, "shell", "snapshot_display", "-f", remote)
+    if r.returncode != 0:
+        raise RuntimeError("snapshot_display 失败: %s" % (r.stderr or r.stdout)[-200:])
+    if os.path.exists(path):
+        os.remove(path)
+    r = _hdc(device, "file", "recv", remote, path)
+    if r.returncode != 0 or not os.path.exists(path):
+        raise RuntimeError("file recv 失败: %s" % (r.stderr or r.stdout)[-200:])
     return path
+
+
+def _client_rect(device, state, outdir):
+    """算这个对话框的**客户区**在屏幕像素里的矩形（按当前设备的画布算）。
+
+    复用 click_matrix.Geom 的几何（它已经照抄了 GameController 的公式），
+    避免两边各写一份、慢慢走偏。
+    """
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import click_matrix as cm
+
+    hdc = cm.Hdc(device)
+    geom = cm.Geom(hdc, outdir)
+    geom.refresh_layout()
+    if geom.canvas_y is None:
+        geom.probe_canvas_y()
+    ref_w, ref_h = DIALOGS[state]
+    region = {
+        "space": "dialog",
+        "dialog": state,
+        "x": CLIENT_X,
+        "y": CLIENT_Y,
+        "w": ref_w - 2 * CLIENT_X,
+        "h": ref_h - CLIENT_Y - 9,
+    }
+    rect = geom.region_to_screen(region)
+    print("[mkstate] %s 客户区（屏幕像素）= %s" % (state, rect))
+    return rect
 
 
 def _client_light(path, rect):
@@ -114,9 +156,12 @@ def make_state(device, state, timeout=45.0):
         raise ValueError("state 只能是 lose / win，收到 " + repr(state))
     phase = "explode" if state == "lose" else "win"
     outdir = tempfile.mkdtemp(prefix="cm_mkstate_")
-    _run_win_probe(device, phase, outdir)
+    rc = _run_win_probe(device, phase, outdir)
+    if rc != 0:
+        print("[mkstate] win_probe 失败（退出码 %d），不再等框" % rc)
+        return False
 
-    rect = DIALOGS[state][3]
+    rect = _client_rect(device, state, outdir)
     shot = os.path.join(outdir, "probe.jpeg")
     deadline = time.time() + timeout
     best = -1.0

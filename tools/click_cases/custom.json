@@ -328,7 +328,7 @@
         {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
         {"act": "key", "key": "ok"},
         {"act": "wait", "ms": 600},
-        {"act": "expect", "type": "layout_regex", "re": "当前档n=2 unit=4 格边=72px 棋盘原点=\\(-440,408\\)"},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=24x30"},
         {"act": "shot", "name": "custom_ok_24x30"}
       ]
     },
@@ -343,7 +343,7 @@
         {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
         {"act": "key", "key": "ok"},
         {"act": "wait", "ms": 600},
-        {"act": "expect", "type": "layout_regex", "re": "当前档n=3 unit=6 格边=108px 棋盘原点=\\(154,754\\)"},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=9x9"},
         {"act": "shot", "name": "custom_ok_clamp_lower"}
       ]
     },
@@ -359,7 +359,7 @@
         {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
         {"act": "key", "key": "cancel"},
         {"act": "wait", "ms": 400},
-        {"act": "expect", "type": "layout_regex", "re": "当前档n=3 unit=6 格边=108px 棋盘原点=\\(154,754\\)"},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=9x9"},
         {"act": "shot", "name": "custom_cancel"}
       ]
     },
@@ -375,7 +375,7 @@
         {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 50, "w": 40, "h": 13}},
         {"act": "tap", "space": "custom", "x": 267, "y": 10},
         {"act": "wait", "ms": 400},
-        {"act": "expect", "type": "layout_regex", "re": "当前档n=3 unit=6 格边=108px 棋盘原点=\\(154,754\\)"},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=9x9"},
         {"act": "shot", "name": "custom_close_redx"}
       ]
     },
@@ -396,13 +396,13 @@
         {"act": "expect", "type": "changed", "region": {"space": "custom", "x": 136, "y": 80, "w": 40, "h": 13}},
         {"act": "key", "key": "ok"},
         {"act": "wait", "ms": 600},
-        {"act": "expect", "type": "layout_regex", "re": "当前档n=2 unit=4 格边=72px 棋盘原点=\\(-440,408\\)"},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=24x30"},
         {"act": "menu", "top": "game", "entry": "自定义"},
         {"act": "wait", "ms": 400},
         {"act": "shot", "name": "custom_prefill_reopened"},
         {"act": "key", "key": "ok"},
         {"act": "wait", "ms": 600},
-        {"act": "expect", "type": "layout_regex", "re": "当前档n=2 unit=4 格边=72px 棋盘原点=\\(-440,408\\)"},
+        {"act": "expect", "type": "layout_regex", "re": "盘面=24x30"},
         {"act": "shot", "name": "custom_prefill_current_board"}
       ]
     }

@@ -217,32 +217,33 @@
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 258, "y": 84},
         {"act": "wait", "ms": 1500},
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 222, "y": 48, "w": 72, "h": 72}},
-        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 1}},
         {"act": "shot", "name": "appearance_thumb_flowers"}
       ]
     },
     {
       "id": "dialogs.appearance.thumb.blue",
-      "desc": "颜色框→缩略图「银蓝」：本来就是选中态，点它不变化",
+      "desc": "颜色框→缩略图「银蓝」：点缩略图**不立即生效**，棋盘外观不变（要按确定才生效）",
+      "_注": "断言盯的是**棋盘第一行**（board 空间，跟着棋盘走、换设备也准）。不盯缩略图那块：缩略图是「当前选中态」，上一轮跑完可能已经是绿的，点银蓝会让选中框移动 —— 那是**正常**的，不该判失败。Codex 复审 2026-11-01 的 P2。",
       "steps": [
         {"act": "reset"},
         {"act": "menu", "top": "game", "entry": "颜色(C)"},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 78, "y": 214},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "unchanged", "region": {"space": "dialog", "dialog": "appearance", "x": 36, "y": 172, "w": 84, "h": 84}},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 1}},
         {"act": "shot", "name": "appearance_thumb_blue"}
       ]
     },
     {
       "id": "dialogs.appearance.thumb.green",
-      "desc": "颜色框→缩略图「绿色」：选中框移过去，但棋盘外观不变（点确定才生效）",
+      "desc": "颜色框→缩略图「绿色」：同样**不立即生效**，棋盘外观不变",
+      "_注": "同 thumb.blue：只断言「棋盘没变」，不断言缩略图选中框有没有动。",
       "steps": [
         {"act": "reset"},
         {"act": "menu", "top": "game", "entry": "颜色(C)"},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 264, "y": 214},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 222, "y": 172, "w": 84, "h": 84}},
-        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "wait", "ms": 1200},
+        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 1}},
         {"act": "shot", "name": "appearance_thumb_green"}
       ]
     },
@@ -260,15 +261,22 @@
     },
     {
       "id": "dialogs.appearance.ok",
-      "desc": "颜色框→选「绿色」再点确定(O)：棋盘变成绿色（点确定才生效）",
+      "desc": "颜色框：先把棋盘定成「银蓝」（缩略图→确定），再改成「绿色」（缩略图→确定）——**按确定之后**棋盘外观才变",
+      "_注": "外观是用户偏好、存在 preferences、跨重启保留。上一轮跑过「选绿色→确定」之后棋盘就一直是绿的，所以这条必须**先自己定一个基线**（定成银蓝），再改成绿色才能断言「变了」。Codex 复审 2026-11-01 的 P2。",
       "steps": [
         {"act": "reset"},
         {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 78, "y": 214},
+        {"act": "wait", "ms": 800},
+        {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 255, "y": 315},
+        {"act": "wait", "ms": 1200},
+        {"act": "menu", "top": "game", "entry": "颜色(C)"},
+        {"act": "wait", "ms": 600},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 264, "y": 214},
-        {"act": "wait", "ms": 1500},
+        {"act": "wait", "ms": 800},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 255, "y": 315},
         {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "expect", "type": "changed", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 1}},
         {"act": "shot", "name": "appearance_ok"}
       ]
     },
@@ -282,7 +290,7 @@
         {"act": "wait", "ms": 1500},
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 355, "y": 315},
         {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 1}},
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
         {"act": "shot", "name": "appearance_cancel"}
       ]
@@ -296,7 +304,7 @@
         {"act": "tap", "space": "dialog", "dialog": "appearance", "x": 388, "y": 10},
         {"act": "wait", "ms": 1500},
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "appearance", "x": 12, "y": 40, "w": 396, "h": 104}},
-        {"act": "expect", "type": "unchanged", "region": {"space": "canvas", "x": 200, "y": 760, "w": 900, "h": 190}},
+        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 1}},
         {"act": "shot", "name": "appearance_close"}
       ]
     },

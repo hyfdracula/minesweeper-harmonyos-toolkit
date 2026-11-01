@@ -156,6 +156,8 @@ LAYOUT_RE = re.compile(
 )
 # 状态条上沿（HUD 时是画布底边那条），可选
 STRIP_RE = re.compile(r"状态条上沿=(\d+)px")
+# 盘面规格（2026-11-01 加进应用日志的），可选
+BOARD_RE = re.compile(r"盘面=(\d+)x(\d+)\s+雷=(\d+)")
 
 
 # ===========================================================================
@@ -205,20 +207,32 @@ class Hdc:
                    timeout=60, check=True)
 
     def screenshot(self, path: str) -> str:
-        """截一张全屏图到本机 path（先删旧的，否则 file recv 会失败）。"""
+        """截一张全屏图到本机 path（先删旧的，否则 file recv 会失败）。
+
+        超时收紧到 40/60 秒（原来 120/180）：设备端 hdc 偶尔会变慢
+        （实测 snapshot_display 从 0.5 s 劣化到 3.7 s），一个卡住的调用
+        拖 3 分钟会让整轮跑测看起来像挂死。失败重试一次。
+        """
         self._shot_no += 1
         remote = "/data/local/tmp/cm_shot_%d.jpeg" % self._shot_no
-        self.shell("snapshot_display", "-f", remote, timeout=120, check=True)
-        if os.path.exists(path):
+        last = None
+        for attempt in range(2):
             try:
-                os.remove(path)
-            except OSError:
-                pass
-        self.run("file", "recv", remote, path, timeout=180, check=True)
-        return path
+                self.shell("snapshot_display", "-f", remote, timeout=40, check=True)
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                self.run("file", "recv", remote, path, timeout=60, check=True)
+                return path
+            except HdcError as exc:
+                last = exc
+                time.sleep(2.0)
+        raise last if last else HdcError("截图失败")
 
     def hilog(self) -> str:
-        return self.shell("hilog", "-x", timeout=120)
+        return self.shell("hilog", "-x", timeout=60)
 
     def pidof(self) -> str:
         """应用进程的 PID 字符串（空 = 进程没了）。
@@ -262,6 +276,11 @@ class Layout:
         self.board_y = int(m.group(9))
         ms = STRIP_RE.search(raw)
         self.strip_top = int(ms.group(1)) if ms else None
+        mb = BOARD_RE.search(raw)
+        # 盘面规格是**设备无关**的（格边/原点会随画布尺寸变），用例断言盘面时用它
+        self.rows = int(mb.group(1)) if mb else None
+        self.cols = int(mb.group(2)) if mb else None
+        self.mines = int(mb.group(3)) if mb else None
 
     @property
     def density(self) -> float:
@@ -306,34 +325,45 @@ class Geom:
         return self.layout
 
     # ---- 画布顶偏移 -------------------------------------------------------
-    def probe_canvas_y(self) -> int:
+    def probe_canvas_y(self, retries: int = 3) -> int:
         """量画布顶在屏幕上的纵向偏移（未开局的棋盘第一行砖色上沿 - 棋盘原点 y）。
 
         砖色判定用本文件的 `is_tile`（蓝盘 + 绿盘都认），**不要**去 import
         `probe_canvas.is_tile` —— 那个只认蓝色，遇到「绿色棋盘」外观会量不到。
+
+        坑（2026-11-01，lead 在 Mate X7 上做跨设备校验时踩到）：发牌动画是**从右下角往
+        左上报**的（`DealIn.dealInSequence` 的种子在中间偏右下），所以动画期间**左上角
+        那一块还没翻上来**，这时候量到的「第一行砖色上沿」是错的 —— 实测量到 239 而真值
+        是 125，整套用例的点击全部偏移 114 px。
+        所以：量之前必须等发牌结束（`act_reset` 里先等稳定），这里再叠一层重试。
         """
         lay = self.layout
         if lay is None:
             raise RuntimeError("还没有布局信息")
         path = os.path.join(self.workdir, "probe_canvas.jpeg")
-        self.hdc.screenshot(path)
-        im = Image.open(path).convert("RGB")
-        w, h = im.size
-        px = im.load()
-        x = max(0, min(w - 1, lay.board_x + lay.tile // 2))
-        need = max(8, min(40, lay.tile // 4))
-        run_len = 0
-        for y in range(h):
-            r, g, b = px[x, y]
-            if is_tile(r, g, b):
-                run_len += 1
-                if run_len >= need:
-                    top = y - run_len + 1
-                    self.canvas_y = int(top - lay.board_y)
-                    return self.canvas_y
-            else:
-                run_len = 0
-        raise RuntimeError("量不到画布顶偏移（棋盘可能被翻开了？）")
+        last_err = ""
+        for attempt in range(max(1, retries)):
+            self.hdc.screenshot(path)
+            im = Image.open(path).convert("RGB")
+            w, h = im.size
+            px = im.load()
+            x = max(0, min(w - 1, lay.board_x + lay.tile // 2))
+            need = max(8, min(40, lay.tile // 4))
+            run_len = 0
+            for y in range(h):
+                r, g, b = px[x, y]
+                if is_tile(r, g, b):
+                    run_len += 1
+                    if run_len >= need:
+                        top = y - run_len + 1
+                        self.canvas_y = int(top - lay.board_y)
+                        return self.canvas_y
+                else:
+                    run_len = 0
+            last_err = ("在 x=%d 那一列找不到连续 %d 行砖块（棋盘可能被翻开了？"
+                        "或者发牌动画还没结束）" % (x, need))
+            time.sleep(0.8)
+        raise RuntimeError("量不到画布顶偏移：" + last_err)
 
     # ---- 对话框 -----------------------------------------------------------
     def dialog_scale(self, ref_w: int, ref_h: int) -> float:
@@ -593,6 +623,9 @@ class Runner:
         self.hdc.stop_app()
         self.hdc.start_app()
         self.geom.refresh_layout()
+        # 顺序要紧：**先等画面稳定（发牌动画结束），再量画布顶偏移**。
+        # 发牌动画是从右下往左上报的，动画期间量到的偏移是错的（实测 239 vs 真值 125）。
+        self.wait_board_stable()
         if self.geom.canvas_y is None:
             self.geom.probe_canvas_y()
         diff = step.get("difficulty")
@@ -603,8 +636,6 @@ class Runner:
                 raise ValueError("未知难度: " + str(diff))
             self.act_menu({"top": "game", "entry": name})
             self.geom.refresh_layout()
-        # 等发牌动画结束（见 wait_board_stable 的说明）
-        self.wait_board_stable()
         self.dirty = True
         self.capture()
         self.checkpoint = self.img.copy() if self.img is not None else None
@@ -622,19 +653,27 @@ class Runner:
 
         盯的区域是**状态条以上的那一片**（画布内）：
         状态条的时钟每秒跳一下，整屏永远不会「稳定」，所以要把状态条排除掉。
+        画布顶偏移还没量出来时（第一次 reset）就盯**整屏** ——
+        发牌动画一格一格翻上来，变化量是几十万像素，远大于门限；
+        时钟那一跳只有几百像素，在门限以下。
         """
         lay = self.geom.layout
         if lay is None:
             return False
         cy = self.geom.canvas_y or 0
         bottom = lay.strip_top if lay.strip_top else lay.canvas_h
-        rect = (0, cy, lay.canvas_w, max(1, bottom - cy))
         path = os.path.join(self.geom.workdir, "stable.jpeg")
         deadline = time.time() + timeout_ms / 1000.0
         prev = None
+        rect = None
         while time.time() < deadline:
             self.hdc.screenshot(path)
             cur = load_rgb(path)
+            if rect is None:
+                if self.geom.canvas_y is None:
+                    rect = (0, 0, cur.shape[1], cur.shape[0])
+                else:
+                    rect = (0, cy, lay.canvas_w, max(1, bottom - cy))
             if prev is not None:
                 d = diff_count(prev, cur, rect)
                 area = max(1, rect[2] * rect[3])
@@ -723,7 +762,12 @@ class Runner:
             for ln in (proc.stdout or "").splitlines()[-4:]:
                 print("     " + ln)
         if proc.returncode != 0:
-            print("   [mkstate] %s 失败: %s" % (state, (proc.stderr or "")[-300:]))
+            # 造局面失败就**抛**：不能接着往下点、接着断言 ——
+            # 否则失败会被记成「对话框的按钮坏了」，把锅甩给被测代码。
+            # （Codex 复审 2026-11-01 的 P2）
+            raise RuntimeError(
+                "造局面失败（click_mkstate %s 退出码 %d）：%s"
+                % (state, proc.returncode, (proc.stderr or proc.stdout or "")[-400:]))
         self.dirty = True
         self.geom.refresh_layout()
 
