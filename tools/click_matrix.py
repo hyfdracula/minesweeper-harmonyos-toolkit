@@ -642,8 +642,13 @@ class Runner:
         self.before = None
         self.last_layout = self.geom.layout
 
-    def wait_board_stable(self, timeout_ms: int = 9000, gap_ms: int = 450) -> bool:
+    def wait_board_stable(self, timeout_ms: int = 25000, gap_ms: int = 450) -> bool:
         """等到**画面稳定**再继续（发牌 / 涟漪动画结束）。
+
+        超时给 25 秒（原来 9 秒）：设备端截图会随负载劣化（实测 0.5 s → 3.7 s），
+        一轮「截两张比一比」要 8 秒，9 秒只够跑一轮 —— 比不到就没结论，
+        于是用例在发牌动画还没结束时就点了下去，判成「格子没翻开」。
+        超时后返回 False（不抛），调用方照常继续，但那时画面确实可能还没稳。
 
         为什么必须等（2026-11-01，lead 在 Mate X7 上做跨设备校验时踩到）：
         开局有 **1100ms 的发牌动画**（`DealIn.TOTAL_MS`），期间格子是一块块翻上来的。
@@ -887,7 +892,7 @@ class Runner:
         #     就会跟「棋盘画面」比，误判成「变了」。
         #   * custom.limit.height：reset → … → key(2) → expect changed →
         #     key(5)（越界被拒）→ expect unchanged。基准是「按 5 之前」，
-        #     值区仍是 2 → 没变 ✓。
+        #     值区仍是 2 → 没变 √。
         # 所以：动作（reset/menu/tap/key/lose_game/win_game）之前的画面 = 基准，
         # 断言只读不动。
         return ok, msg
@@ -931,6 +936,11 @@ class Runner:
                     res.fail("第%d步：未知动作 %r" % (i + 1, act))
             except Exception as exc:  # 单条用例失败不该拖垮整轮
                 res.fail("第%d步 %s 执行异常: %s" % (i + 1, act, exc))
+                # **这条用例到此为止**（下一条用例照跑）。
+                # 坑（Codex 复审 2026-11-01 的 P2）：造局面失败时如果还往下点、往下断言，
+                # 那些断言是在一个**根本没造出来的局面**上做的，失败会被记成
+                # 「对话框按钮坏了」——把锅甩给被测代码。出错就停。
+                break
         return res
 
     def _before_capture(self) -> None:

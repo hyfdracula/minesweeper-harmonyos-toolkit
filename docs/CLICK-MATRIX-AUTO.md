@@ -257,7 +257,7 @@ python tools\click_matrix.py --device 127.0.0.1:5557 --cases board --verbose
 
 > 坑（2026-11-01，dialog-fidelity-agent 报出、lead 确认）：早先 `region_to_screen()`
 > 只把 x/y 按 s 换算，**w/h 原样返回**，于是 5557 上 s=2 时 dialog 空间的 region
-> 只有意图的**四分之一**（左上角那块）。现在 w/h 会跟着乘 s ✓。
+> 只有意图的**四分之一**（左上角那块）。现在 w/h 会跟着乘 s √。
 > 用例表里 dialog/custom/keypad 空间的 w/h 一律按**参考像素**写就对了。
 
 **必须给 region**：`changed` / `unchanged` 不允许整屏——
@@ -271,10 +271,10 @@ python tools\click_matrix.py --device 127.0.0.1:5557 --cases board --verbose
 这样两条常用写法都成立：
 
 - `reset → menu(自定义) → tap(键盘空格) → expect unchanged ×3`
-  基准是「点空格之前」（对话框已开、值还是 9/9/10）→ 三个值区都没变 ✓；
+  基准是「点空格之前」（对话框已开、值还是 9/9/10）→ 三个值区都没变 √；
   若拿「用例开头」或「上一条断言的检查点」当基准，就会跟「棋盘画面」比，误判成「变了」。
 - `… → key(2) → expect changed → key(5)（越界被拒）→ expect unchanged`
-  第二条的基准是「按 5 之前」，值区还是 2 → 没变 ✓。
+  第二条的基准是「按 5 之前」，值区还是 2 → 没变 √。
 
 另外两条给其它 agent 的提醒：
 

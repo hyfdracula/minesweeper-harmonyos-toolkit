@@ -43,7 +43,7 @@ python tools/pixel_diff.py --ref 参考图 --shot 设备截图 --rect X,Y,W,H [-
   （参考图 | 截图 | 差异热力图）、一行总结：
   `一致率 xx.xx% | 尺度 k=2（整数）| 最大单像素通道差 nn`。
 
-独立运行：`python tools\pixel_diff.py --help` ✓
+独立运行：`python tools\pixel_diff.py --help` √
 
 ---
 
@@ -65,7 +65,7 @@ python tools/pixel_diff.py --ref 参考图 --shot 设备截图 --rect X,Y,W,H [-
 两者一致，说明定位可靠。
 
 **尺度反推**：`--rect` 宽 / 参考图宽 = 966/483 = **2.000**，高 576/288 = **2.000**
-→ 整数倍 ✓。关于框 628/314 = 2.000，394/197 = 2.000 ✓。
+→ 整数倍 √。关于框 628/314 = 2.000，394/197 = 2.000 √。
 
 > 与实现的对应：`GameController.computeDialogScale()` = `max(1, min(2, density, (canvasW-32)/w, (canvasH-32)/h))`
 > = min(2, 3.5, 2.58, 8.9) = **2**；`WinDialogPainter.draw()` 的几何乘 `sVp = dialogScale*pxScale`，

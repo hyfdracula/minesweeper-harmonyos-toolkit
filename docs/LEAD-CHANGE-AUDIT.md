@@ -11,14 +11,14 @@
 
 | # | 问题 | 结论 |
 |---|---|---|
-| Q1 | `clampPan` 与新 frame 是否自洽？放大后会不会拖不动？ | **自洽，不会拖不动**。`clampPan()` 用的 `frameW/frameH` 是 `applyGeometry()` 刚算出来的（`GameController.ets:325-334`，调用点在 `347`/`355`/`366`），放大后 frame 变大 → `lim` 变大 → 可拖 ✓。**唯一偏差**：`lim` 用未取整的半差，与 `frameX` 的 `Math.round` 不同源 → 两端各差 ≤0.5 设备像素（见 L2） |
-| Q2 | 30 列在 1280 宽屏上 n=2 → 2160px 宽，平移量够不够左右都拖到？ | **够**。外屏 1323：`frameW=2160` → `limX=(2160-1323)/2=418.5`，`base=Math.round(-418.5)=-418`。`panX=+418.5` → 左边缘到 `0.5`；`panX=-418.5` → 右边缘到 `1323.5`。**左右都能拖到，各差 0.5 设备像素（0.18vp）** ✓。真正的隐患不是「拖不到」，是**初始视图**（L1） |
+| Q1 | `clampPan` 与新 frame 是否自洽？放大后会不会拖不动？ | **自洽，不会拖不动**。`clampPan()` 用的 `frameW/frameH` 是 `applyGeometry()` 刚算出来的（`GameController.ets:325-334`，调用点在 `347`/`355`/`366`），放大后 frame 变大 → `lim` 变大 → 可拖 √。**唯一偏差**：`lim` 用未取整的半差，与 `frameX` 的 `Math.round` 不同源 → 两端各差 ≤0.5 设备像素（见 L2） |
+| Q2 | 30 列在 1280 宽屏上 n=2 → 2160px 宽，平移量够不够左右都拖到？ | **够**。外屏 1323：`frameW=2160` → `limX=(2160-1323)/2=418.5`，`base=Math.round(-418.5)=-418`。`panX=+418.5` → 左边缘到 `0.5`；`panX=-418.5` → 右边缘到 `1323.5`。**左右都能拖到，各差 0.5 设备像素（0.18vp）** √。真正的隐患不是「拖不到」，是**初始视图**（L1） |
 | Q3 | `v()` 取整会不会破坏什么？ | **没破坏绘制**（棋盘瓦片间距是整数，`round(x+k·整数)=round(x)+k·整数`，无接缝）。但**没达到注释宣称的目的**：对话框内部坐标是 `refPx × sVp`（小数），仍落在分数像素上（L3）。另有一处「画与点」取整规则不同源（L7） |
-| Q4 | `computeDialogScale` 极端画布下崩不崩？画与点的 scale 一致吗？ | **不崩、一致**。三套布局函数（`dialogLayout:1115`、`statsLayout:1180`、`customLayout:1281`）与三套命中函数（`dialogButtonAt`、`statsButtonAt:1230`、`customActionAt:1320`）都在**函数体开头重调同一个布局函数**，scale 必然相同 ✓；`customLayout` 与 `dialogLayout` 共用 `this.dialogScale`，但自定义框与结束框互斥（`openCustomDialog` 会 `dialog=null`），不会互相覆盖 ✓。极端小画布下**窗口会比屏幕大、按钮出屏**（L4） |
-| Q5 | `statsSelectedLevel` 与 `selected` 处处一致吗？用户选好的档会丢吗？ | **一致，且不会丢**。`statsData()` 用 `sel=clamp(statsSelectedLevel,0,2)` 同时喂 `picked` 与 `selected`（1195-1206）；`statsButtonAt` 有 `li>=0 && li<=2` 守卫（1243），`hitListItem` 在列表框空白处返回的 3/4/5 被挡掉 ✓ 不会取 `levels[3]`。统计窗开着时 `inputLocked=true` → 菜单点不到 → 换不了难度 → `openStatsWindow` 不会重入 ✓ |
-| Q6 | `openGameMenu()` 里的 `menuOpenId='game'` 对得上 `buildMenu()` 的 id 吗？ | **对得上，菜单能弹出来** ✓。`buildMenu()` 的顶层 id 就是 `'game'`（1393），`openGameMenu()` 先 `buildMenu()`（1490）再置 `menuOpenId='game'` ✓ |
-| Q7 | `restart()` 保留 `customGame=true` 后还进不进统计？`GameStats.level` 会不会污染难度归属？ | **不进统计** ✓（`buildDialog` 的 `if (!this.customGame)` 仍在，1007-1011）。`GameStats.level = cfg.name` **不会污染**：全工程 grep 确认该字段**只有声明（GameStats.ets:138）和这一处赋值，没有任何读取点** → 无行为影响，纯死代码。遗留：自定义局结束框仍显示**预设难度**的最快时间（L8） |
-| Q8 | fold 换屏时 `userZoomed=true`，旧 pan + 新 frame 会不会把棋盘推到屏外？ | **不会**。`layout()` 顺序是 `applyGeometry → clampPan → applyGeometry`（280-282），`clampPan` 用新 frame 重算 lim 并把旧 pan 夹进新范围 ✓。例：内屏 2210 → 外屏 1323，`scaleIndex` 保持 4（tile=144）→ 高级 `frameW=30×144=4320` → `limX=(4320-1323)/2=1498.5` → 旧 pan 被夹进 ±1498.5 ✓ 棋盘不出屏。副作用：换屏后**保留**用户原来的平移位置（不重新居中），视觉上可能偏在一角 —— 可接受 |
+| Q4 | `computeDialogScale` 极端画布下崩不崩？画与点的 scale 一致吗？ | **不崩、一致**。三套布局函数（`dialogLayout:1115`、`statsLayout:1180`、`customLayout:1281`）与三套命中函数（`dialogButtonAt`、`statsButtonAt:1230`、`customActionAt:1320`）都在**函数体开头重调同一个布局函数**，scale 必然相同 √；`customLayout` 与 `dialogLayout` 共用 `this.dialogScale`，但自定义框与结束框互斥（`openCustomDialog` 会 `dialog=null`），不会互相覆盖 √。极端小画布下**窗口会比屏幕大、按钮出屏**（L4） |
+| Q5 | `statsSelectedLevel` 与 `selected` 处处一致吗？用户选好的档会丢吗？ | **一致，且不会丢**。`statsData()` 用 `sel=clamp(statsSelectedLevel,0,2)` 同时喂 `picked` 与 `selected`（1195-1206）；`statsButtonAt` 有 `li>=0 && li<=2` 守卫（1243），`hitListItem` 在列表框空白处返回的 3/4/5 被挡掉 √ 不会取 `levels[3]`。统计窗开着时 `inputLocked=true` → 菜单点不到 → 换不了难度 → `openStatsWindow` 不会重入 √ |
+| Q6 | `openGameMenu()` 里的 `menuOpenId='game'` 对得上 `buildMenu()` 的 id 吗？ | **对得上，菜单能弹出来** √。`buildMenu()` 的顶层 id 就是 `'game'`（1393），`openGameMenu()` 先 `buildMenu()`（1490）再置 `menuOpenId='game'` √ |
+| Q7 | `restart()` 保留 `customGame=true` 后还进不进统计？`GameStats.level` 会不会污染难度归属？ | **不进统计** √（`buildDialog` 的 `if (!this.customGame)` 仍在，1007-1011）。`GameStats.level = cfg.name` **不会污染**：全工程 grep 确认该字段**只有声明（GameStats.ets:138）和这一处赋值，没有任何读取点** → 无行为影响，纯死代码。遗留：自定义局结束框仍显示**预设难度**的最快时间（L8） |
+| Q8 | fold 换屏时 `userZoomed=true`，旧 pan + 新 frame 会不会把棋盘推到屏外？ | **不会**。`layout()` 顺序是 `applyGeometry → clampPan → applyGeometry`（280-282），`clampPan` 用新 frame 重算 lim 并把旧 pan 夹进新范围 √。例：内屏 2210 → 外屏 1323，`scaleIndex` 保持 4（tile=144）→ 高级 `frameW=30×144=4320` → `limX=(4320-1323)/2=1498.5` → 旧 pan 被夹进 ±1498.5 √ 棋盘不出屏。副作用：换屏后**保留**用户原来的平移位置（不重新居中），视觉上可能偏在一角 —— 可接受 |
 
 ---
 
@@ -29,11 +29,11 @@
 - **改的哪一处**：`GameController.ets:270-272`（抬一档规则）+ `307-308`（纵向居中）
 - **问题**：抬档规则只看「格子太小」，不看「抬完会不会反而装不下」；而纵向用**居中**而不是顶对齐，溢出被劈成两半，**上面那一半永远压在菜单栏下面**。
 - **推演（外屏 1323×1000，菜单栏 72px）**：
-  - 高级 30列×16行，n=1：`bw=30×18×2=1080 ≤ 1323` ✓，`bh=16×18×2+32×2=640`，`72+640=712 ≤ 1000` ✓ → **本来完全装得下**。
+  - 高级 30列×16行，n=1：`bw=30×18×2=1080 ≤ 1323` √，`bh=16×18×2+32×2=640`，`72+640=712 ≤ 1000` √ → **本来完全装得下**。
   - 抬一档 → n=2（tile=72）：`frameW=30×72=2160`（横超 **837px**），`frameH=16×72+32×4=1280`（纵超 **352px**）。
   - 初始 `panY=0` → `frameY = 72 + round((1000-72-1280)/2) = 72 - 176 = **-104**` → 棋盘顶边在画布上方 104px，菜单栏（0..72）压住 **176px** 的棋盘。
   - 可见量：`1323/72 = 18.4/30 列`、`(1000-72)/72 = 12.9/16 行`。
-  - 菜单栏区（y 0..72）的点击被 `isOnMenuBar()` 判给菜单 → **顶部约 2.4 行棋格既看不见也点不着**，必须先平移（`limY=176` → 顶边可平移到 y=72 ✓ 能到，但要用户自己发现）。
+  - 菜单栏区（y 0..72）的点击被 `isOnMenuBar()` 判给菜单 → **顶部约 2.4 行棋格既看不见也点不着**，必须先平移（`limY=176` → 顶边可平移到 y=72 √ 能到，但要用户自己发现）。
   - 中级 16×16 同样：n=1 完全装得下（648×776）→ 抬到 n=2 → `frameH=1280 > 928` → 纵超 352px、初始 `frameY=-104`。
   - 内屏 2210×1616，自定义最大 30列×24行：fit=1 → 抬到 2 → `frameH=1856 > 1544` → `frameY = 72-156 = -84`，156px 藏在菜单栏下。
 - **期望**：① 抬档只在**横向**装不下时才有收益（格子变大是为了点得准），纵向装不下时抬档只会更糟；② 内容高于视口时应当**顶对齐**（`frameY = menuBarPx`），把溢出全放到下面（滚动语义），而不是居中。
@@ -70,16 +70,16 @@
   `maxByHeight = max(1, (260-32)/254) = max(1, 0.898) = **1**`（**下限把不足吃掉了**）→
   `scale = min(2, 2.75, maxByWidth, 1) = 1` → 统计窗口 `702×254` → 画布只有 260 高 →
   底部「关闭(C)/重置(R)」在参考 y 200..230 → 设备 200..230 → **在 260 高的屏上只剩 30px 露在外面，按钮基本点不到**。
-  （画布 900×400 时：scale=1.2365 → 868×314 → 高度刚好卡在 368 ✓ 没问题。）
+  （画布 900×400 时：scale=1.2365 → 868×314 → 高度刚好卡在 368 √ 没问题。）
 - **兜底**：点窗口外会返回 `'close'`（1253-1257）→ 不会卡死，但用户找不到按钮。
 - **建议**：`maxByWidth/maxByHeight` 不要套 `Math.max(1, …)`（那等于放弃了「缩小以适应」）；改成允许 <1（下限 0.5 之类），或在算出 scale 后再校验 `h*s ≤ canvasH-32`，不满足就再压一档。
 
 ### L5 [MEDIUM] 雷数上限改成全局 668 后，`clampSpec` 仍按盘面夹取 → 「填 500 颗雷却开出 65 颗雷」的静默替换
 
 - **改的哪一处**：`CustomField.ets:520-533`（`maxOfField(s,2)` → `MAX_MINES=668`）+ `189-196`（`clampSpec` 仍用 `maxMines(h,w)`）
-- **推演**：9×9 盘面（本盘面上限 65）→ 键盘输入 500 → 面板接受（500 ≤ 668）✓ → 点确定 → `clampSpec` → `mines = clamp(500, 10, 65) = **65**` → 开局是 **9×9×65**。
+- **推演**：9×9 盘面（本盘面上限 65）→ 键盘输入 500 → 面板接受（500 ≤ 668）√ → 点确定 → `clampSpec` → `mines = clamp(500, 10, 65) = **65**` → 开局是 **9×9×65**。
 - **期望**：要么面板继续按盘面拦（上一轮审计 P2 的建议），要么在确定时明确告知「本盘面实际生效 N 颗雷」。
-- **实际**：提示行已经写了「（本盘面最多 65）」✓ 有预告，但**确定那一刻仍然静默替换**——用户填 500、拿到 65，界面上没有任何一句话说明。
+- **实际**：提示行已经写了「（本盘面最多 65）」√ 有预告，但**确定那一刻仍然静默替换**——用户填 500、拿到 65，界面上没有任何一句话说明。
 - **建议**：确定时若发生夹取，把生效值回填到框里并提示一句；或把输入上限改回按盘面，与提示行口径统一。
 
 ### L6 [LOW/MEDIUM] 抬档「不区分横向与纵向」，收益与代价错配
@@ -107,8 +107,8 @@
 | 位置 | 结论 |
 |---|---|
 | `clampPan` 与新 frame | 自洽；`zoomTo` 的顺序 `applyGeometry → 改 pan → clampPan → applyGeometry`（347/352/354/355）正确，锚点缩放不破坏 |
-| `draw`/`drawCustom`/`drawDialog` 的顺序 | `drawCustom` 在 `drawDialog` 之前（404/405），两者互斥（`openCustomDialog` 会 `dialog=null`），`this.dialogScale` 不会被交叉污染 ✓ |
-| `statsButtonAt` 的列表命中 | `hitListItem` 会返回 3/4/5（列表框空白处），但 1243 的 `li<=2` 守卫挡住了 ✓；且 `statsData` 也 clamp 了一层 ✓ 双保险 |
+| `draw`/`drawCustom`/`drawDialog` 的顺序 | `drawCustom` 在 `drawDialog` 之前（404/405），两者互斥（`openCustomDialog` 会 `dialog=null`），`this.dialogScale` 不会被交叉污染 √ |
+| `statsButtonAt` 的列表命中 | `hitListItem` 会返回 3/4/5（列表框空白处），但 1243 的 `li<=2` 守卫挡住了 √；且 `statsData` 也 clamp 了一层 √ 双保险 |
 
 ---
 

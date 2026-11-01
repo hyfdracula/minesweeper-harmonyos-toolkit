@@ -22,8 +22,8 @@
 
 | 用途 | 路径 | 分支/HEAD |
 |---|---|---|
-| **应用仓**（鸿蒙工程，真正要装到手机上的） | `C:\Users\19161\saolei` | master @ `323a324` |
-| **规格仓**（文档 + 工具 + 证据图） | `D:\software\harmony\projects\minesweeper` | master @ `9399d25` |
+| **应用仓**（鸿蒙工程，真正要装到手机上的） | `C:\Users\19161\saolei` | master @ `b540a56` |
+| **规格仓**（文档 + 工具 + 证据图） | `D:\software\harmony\projects\minesweeper` | master @ `55c69a0` |
 
 应用仓 `bundleName = com.example.saolei`。
 
@@ -86,7 +86,7 @@ entry/src/main/ets/
 ├── pages/Index.ets                 页面壳 + 菜单动作分发
 ├── components/MinefieldCanvas.ets  画布宿主：读存档→加载图集→开局、触摸/手势入口
 └── common/
-    ├── GameController.ets          ★核心：布局(applyGeometry/layout)、绘制、命中判定、对话框分发
+    ├── GameController.ets          *核心：布局(applyGeometry/layout)、绘制、命中判定、对话框分发
     ├── MinesweeperEngine.ets       引擎（与规格仓 engine/src/MinesweeperEngine.ts 逐字节相同）
     ├── SpriteAtlas.ets             图集加载 + 按样式切换(applyStyle) + 整图/切片绘制
     ├── Theme.ets                   常量与几何（TILE=18、STRIP_BAND=32、MIN_CELL_PX=48、样式枚举…）
@@ -95,7 +95,7 @@ entry/src/main/ets/
     ├── Appearance.ets              「颜色(C)」对话框的状态机
     ├── CustomField.ets             自定义难度对话框（含数字键盘、maxMines()）
     ├── StatsWindow.ets             最佳成绩窗口
-    ├── SevenSeg.ets            ★  七段数码管计数器（含「1」的衬线旗与衬线底横）
+    ├── SevenSeg.ets            *  七段数码管计数器（含「1」的衬线旗与衬线底横）
     ├── Anim.ets                    爆炸 23 帧 / 拆雷 38 帧 / 胜利扫描条
     ├── DealIn.ets / Ripple.ets     发牌入场、洪泛涟漪
     ├── SoundPlayer.ets             AVPlayer 音效池（12+3 个 wav）
@@ -137,8 +137,10 @@ entry/src/main/ets/
 | 状态条在**极限缩放**下两个计数仍在屏内、且两组不重叠 | 已实现并**实测**（离线断言） | `tools/check_layout.py` 断言 9：4 画布 × 4 盘面 × n=8 全过；普通档位一个像素都没变 |
 | **扫描条裁在棋盘矩形内**（原版 `setClipRect(grid)`）、高度按原版长宽比 | 已实现并**实测** | 修复前条停在**棋盘外 18 px**，修复后**在棋盘内 233 px**（模板匹配相似度 0.990）；`docs/ANIM-VERDICT.md` §1.4 |
 | **胜利动画整条**（扫描条 + 38 帧拆雷光束 + 胜利后全盘插旗） | 已实现并**实测** | 真机赢一局连拍 20 帧：条自下而上扫、光束在扫到那行时起跳、胜利后 10 颗雷全插旗；`docs/ANIM-VERDICT.md` |
-| **爆炸动画** | 已实现并**实测**（2 帧） | 按帧号模板匹配认出第 7、10 帧（相似度 0.925/0.922），帧号在往前走；23 帧凑不齐是**快门比动画窗口还慢**的物理限制 |
-| 胜利框 / 失败框**逐像素比对** | 已做 | 与 Lmy 克隆框：胜利框客户区 **90.50%**、失败框 **92.50%**，缩放 k=2.000 整数倍，**几何 0 处画错**；`docs/DIALOG-PIXEL-DIFF.md`、`docs/DIALOG-PIXEL-DIFF-2.md` |
+| **爆炸动画** | 已实现并**实测**（18/23 帧） | 慢放取证 + 模板匹配认出**第 1~17 与 19 帧**（相似度 0.85~0.97），每轮连拍内部帧号**严格递增**；没抓到 0、18、20、21、22（快门的物理限制）；`docs/ANIM-FRAMES.md` |
+| **花园玩法判负的开花序列** | 已实现并**实测**（19/23 帧） | 认出第 1~6、8~14、16~19、21、22 帧；帧号递增已证；`docs/ANIM-FRAMES.md` |
+| **可重跑的点击回归**（菜单/棋盘/对话框/自定义框 82 条） | 已实现并**实测** | `tools/click_matrix.py` + `tools/click_cases/*.json`；跨设备（Mate 90 Pro + Mate X7）都跑过；`docs/CLICK-MATRIX-AUTO.md` |
+| 胜利框 / 失败框**逐像素比对** | 已做 | 与 Lmy 克隆框：胜利框客户区 **90.55%**、失败框 **92.50%**，缩放 k=2.000 整数倍，**几何 0 处画错**；`docs/DIALOG-PIXEL-DIFF.md`、`docs/DIALOG-PIXEL-DIFF-2.md` |
 | 爆炸动画按**时间**推进（原版 1 秒/23 帧）、胜利结束时刻按最后一束光束算 | 已实现 | `Anim.ets` 的 `EXPLODE_FRAME_MS` / `Anim.winEndMs()` |
 | 抬档规则：整块装得下优先，格边 <48 设备像素就抬（允许纵向溢出） | 已实现 | 24×30 在 Mate 90 Pro 上 n=2 / 格边 72px 实测 |
 | 爆炸 23 帧 / 拆雷 38 帧 / 胜利扫描条 | 已实现 | 代码在 `Anim.ets`；**真机连续帧证据由 anim-agent 出** |
@@ -214,7 +216,7 @@ Lead 之外曾有 8 个后台智能体，各自写过互不重叠的文件。当
 `CustomField.ets`、`SevenSeg.ets`、`GameStats.ets`、`SoundPlayer.ets`、`MinefieldCanvas.ets`、`pages/Index.ets`。
 
 ### 全局约定（`~/.dsh/AGENTS.md`，必须遵守）
-- **禁止 emoji**（任何文件、任何输出；`✓`/`✗` 属 Dingbats 也算 emoji，用文字替代）。
+- **禁止 emoji**（任何文件、任何输出；`√`/`×` 属 Dingbats 也算 emoji，用文字替代）。
 - Windows 上跑 Python 子进程必须加 `subprocess.CREATE_NO_WINDOW`（用 `~/.dsh/lib/nowindow.py`）。
 - **禁止 pip install**。
 - 实质性改动完成后跑一次 Codex 对抗性复审（同一任务最多一次），

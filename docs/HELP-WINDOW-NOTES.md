@@ -133,12 +133,12 @@ dialogScale = 2 时每个源像素占 2 个设备像素，源图 256×192 → �
 ## 6. 命中区怎么跟随
 
 - **「确定」按钮**：`WinDialogPainter.hitButton()` 直接用 `spec.buttons` 里的
-  `x/y/w/h` 乘缩放，helpSpec 里改了坐标，命中区自动跟着改 ✓
+  `x/y/w/h` 乘缩放，helpSpec 里改了坐标，命中区自动跟着改 √
 - **右上角 X**：`WinDialogPainter.closeRect(spec)` = `[spec.width - 9 - 45, 2, 45, 17]`
-  = `[530, 2, 45, 17]`，宽度变了它自动右移到新窗口右缘 ✓（draw 与 hitButton 共用
+  = `[530, 2, 45, 17]`，宽度变了它自动右移到新窗口右缘 √（draw 与 hitButton 共用
   这一个函数，画出来的位置和能点到的位置严格一致）
 - **对话框整体位置**：`GameController.dialogLayout()` 用 `d.width` / `d.height`
-  居中，随新尺寸自动重算 ✓
+  居中，随新尺寸自动重算 √
 - **图片本身不需要命中区**（不可点）
 
 ## 7. 构建

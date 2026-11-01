@@ -85,7 +85,48 @@ def _shot(device, path):
     return path
 
 
-def _client_rect(device, state, outdir):
+def _measure_canvas_offset(device, outdir):
+    """在**还没开局**（格子都盖着）的棋盘上量画布顶偏移。
+
+    为什么必须先量（Codex 复审 2026-11-01 的 P1）：
+    赢局之后 `win_probe` 把安全格全翻开、把雷全插旗 —— 棋盘里**一个没翻开的砖块都没有了**，
+    这时候 `probe_canvas_y()`（找第一列的连续砖块行）要么直接报错，要么量到的是**下面某一行**
+    的砖块，算出来的偏移偏大，胜利框的检测框就整个错位，轮询永远超时。
+    所以顺序是：**先量偏移（未开局）→ 再让 win_probe 去赢**。
+    画布在屏幕上的位置只跟窗口尺寸有关，跟难度/盘面无关，所以先量的值后面照样用。
+    """
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import click_matrix as cm
+
+    hdc = cm.Hdc(device)
+    hdc.stop_app()
+    hdc.start_app()
+    geom = cm.Geom(hdc, outdir)
+    lay = geom.refresh_layout()
+    # 等发牌动画结束再量（动画期间左上角还没翻上来，量到的是错值）
+    for _ in range(12):
+        time.sleep(0.5)
+        hdc.screenshot(os.path.join(outdir, "pre.jpeg"))
+        time.sleep(0.2)
+        hdc.screenshot(os.path.join(outdir, "pre2.jpeg"))
+        try:
+            from PIL import Image as _I
+            import numpy as _np
+            a = _np.asarray(_I.open(os.path.join(outdir, "pre.jpeg")).convert("RGB")).astype(int)
+            b = _np.asarray(_I.open(os.path.join(outdir, "pre2.jpeg")).convert("RGB")).astype(int)
+            d = int((_np.abs(a - b).max(axis=2) > 12).sum())
+            if d <= max(6, 0.0008 * a.shape[0] * a.shape[1]):
+                break
+        except Exception:
+            pass
+    cy = geom.probe_canvas_y()
+    print("[mkstate] 未开局时量到画布顶偏移 = %d px（画布 %dx%d）"
+          % (cy, lay.canvas_w, lay.canvas_h))
+    return geom, cy
+
+
+def _client_rect(device, state, outdir, geom, canvas_y):
     """算这个对话框的**客户区**在屏幕像素里的矩形（按当前设备的画布算）。
 
     复用 click_matrix.Geom 的几何（它已经照抄了 GameController 的公式），
@@ -95,11 +136,7 @@ def _client_rect(device, state, outdir):
         sys.path.insert(0, HERE)
     import click_matrix as cm
 
-    hdc = cm.Hdc(device)
-    geom = cm.Geom(hdc, outdir)
-    geom.refresh_layout()
-    if geom.canvas_y is None:
-        geom.probe_canvas_y()
+    geom.canvas_y = canvas_y
     ref_w, ref_h = DIALOGS[state]
     region = {
         "space": "dialog",
@@ -156,12 +193,14 @@ def make_state(device, state, timeout=45.0):
         raise ValueError("state 只能是 lose / win，收到 " + repr(state))
     phase = "explode" if state == "lose" else "win"
     outdir = tempfile.mkdtemp(prefix="cm_mkstate_")
+    # 先在**未开局**的棋盘上量画布顶偏移（赢局之后棋盘全翻开，量不到砖块了）
+    geom, canvas_y = _measure_canvas_offset(device, outdir)
     rc = _run_win_probe(device, phase, outdir)
     if rc != 0:
         print("[mkstate] win_probe 失败（退出码 %d），不再等框" % rc)
         return False
 
-    rect = _client_rect(device, state, outdir)
+    rect = _client_rect(device, state, outdir, geom, canvas_y)
     shot = os.path.join(outdir, "probe.jpeg")
     deadline = time.time() + timeout
     best = -1.0

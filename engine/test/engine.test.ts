@@ -726,6 +726,266 @@ test('全部格子翻开即胜利（无雷盘）', () => {
   assert.equal(e.gameState, GameState.Won);
 });
 
+// ================================================================ 引擎一致性补测
+// 2026-11-01：逐条核对 SPEC §3.1–§3.7 写下的真 Win7 行为，规则清单见
+// docs/ENGINE-PARITY.md。下面的用例覆盖原 41 条没盯住的分支。
+
+/** 造一个确定局面：指定尺寸与雷的位置（格子索引），跳过随机布雷 */
+function scenario(rows: number, cols: number, mineIdx: number[]): MinesweeperEngine {
+  const e = new MinesweeperEngine();
+  e.reset(rows, cols, Math.max(1, mineIdx.length), seededRandom(7));
+  e.debugPlaceMines(mineIdx);
+  return e;
+}
+
+// ---------------------------------------------------------------- 规则 1 首点安全
+
+test('首点：右键先插旗的格子不能当首点，也不布雷不开局', () => {
+  const e = new MinesweeperEngine();
+  e.reset(9, 9, 10, seededRandom(11));
+  e.toggleMark(4, 4);
+  const out = e.reveal(4, 4);
+  assert.equal(out.changed, false);
+  assert.equal(e.gameState, GameState.Ready);
+  assert.equal(e.minesPlaced, false);
+  assert.equal(countMines(e), 0);
+  assert.equal(e.cellAt(4, 4).mark, Mark.Flag);
+  // 换一格作为真正的首点：正常布雷并开局
+  const out2 = e.reveal(0, 0);
+  assert.equal(out2.changed, true);
+  assert.equal(e.gameState, GameState.Playing);
+  assert.equal(e.minesPlaced, true);
+  assert.equal(countMines(e), e.mineCount);
+  assert.equal(e.cellAt(0, 0).mine, false);
+});
+
+test('首点 3×3 安全区在四条边中：安全区是 3×2 六格', () => {
+  const seeds = [1, 2, 3];
+  for (const seed of seeds) {
+    const e = new MinesweeperEngine();
+    e.reset(9, 9, 10, seededRandom(seed));
+    e.placeMines(0, 4);
+    for (let r = 0; r <= 1; r++) {
+      for (let c = 3; c <= 5; c++) {
+        assert.equal(e.cellAt(r, c).mine, false, `种子 ${seed} 安全区 (${r},${c}) 有雷`);
+      }
+    }
+    // 安全区外允许有雷
+    let outside = 0;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (r >= 0 && r <= 1 && c >= 3 && c <= 5) {
+          continue;
+        }
+        if (e.cellAt(r, c).mine) {
+          outside++;
+        }
+      }
+    }
+    assert.equal(outside, e.mineCount);
+  }
+});
+
+test('首点 3×3 安全区在四个角：安全区是 2×2 四格', () => {
+  const corners = [[0, 0], [0, 8], [8, 0], [8, 8]];
+  for (const corner of corners) {
+    const e = new MinesweeperEngine();
+    e.reset(9, 9, 10, seededRandom(21));
+    e.placeMines(corner[0], corner[1]);
+    for (let r = corner[0] - 1; r <= corner[0] + 1; r++) {
+      for (let c = corner[1] - 1; c <= corner[1] + 1; c++) {
+        if (r < 0 || r > 8 || c < 0 || c > 8) {
+          continue;
+        }
+        assert.equal(e.cellAt(r, c).mine, false, `角 (${corner}) 安全区 (${r},${c}) 有雷`);
+      }
+    }
+  }
+});
+
+// ---------------------------------------------------------------- 规则 2 和弦
+
+test('和弦：旗数比数字少时不动手，周围格子保持原状', () => {
+  // 3×3，雷在 (0,1) 与 (1,0)，中心 (1,1) 的数字是 2
+  const e = scenario(3, 3, [1, 3]);
+  e.reveal(1, 1);
+  assert.equal(e.cellAt(1, 1).adjacent, 2);
+  e.toggleMark(0, 1); // 只插一面旗，旗数 1 < 数字 2
+  const before = e.revealedCount;
+  assert.equal(e.chord(1, 1), false);
+  assert.equal(e.revealedCount, before);
+  assert.equal(e.cellAt(0, 0).revealed, false);
+  assert.equal(e.gameState, GameState.Playing);
+});
+
+test('和弦：旗数比数字多时也不动手', () => {
+  const e = scenario(3, 3, [1, 3]);
+  e.reveal(1, 1);
+  e.toggleMark(0, 1);
+  e.toggleMark(1, 0);
+  e.toggleMark(2, 2); // 多插一面旗（2,2 是安全格），旗数 3 > 数字 2
+  const before = e.revealedCount;
+  assert.equal(e.chord(1, 1), false);
+  assert.equal(e.revealedCount, before);
+});
+
+test('和弦：旗数吻合时翻开周围未开格，并在翻开最后一批非雷格时立刻判胜', () => {
+  const e = scenario(3, 3, [1, 3]);
+  e.reveal(1, 1);
+  e.toggleMark(0, 1);
+  e.toggleMark(1, 0);
+  assert.equal(e.chord(1, 1), true);
+  // 周围 6 格全开，中心早就开着 → 7 个非雷格全开
+  assert.equal(e.revealedCount, 7);
+  assert.equal(e.gameState, GameState.Won);
+  assert.equal(e.minesRemaining(), 0);
+});
+
+test('和弦：旗数吻合但有未标雷时判负，那颗雷是红底，别的雷亮黑雷', () => {
+  // 雷在 (0,1) 与 (1,0)；旗插在 (1,0)（雷）与 (2,2)（安全格）上，旗数 2 = 数字 2
+  const e = scenario(3, 3, [1, 3]);
+  e.reveal(1, 1);
+  e.toggleMark(1, 0);
+  e.toggleMark(2, 2);
+  assert.equal(e.chord(1, 1), true);
+  assert.equal(e.gameState, GameState.Lost);
+  assert.equal(e.cellAt(0, 1).exploded, true);
+  assert.equal(e.cellAt(0, 1).revealed, true);
+  assert.equal(e.cellAt(1, 0).mark, Mark.Flag); // 插对的雷保持旗
+  assert.equal(e.cellAt(2, 2).misflagged, true); // 插错的旗打叉
+});
+
+test('和弦：旗数吻合时未插旗的邻格被翻开，已插旗的格不被翻开', () => {
+  // 雷在 (0,1) 与 (1,0)；中心 (1,1) 数字 2；两面旗都插在雷上
+  const e = scenario(3, 3, [1, 3]);
+  e.reveal(1, 1);
+  e.toggleMark(0, 1);
+  e.toggleMark(1, 0);
+  assert.equal(e.chord(1, 1), true);
+  assert.equal(e.cellAt(0, 1).revealed, false); // 插旗的格不翻开
+  assert.equal(e.cellAt(1, 0).revealed, false);
+  assert.equal(e.cellAt(0, 0).revealed, true);
+  assert.equal(e.cellAt(2, 2).revealed, true);
+});
+
+test('和弦：旗数吻合时，0 邻格会继续连锁展开（和弦也走洪泛）', () => {
+  // 3×3 只有一颗雷在 (0,0)，中心 (1,1) 数字 1；旗插在 (0,0) 上
+  const e = scenario(3, 3, [0]);
+  e.reveal(1, 1);
+  e.toggleMark(0, 0);
+  assert.equal(e.chord(1, 1), true);
+  // 除那颗雷以外全被翻开（其中 0 格继续洪泛）
+  assert.equal(e.revealedCount, 8);
+  assert.equal(e.gameState, GameState.Won);
+});
+
+// ---------------------------------------------------------------- 规则 3 问号三态
+
+test('问号：旗 → 问号这一步剩余雷数不变（只有旗计入雷数）', () => {
+  const e = new MinesweeperEngine();
+  e.reset(9, 9, 10, seededRandom(31));
+  assert.equal(e.minesRemaining(), 10);
+  e.toggleMark(4, 4);
+  assert.equal(e.minesRemaining(), 9);
+  e.toggleMark(4, 4); // 旗 → 问号
+  assert.equal(e.cellAt(4, 4).mark, Mark.Question);
+  assert.equal(e.minesRemaining(), 10); // 问号不是旗，雷数回到原值
+  e.toggleMark(4, 4); // 问号 → 无标记
+  assert.equal(e.cellAt(4, 4).mark, Mark.None);
+  assert.equal(e.minesRemaining(), 10);
+});
+
+test('问号：已翻开的格子上右键被拒，旗数与标记都不变', () => {
+  const e = scenario(3, 3, []);
+  e.reveal(1, 1);
+  const flags = e.flagCount;
+  assert.equal(e.toggleMark(1, 1), false);
+  assert.equal(e.flagCount, flags);
+  assert.equal(e.cellAt(1, 1).mark, Mark.None);
+});
+
+test('问号：插旗的格子不能被左键翻开，旗数不变', () => {
+  const e = scenario(3, 3, []);
+  e.toggleMark(1, 1);
+  const out = e.reveal(1, 1);
+  assert.equal(out.changed, false);
+  assert.equal(e.cellAt(1, 1).revealed, false);
+  assert.equal(e.cellAt(1, 1).mark, Mark.Flag);
+  assert.equal(e.flagCount, 1);
+});
+
+// ---------------------------------------------------------------- 规则 4 计时契约（引擎侧）
+
+test('计时契约：第一次 reveal 把 Ready 变成 Playing，之后状态不再变', () => {
+  const e = scenario(9, 9, []);
+  assert.equal(e.gameState, GameState.Ready);
+  e.reveal(4, 4);
+  assert.equal(e.gameState, GameState.Playing);
+  e.reveal(0, 0);
+  assert.equal(e.gameState, GameState.Playing);
+});
+
+test('计时契约：终局（胜/负）之后状态不再变化', () => {
+  const e = scenario(2, 2, [3]); // 雷在 (1,1)
+  e.reveal(1, 1);
+  assert.equal(e.gameState, GameState.Lost);
+  e.reveal(0, 0);
+  e.toggleMark(0, 0);
+  assert.equal(e.gameState, GameState.Lost);
+});
+
+// ---------------------------------------------------------------- 规则 5 胜利判定
+
+test('胜利：差一格没翻开就不算赢', () => {
+  // 雷在 (0,0)，非雷格是 (0,1) (1,0) (1,1)
+  const e = scenario(2, 2, [0]);
+  e.reveal(0, 1);
+  e.reveal(1, 0);
+  assert.equal(e.revealedCount, 2);
+  assert.equal(e.gameState, GameState.Playing); // (1,1) 还没开
+  e.reveal(1, 1);
+  assert.equal(e.gameState, GameState.Won);
+});
+
+test('胜利：插错旗的棋盘判不了胜（非雷格翻不齐），取消错旗后可以赢', () => {
+  // 雷在 (1,1)，非雷格是 (0,0) (0,1) (1,0)
+  const e = scenario(2, 2, [3]);
+  e.toggleMark(0, 0); // 插错旗（这是安全格）
+  e.toggleMark(0, 1); // 再插一面，总旗数 2 > 雷数 1
+  assert.equal(e.minesRemaining(), -1);
+  e.reveal(1, 0);
+  assert.equal(e.gameState, GameState.Playing); // 还有两个非雷格被旗压着，翻不齐
+  e.toggleMark(0, 0); // 取消错旗
+  e.toggleMark(0, 1);
+  e.reveal(0, 0);
+  e.reveal(0, 1);
+  assert.equal(e.gameState, GameState.Won);
+});
+
+// ---------------------------------------------------------------- 规则 7 左右键语义
+
+test('双击不重复处理：第二次点已翻开的格子没有任何变化', () => {
+  const e = scenario(9, 9, []);
+  const first = e.reveal(4, 4);
+  assert.equal(first.changed, true);
+  const count = e.revealedCount;
+  const second = e.reveal(4, 4);
+  assert.equal(second.changed, false);
+  assert.equal(second.opened.length, 0);
+  assert.equal(e.revealedCount, count);
+});
+
+test('左右键语义分开：左键只翻不标，右键只标不翻', () => {
+  const e = scenario(3, 3, []);
+  e.toggleMark(2, 2);
+  assert.equal(e.cellAt(2, 2).revealed, false);
+  assert.equal(e.cellAt(2, 2).mark, Mark.Flag);
+  e.reveal(0, 0);
+  assert.equal(e.cellAt(0, 0).revealed, true);
+  assert.equal(e.cellAt(0, 0).mark, Mark.None);
+  assert.equal(e.cellAt(2, 2).mark, Mark.Flag); // 左键不动别处的旗
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exitCode = 1;

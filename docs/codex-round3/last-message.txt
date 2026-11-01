@@ -1,0 +1,9 @@
+The new dialog geometry calculation can fail or use the wrong offset after a completed game. State-setup errors are reported but do not stop the affected case.
+
+Full review comments:
+
+- [P1] Determine the canvas offset before finishing the game — D:\software\harmony\projects\minesweeper\tools\click_mkstate.py:100-102
+  When `win_probe` reaches a win, safe cells are revealed and mines are flagged. The fresh `Geom` then calls `probe_canvas_y()`, which assumes it can find an unopened tile in the first board column. If none remains, it raises; if the first remaining tile is on a lower row, it computes an offset that is too large. This prevents or misplaces the win-dialog checks. Capture the offset while the initial board is still unopened, or derive it from the screen grid origin already measured by `win_probe`.
+
+- [P2] Stop the case after state setup fails — D:\software\harmony\projects\minesweeper\tools\click_matrix.py:768-770
+  If `click_mkstate` exits nonzero, this raise is caught by `run_case()`'s per-step handler, which records the error and continues with the dialog tap and assertions. Those steps run against a state that was never created, producing misleading button failures and screenshots. Stop the current case after recording the setup failure while allowing the next case to run.

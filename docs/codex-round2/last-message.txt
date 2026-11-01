@@ -1,0 +1,18 @@
+The new runner can report false failures on a documented second device and on repeat runs, and its dialog polling can use a stale screenshot. State-creation failures also propagate as misleading case failures.
+
+Full review comments:
+
+- [P1] Derive dialog detection rectangles from the selected device — D:\software\harmony\projects\minesweeper\tools\click_mkstate.py:56-58
+  On the documented Mate X7 (`--device 127.0.0.1:5555`), these rectangles still describe the Mate 90 Pro screen. They cover less than half of the actual lose/win dialog client area, so the `> 0.5` brightness check times out even when the dialog appears. Compute the rectangles from the device layout and canvas offset.
+
+- [P2] Refresh the local screenshot on every poll — D:\software\harmony\projects\minesweeper\tools\click_mkstate.py:69-72
+  When the dialog appears after the first poll, `_shot` downloads into an already existing `probe.jpeg`. The runner's `Hdc.screenshot` explicitly removes an existing destination because `hdc file recv` can fail otherwise; this helper also ignores the command's return code. Later polls can therefore keep reading the first, pre-dialog image and report a false timeout. Remove the old file or use unique paths, and check the transfer result.
+
+- [P2] Restore a known appearance before testing the green selection — D:\software\harmony\projects\minesweeper\tools\click_cases\dialogs.json:267-271
+  When the full suite is rerun on the same device, this case starts with a green board: pressing OK saves that appearance in preferences, and `reset` only restarts the app. Selecting green again produces no board change, so this assertion fails on a correct build; the earlier blue/green selection cases can fail for the same reason. Establish a known initial style or assert relative to the saved style.
+
+- [P2] Scope device-specific layout assertions to the Mate 90 Pro — D:\software\harmony\projects\minesweeper\tools\click_cases\custom.json:331-331
+  With `--device` set to the documented Mate X7, a correctly created 24×30 board cannot have the Mate 90 Pro's fixed tile size and origin, so this case fails despite correct behavior. Several following custom cases make the same assumption. Derive expected geometry from the active layout or skip these device-specific assertions on other devices.
+
+- [P2] Stop the case when state creation fails — D:\software\harmony\projects\minesweeper\tools\click_matrix.py:725-728
+  If `click_mkstate.py` returns nonzero, such as when its win probe cannot produce a win, the runner only prints a message and continues tapping and asserting against whatever screen remains. The resulting failures are reported as dialog-button regressions rather than a failed setup step. Raise an error here so `run_case` records the actual failure and does not execute dependent steps.
