@@ -262,6 +262,32 @@ powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\19161\.dsh\skills\c
 | P2 | 「花园判负音效按**剩余雷数**分档，插了旗之后剩余雷数偏低，40 雷的局会播 Short、99 雷的局会播 Medium。分档标准是本局雷数，请用 `engine.mineCount`。」 | 改成 `this.engine.mineCount` |
 
 
+### 8.3 第 5 轮（规格仓 `304c675..04791a7` 的整轮改动）：CONCERNS（5 条 P2 已处置）
+
+裁定 **CONCERNS**（来源：**由 P2 标记推断**，模型未给 VERDICT 行；不是明确给出的值，也不是 UNKNOWN）。
+命令：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\19161\.dsh\skills\codex-delegate\codex-delegate.ps1 `
+  -Review -ExpectVerdict -ReviewMode Base -ReviewTarget 304c675 -Workdir D:\software\harmony\projects\minesweeper `
+  -TimeoutSec 1800 -OutDir D:\software\harmony\projects\minesweeper\docs\codex-round5b
+```
+
+五条 P2 与处置（全部已修）：
+
+| # | 复审原文的判断 | 处置 |
+|---|---|---|
+| P2 | 「`sevenseg_read.py` 在整张截图上找绿色面板，棋盘绿砖会被并进来，量出来的框全是错的；要只在状态条那条带里找。」 | `find_panels()` 增加 `strip_box` 参数，只在状态条横带里找；跑测器取面板时也只取状态条那带 |
+| P2 | 「量到的绿区不含面板边框，直接当外框用会整体偏移采样点。」 | 面板内区按 36×17 参照像素算、边框 2 像素；纵向另留 ±1 像素容差，取「三个槽都能解成合法数字」的那次采样 |
+| P2 | 「标准七段的「1」只亮 b、c（0x06），反解却要求 0x186，永远解不出来。」 | `decode()` 认 0x06（以及带衬线底横的 0x0E）为「1」 |
+| P2 | 「长按插旗那条用例只看『变了』，数字从 10 变 11 也会算过；应当断言 10 → 9。」 | 新增 `counter` 断言：按七段几何把数字反解出来直接比对；实测开局前读数 10、插旗后读数 9 |
+| P2 | 「颜色框那几条只断言『没有应用外观的日志』，框没关上也会算过；要补一条正向的关闭断言。」 | 三条缩略图用例补「对话框区域发生变化」的断言（框关上后那一块从框变成棋盘） |
+
+### 8.4 这一轮查出的两个「跑测器自己的毛病」（不是应用的 bug）
+
+1. **颜色框用例一直差 19859 px（18.918 %）**：断言区域是「棋盘第一行」，而颜色框（420×340 参照像素，竖屏缩放后宽 1247 设备像素）把整块棋盘（972 宽）整个盖住，比到的其实是框里选中框的像素。应用日志证明棋盘画得一模一样（`dealFlags=0 hover=-1 盘面=9x9`）。改成断言应用自己打的 `[Dialog] 应用外观 绿/扫雷`。
+2. **胜利框 3 条用例一直失败**：跑测器的「赢一局」脚本（`tools/win_probe.py`）**偶尔会踩到雷**，弹出来的是失败框（画面上是「游戏失败 / 退出·换个难度·再玩一局」），用例却按胜利框的坐标点按钮，点空、框不关。**应用在打开结束框时打一条 `[Dialog] 打开 胜利/失败`**（提交 `e0f0819`），跑测器据此核对，不对就重造局面 —— 靠像素的长宽比猜是不行的（两个框只差 12 %）。
+
 ---
 
 ## 9. 用户已经拍板的硬决策（不要改）
