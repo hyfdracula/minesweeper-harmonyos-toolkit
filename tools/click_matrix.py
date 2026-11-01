@@ -953,7 +953,12 @@ class Runner:
         group_ref = 25 + 6 + 40                      # 时钟 25 + 间隙 6 + 面板 40
         max_su = 2 * int(lay.canvas_w / (2 * group_ref) / 2)
         su = max(2, min(unit, max_su))
-        min_panel_w = 36 * su - 6                    # 面板绿色内区 36 参照像素宽
+        min_panel_w = max(40, 30 * su)          # 面板彩色内区 33 参照像素宽
+        # 这里原来写的是 36*su-6 —— 把**含外沿斜角高光**的整块面板当成了内区宽度。
+        # 面板彩色内区只有 33 个参照单位宽（外沿高光另算），
+        # 实测 Mate 90 Pro（su=6）彩色段宽 208 像素，而 36*6-6 = 210，
+        # **差 2 像素就被这个下限滤掉**，于是「只找到 0 个计数器面板」。
+        # 30 个单位仍远大于棋盘绿砖（18 个单位），不会误收砖块。
         for x0, x1 in runs:
             if x1 - x0 < min_panel_w:
                 continue
