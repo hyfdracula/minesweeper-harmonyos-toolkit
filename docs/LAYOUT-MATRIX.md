@@ -936,3 +936,105 @@ python tools\check_layout.py --md     # 额外打印 markdown 表格
 
 证据图：`docs\verify\X7_unfolded_play.jpeg`、`X7_folded_play.jpeg`、
 `X7_state_before.png`、`X7_state_after.png`、`X7_strip_after.png`。
+
+---
+
+## 9. 平板：MatePad Pro 12.2（2026-11-03 新增）
+
+用户 2026-11-03 追加「MatePad Pro 12.2 的适配」。
+
+### 9.1 目标机的屏幕参数
+
+来源：[华为官网 MatePad Pro 12.2 规格页](https://consumer.huawei.com/hu/tablets/matepad-pro-12-2/specs/)
+
+| 项 | 值 |
+|---|---|
+| 物理分辨率 | **2800 × 1840** |
+| 像素密度 | 274 ppi |
+| 比例 | **3:2**（横屏 2800×1840 / 竖屏 1840×2800） |
+| 屏幕 | 双层 OLED（柔光版） |
+
+DevEco 模拟器的屏配置表里正好有一个 **「MatePad Pro 12」**，参数与真机一致：
+
+```
+Tablet  - MatePad Pro 12
+       density: 360
+       screen: 2800 x 1840
+       diagonal: 12.2 inch
+```
+
+`density: 360` → HarmonyOS 的 `densityPixels = 360/160 = **2.25**`。
+
+> **坑（2026-11-03）**：模拟器里现成的 **「MatePad Pro 13」实例其实跑不起来** ——
+> 它的 `config.ini` 指向 `system-image/HarmonyOS-7.0.0/tablet_x86/`，
+> 而本机**从没下过 tablet 镜像**（`Sdk\system-image` 下只有 `phone_all_x86`）。
+> `Mate X7` 用的是 `phone_all_x86`，所以它能跑。
+> 结论：**平板镜像得单独下载（`Emulator.exe -install -deviceType tablet …`，约 3~4 GB）**。
+
+### 9.2 推演结果（`tools/check_layout.py`，已加进断言 10）
+
+平板横屏 2800×1840（密度 2.0 / 2.25 / 1.75 三档都推过，结论一致）：
+
+| 盘面 | 适配档 n | 格边 px | 格边 vp | 棋盘原点 | 溢出 横/纵 | 状态条 |
+|---|---|---|---|---|---|---|
+| 初级 9×9 | 4 | 144 | 72.0 | (752,165) | 0 / 0 | 四元素全在画布内 |
+| 中级 16×16 | 2 | 72 | 36.0 | (824,301) | 0 / 0 | 同上 |
+| 高级 16×30 | 2 | 72 | 36.0 | (320,301) | 0 / 0 | 同上 |
+| 自定义 24×30 | 2 | 72 | 36.0 | (320,42) | 0 / **58** | HUD（钉画布底边） |
+
+- **24×30 的纵向溢出 58 px** 与 Pura X Max 内屏的 90 px 同性质：
+  30 列 × n=2 = 2160 px 宽、1728 px 高，加状态条带 128 px 共 1856 px > 可用 1798 px。
+  按 v4.0 规则「宁可纵向溢出也不能把格子缩到点不准」，所以抬到 n=2、顶对齐、HUD。
+- **平板横向很空**（9×9 时左右各留 752 px）。这是几何必然：
+  棋盘是正方形，平板是 3:2，**高度先到顶**（只看高度最多 n=4）。
+
+平板**竖屏** 1840×2800：
+
+| 盘面 | 适配档 n | 格边 px | 棋盘原点 | 溢出 横/纵 |
+|---|---|---|---|---|
+| 初级 9×9 | 5 | 180 | (110,451) | 0 / 0 |
+| 中级 16×16 | 3 | 108 | (56,461) | 0 / 0 |
+| 高级 16×30 | 2 | 72 | (-160,781) | **320** / 0 |
+| 自定义 24×30 | 2 | 72 | (-160,493) | **320** / 0 |
+
+- 竖屏下 30 列的局**横向溢出 320 px**（2160 > 1840，几何必然），
+  棋盘居中所以左右各溢 160 px，`limX = 160`（= 溢出量的一半），**左右拖动**即可看全。
+- 竖屏反而比横屏**空间更富裕**：初级能到 n=5、格边 180 px。
+
+对话框缩放：平板上 `s = max(0.5, min(2, density, …))` → **s = 2.0**，
+五个对话框 + 统计窗口 + 自定义框**全部装得下**（帮助框 584×280 → 1168×560 px）。
+
+### 9.3 结论
+
+**平板不需要改任何版式代码。** 现有的「整块装得下优先 + 最小可点格边抬档 +
+纵向溢出时顶对齐与 HUD」这套规则，在 2800×1840 上自然成立：
+
+- 四个盘面格边全部 ≥ 48 设备像素（竖屏更是 72~180 px）；
+- 状态条四个元素（时钟、计时面板、雷数面板、雷图标）全部在画布内，
+  极限缩放（n=8）时也不会跑出画布、两个计数器也不会重叠；
+- 唯一需要拖动的是竖屏下 30 列的局（横向溢出 320 px），这与 Pura X Max 外屏同性质。
+
+### 9.4 模拟器实例（已建）
+
+本机建了一个 **「MatePad 12_2」** 实例（`deployed\MatePad 12_2`）：
+
+- 用 `Emulator.exe -create "MatePad 12_2" -deviceType phone …` 建（**phone** 类型，
+  因为 tablet 镜像没下载），再**手改 `config.ini`** 成平板参数：
+
+```
+deviceType=tablet
+deviceModel=PADEMU-FD00
+productModel=MatePad Pro 12
+productSeries=WEB
+hw.lcd.density=360
+hw.lcd.single.width=2800
+hw.lcd.single.height=1840
+hw.lcd.single.diagonalSize=12.2
+hw.lcd.phy.width=230
+hw.lcd.phy.height=142
+hw.device.radius=20
+```
+
+- 名字里**不能带小数点**（`MatePad 12.2` 会被拒：只允许字母/空格/数字/下划线/加号）。
+- `-memory` / `-storage` 要的是**纯数字**（`-memory 4G` 会被拒，允许范围 2~32）。
+- `-screenProfile` 与 `deviceType` 绑定：`-deviceType phone` 用不了「MatePad Pro 12」这个屏配置。
