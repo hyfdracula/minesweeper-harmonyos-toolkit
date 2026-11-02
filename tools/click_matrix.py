@@ -649,6 +649,39 @@ class Runner:
         """把当前缓冲区里已有的行都算成「已见过」（跑测开始时调一次）。"""
         self.seen_log.update(self.hdc.hilog().splitlines())
 
+    # ---- 前置检查（2026-11-03 新增）----------------------------------------
+    def preflight(self) -> tuple[bool, str]:
+        """
+        开跑前验三件事：应用**装上了没有**、**能不能起来**、起来后**有没有布局日志**。
+
+        为什么要有（2026-11-03）：
+        那一轮 86 条用例全死在第 1 步「hilog 里没有布局日志」，根因是
+        **应用根本没装在模拟器上**。同样的报错会让每一条用例都失败，
+        白白烧一个多小时，最后才看得出是环境问题。
+        这里把它提到最前面，几秒钟就知道。
+        """
+        # 1) 装没装
+        probe = self.hdc.shell("ls", "/data/app/el1/bundle/public/" + BUNDLE,
+                               timeout=60, check=False)
+        if not probe.strip():
+            return False, ("设备 %s 上没装 %s（%s 的目录不存在）"
+                           % (self.hdc.device, BUNDLE, "/data/app/el1/bundle/public/" + BUNDLE))
+        # 2) 起不起来
+        try:
+            self.hdc.stop_app()
+            self.hdc.start_app()
+        except Exception as exc:
+            return False, "应用起不来：%s" % exc
+        # 3) 起来之后有没有布局日志
+        try:
+            self.geom.refresh_layout(retries=12, gap_s=2.0)
+        except Exception as exc:
+            return False, ("应用起来了但拿不到布局日志：%s\n"
+                           "   （装了但没画界面，或者装的不是最新那版）" % exc)
+        lay = self.geom.layout
+        return True, ("应用已装、已启动，布局正常：画布 %dx%d px，适配档 n=%d，格边 %d px"
+                       % (lay.canvas_w, lay.canvas_h, lay.fit, lay.tile))
+
     # ---- 动作 -------------------------------------------------------------
     def act_reset(self, step: dict) -> None:
         self.hdc.stop_app()
@@ -1274,6 +1307,27 @@ def main() -> int:
     runner.mark_log_seen()
     print("设备 %s ；用例 %d 条（域: %s）" %
           (args.device, len(cases), ",".join(sorted(set(d for d, _ in cases)))))
+
+    # --- 前置检查（2026-11-03 新增）------------------------------------
+    #
+    # 坑：2026-11-03 01:5x 这一轮 86 条用例**全部**死在第 1 步，
+    # 报错都是「hilog 里没有布局日志」—— 根因是**应用根本没装在模拟器上**
+    # （模拟器里 /data/app/el1/bundle/public/com.example.saolei 不存在）。
+    # 这种失败会白白烧掉一个多小时才看得出是环境问题，不是被测代码的问题。
+    # 所以开跑前先验三件事：应用在不在、能不能起来、起��来有没有布局日志。
+    # 任何一条不满足就**立刻退出**并说清楚怎么办。
+    ok_pre, pre_msg = runner.preflight()
+    if not ok_pre:
+        print("")
+        print("!! 前置检查没通过，%d 条用例一条都没跑：" % len(cases))
+        print("   %s" % pre_msg)
+        print("   处理办法：")
+        print("   1) 把 HAP 装上去：")
+        print("      hdc -t %s install -r <hap 路径>" % args.device)
+        print("   2) 确认能起来：hdc -t %s shell aa start -a EntryAbility -b %s"
+              % (args.device, BUNDLE))
+        print("   3) 再跑本套件。")
+        return 3
 
     results = []
     t0 = time.time()

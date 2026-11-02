@@ -771,6 +771,62 @@ def assert_rules(all_res):
                '断言9：%s / %s 极限缩放时两组计数器重叠（左组到 %s，右组从 %s 起）'
                % (cv.name, bname, left_end, right_start))
 
+    # --- 断言 10：平板（MatePad Pro 12.2）的期望值钉死（用户 2026-11-03 追加）---
+    #
+    # 平板的屏参数来自华为官方规格（2800x1840 / 274ppi / 3:2）与 DevEco 模拟器的
+    # 「MatePad Pro 12」屏配置（density=360 -> densityPixels=2.25）。
+    # 这里把横竖两种朝向、四个盘面的关键数字钉住，别以后又被改回去。
+    #
+    # 期望值取自 2026-11-03 的推演输出（check_layout.py --md 可复现）。
+    TABLET_EXPECT = {
+        # 画布名: {盘面名: (适配档n, 格边px, 棋盘x, 棋盘y, 横向溢出, 纵向溢出, HUD)}
+        'MatePad Pro 12.2 (2800x1840)': {
+            '初级': (4, 144, 752, 165, 0, 0, False),
+            '中级': (2, 72, 824, 301, 0, 0, False),
+            '高级': (2, 72, 320, 301, 0, 0, False),
+            '自定义': (2, 72, 320, 42, 0, 58, True),
+        },
+        'MatePad Pro 12.2 竖屏': {
+            '初级': (5, 180, 110, 451, 0, 0, False),
+            '中级': (3, 108, 56, 461, 0, 0, False),
+            '高级': (2, 72, -160, 781, 320, 0, False),
+            '自定义': (2, 72, -160, 493, 320, 0, False),
+        },
+    }
+    for cv_name, boards in TABLET_EXPECT.items():
+        for board_name, exp in boards.items():
+            key = (cv_name, board_name)
+            if key not in lookup:
+                fails.append('断言10：缺少 %s / %s' % (cv_name, board_name))
+                continue
+            cv, r = lookup[key]
+            g = r['g']
+            got = (r['fit'], g['tile'], g['board'][0], g['board'][1],
+                   r['over_x'], r['over_y'], bool(g['hud']))
+            ck(got == exp, '断言10：%s / %s 新 %s 旧 %s' % (cv_name, board_name, got, exp))
+
+    # 平板的三条硬要求（不依赖具体数字，改了版式也不许破）：
+    for cv_name in TABLET_EXPECT:
+        for board_name in TABLET_EXPECT[cv_name]:
+            cv, r = lookup[(cv_name, board_name)]
+            g = r['g']
+            # ① 任何盘面的状态条四个元素都必须在画布内（横向溢出时也要能拖到看全）
+            for el in ('clock', 'time', 'mine_panel', 'mine_icon'):
+                x, y, w, h = g['strip'][el]
+                ck(x >= 0 and x + w <= cv.w,
+                   '断言10：%s / %s 的 %s %s 出画布（宽 %s）' % (cv_name, board_name, el, g['strip'][el], cv.w))
+            # ② 格边不能小于最小可点尺寸
+            ck(g['tile'] >= MIN_CELL_PX,
+               '断言10：%s / %s 的格边 %s px < %s' % (cv_name, board_name, g['tile'], MIN_CELL_PX))
+            # ③ 横向溢出时必须留得下拖动的余量。
+            #    lim_x = 溢出量的一半（棋盘居中，左右各溢出 over_x/2，
+            #    所以往一边拖 over_x/2 就能把另一侧拉进画布），
+            #    lim_y = 整个纵向溢出量（顶对齐，往上拖一个身位就齐平）。
+            if r['over_x'] > 0:
+                ck(abs(r['lim_x'] - r['over_x'] / 2.0) < 0.51,
+                   '断言10：%s / %s 的横向平移上限 %s，应等于溢出量的一半 %s'
+                   % (cv_name, board_name, r['lim_x'], r['over_x'] / 2.0))
+
     return fails
 
 
