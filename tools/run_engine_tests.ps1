@@ -69,6 +69,17 @@ try {
     exit 1
   }
   Write-Output '引擎测试全部通过。'
+
+  # 七段数码管渲染器的单测（测应用仓里那份真的 SevenSeg.ets）。
+  # 为什么挂在这个脚本下：Codex 对抗性复审 2026-11-02 指出「现有测试没覆盖这个渲染器」，
+  # 补上之后要保证它**跟着引擎测试一起跑**，不能只躺在 tools\ 里没人执行。
+  Write-Output ''
+  Write-Output '--- 七段数码管渲染器测试 ---'
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'run_sevenseg_test.ps1')
+  if ($LASTEXITCODE -ne 0) {
+    Write-Output '七段渲染器测试未通过。'
+    exit 1
+  }
 } finally {
   Pop-Location
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
