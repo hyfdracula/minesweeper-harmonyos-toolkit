@@ -67,9 +67,16 @@ def main():
 
     if not args.no_emulator:
         print('[tablet] 启动模拟器实例 %s …' % INSTANCE)
-        run([EMU, '-start', INSTANCE,
-             '-instancePath', 'C:/Users/19161/AppData/Local/Huawei/Emulator/deployed',
-             '-imageRoot', r'C:\Users\19161\AppData\Local\Huawei\Sdk'], timeout=600)
+        # **不要等它退出**：`Emulator.exe -start` 是个常驻的 GUI 进程，
+        # 不会自己返回（早先这里用 subprocess.run 等它，600 秒后超时，
+        # 还把模拟器一起杀了）。改成分离启动，然后靠「等 hdc 认到设备」来判断。
+        # CREATE_NO_WINDOW：别让控制台黑框弹出来（模拟器自己的 GUI 窗口照常显示）。
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        subprocess.Popen([EMU, '-start', INSTANCE,
+                          '-instancePath', 'C:/Users/19161/AppData/Local/Huawei/Emulator/deployed',
+                          '-imageRoot', r'C:\Users\19161\AppData\Local\Huawei\Sdk'],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=flags)
 
     print('[tablet] 等 hdc 认到设备 %s …' % DEVICE)
     if not wait_device():
