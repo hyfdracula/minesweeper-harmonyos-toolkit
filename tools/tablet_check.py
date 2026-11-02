@@ -141,11 +141,30 @@ def main():
         os.remove(shot)
     run([HDC, '-t', DEVICE, 'file', 'recv', remote, shot], timeout=180)
     print('[tablet] 截图：%s' % shot)
+    im_h = 0
+    try:
+        from PIL import Image
+        im_h = Image.open(shot).size[1]
+    except Exception:
+        im_h = int(ch)
 
     # 状态条读数（七段数码管）
+    #
+    # 坑：不能直接 `read_counters(path)` 全图搜索 ——
+    # 棋盘上的蓝砖和计数器面板会被并成同一段列区间，面板就找不到了。
+    # 必须**限定在状态条那一条横带里**找（跟跑测器 click_matrix 的做法一致）。
     try:
         import sevenseg_read
-        counters = sevenseg_read.read_counters(shot)
+        counters = []
+        m2 = re.search(r'状态条上沿=(\d+)px', line)
+        if m2:
+            # 状态条上沿是**画布内**的坐标；截图是**屏幕**坐标。
+            # 差着一段画布顶偏移（模拟器顶部有系统状态栏），
+            # 少算了这一段，面板就会落在搜索带外面，一个都找不到。
+            canvas_top = int(im_h) - int(ch)      # 画布顶在屏幕上的位置
+            strip_top = canvas_top + int(m2.group(1))
+            strip_box = (0, strip_top, int(cw), max(1, int(im_h) - strip_top))
+            counters = sevenseg_read.read_counters(shot, strip_box=strip_box)
         for panel, digits in counters:
             print('[tablet] 状态条读数：%s' % (''.join(
                 d if d else '?' for d in digits),))
