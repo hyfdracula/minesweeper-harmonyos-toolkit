@@ -1,4 +1,4 @@
-﻿# 折叠屏 / 横屏 / 矮画布 风险清单（只读审计）
+# 折叠屏 / 横屏 / 矮画布 风险清单（只读审计）
 
 日期：2026-11-01
 审计对象：`C:\Users\19161\saolei\entry\src\main\ets\`（应用仓，**本次未做任何修改**）
@@ -243,3 +243,39 @@
 4. 外屏横过来（如果允许）-> 确认布局与内屏一致
 5. 分屏/悬浮窗（若系统支持）-> 打开统计窗与自定义框，确认按钮没有被缩到点不准（这是 M1 的兜底缺失暴露的地方）
 6. 打开 hilog 看 `[GameController] 布局 ...` 这行：换屏后 `适配档n` 与 `当前档n` 是否符合预期，`HUD=` 是否符合棋盘大小
+
+---
+
+## 7. 处置结果（2026-11-02 晚）
+
+这一节记的是**上面这些条目的实际处置**，全部在 **Mate X7 折叠屏模拟器**上
+（`Emulator.exe -instance 'Mate X7' -foldedState open|half-open|close`）验证，
+真机 Pura X Max 当时不在线。
+
+| 条目 | 处置 | 证据 |
+|---|---|---|
+| **H3** 密度只在 `aboutToAppear` 取一次 | **已修**：改读**窗口所在屏**的密度（`window.getLastWindow()` → `displayId` → `display.getDisplayByIdSync(id).densityPixels`）；画布 `onAreaChange`（尺寸变化）也触发一次重取，密度变了就重算布局 | 折叠后布局日志从 2210×2208/n=5 变成 1080×2236/n=3 ✓ |
+| **H2** 折叠开合会重建窗口舞台 | **部分修好**：Ability 里的 `onWindowStageChange` 方法**根本不会被调用**（UIAbility 没有这个回调 ✗ —— Codex 复审 P1 ✓）；换成 `window.on('windowSizeChange')` ✓，折叠时确实触发（日志「窗口尺寸变化」）✓ | `docs\verify\X7_folded_play.jpeg` ✓ |
+| **H4** 折叠后保留用户手动缩放档 | **逻辑保留**（`layout()` 里 `if (!this.userZoomed)` 那条没动 ✓）：没手动缩放过时换屏按新的适配档重算 ✓；手动缩放过时保留原档 ✓。**手感要用户自己捏合验证**（模拟器没有多点触控 ✗） | 代码路径 + 布局日志 ✓ |
+| **H1** HUD 模式在两个模拟器上没执行过 | **仍待真机**：24×30 在 Pura X Max 内屏（画布 2584×1644）会溢出 322 px 进 HUD ✓（算式见 `LAYOUT-MATRIX.md` §4.3.2.1 ✓）；Mate X7 / Mate 90 Pro 都装得下 ✗ → 模拟器出不了 HUD | `LAYOUT-MATRIX.md` §4.3.2.1 ✓ |
+| **新发现（Codex 复审 P1）** | 「画布 `context.width` ÷ 组件 vp 宽」算密度是**错的** —— ArkUI 的 Canvas 2D 上下文整个坐标系都是 vp，这个比值恒等于 1（曾把画布画成 707×707 ✗） | 已改为读窗口所在屏的密度 ✓ |
+
+### 7.1 折叠实测记录（Mate X7 模拟器）
+
+| 时刻 | 屏幕 | 布局日志 |
+|---|---|---|
+| 展开 | 2210×2416 | 画布 2210×2208，适配档 n=5，unit=10，格边 180 px，棋盘原点 (295,167)，HUD=0 |
+| 折叠（**不重启应用**） | 1080×2444 | 画布 **1080×2236**，适配档 **n=3**，unit=6，格边 **108 px**，棋盘原点 **(54,569)**，HUD=0 |
+
+- **活的重排**：两次切换应用都没重启，日志直接变了 ✓
+- **局面完整保留**：同样的「1」「2」、同样的雷、同样翻开的格子 ✓；计时继续走 ✓
+- 折叠后状态条读数 **计时 3 / 雷数 10** ✓（用 `tools/sevenseg_read.py` 反解出来 ✓）
+- 证据图：`docs\verify\X7_unfolded_play.jpeg`、`X7_folded_play.jpeg`、
+  `X7_state_before.png`、`X7_state_after.png`、`X7_strip_after.png`
+
+### 7.2 模拟器折叠的一个坑
+
+`Emulator.exe -instance 'Mate X7' -foldedState close` 有时**只改了屏幕尺寸、
+没把正在运行的窗口叫醒**（应用仍按旧尺寸画）。这时需要**重启一次应用**
+才能让它在新屏上布局 ✓。判据看截图分辨率：
+`snapshot_display` 的输出里 width/height 变了才算数 ✓。
