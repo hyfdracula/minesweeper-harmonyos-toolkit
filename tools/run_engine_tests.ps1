@@ -80,6 +80,19 @@ try {
     Write-Output '七段渲染器测试未通过。'
     exit 1
   }
+
+  # 跑测器求解器的单测（tools\solve_test.py）。
+  # 为什么挂在这个脚本下（2026-11-03）：求解器的子集规则写反了一条，
+  # 会把真雷标成安全 —— 跑测器踩雷判负，「造胜局」白跑二十多分钟。
+  # 这个测试里有真实事故盘面 + 150 局随机对局，盯的是「求解器绝不返回真雷」。
+  Write-Output ''
+  Write-Output '--- 跑测器求解器测试 ---'
+  $env:PYTHONIOENCODING = 'utf-8'
+  & python (Join-Path $PSScriptRoot 'solve_test.py')
+  if ($LASTEXITCODE -ne 0) {
+    Write-Output '求解器测试未通过。'
+    exit 1
+  }
 } finally {
   Pop-Location
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue

@@ -608,12 +608,25 @@ def solve(board, rows, cols, mines, max_nodes=200000):
                 ci, cj = cons[i], cons[j]
                 if ci[0] <= cj[0]:
                     diff = cj[0] - ci[0]
+                    # 子集规则。设 A=ci[0] ⊆ B=cj[0]，need(A)=n，need(B)=m，
+                    # d=|B\A|。记 M_A = A 里的雷数、M_D = (B\A) 里的雷数：
+                    #     n = |M_A|，m = |M_A| + |M_D|，|M_D| <= d
+                    # ① n == m  ->  |M_D| = 0        -> **B\A 全是安全格**
+                    # ② n + d == m -> |M_D| = d        -> **B\A 全是雷**
+                    #
+                    # 坑（2026-11-03 在 Mate X7 上踩到）：原来第 ② 条标的是 **A 全是雷**，
+                    # 那是**推反了** —— A 里只有 n 颗雷，不是 |A| 颗。
+                    # 实测后果：约束「(6,0)=1 → {(7,0),(7,1)} 里正好 1 颗雷」
+                    # 与「(6,1)=3 → {(5,2),(6,2),(7,0),(7,1)} 里正好 3 颗雷」，
+                    # 正确结论是 (5,2)、(6,2) 是雷；标反了之后 (7,0)、(7,1) **同时**被标成雷，
+                    # 全局约束的缺口一减就归零，把 (8,0) 也标成安全 ——
+                    # 而 (8,0) 真是雷，一脚踩上去判负。
                     if ci[1] == cj[1] and diff:
                         for x in diff:
                             if mark(x, SAFE):
                                 changed = True
-                    elif ci[1] + len(diff) == cj[1] and ci[0]:
-                        for x in ci[0]:
+                    elif ci[1] + len(diff) == cj[1] and diff:
+                        for x in diff:
                             if mark(x, MINE):
                                 changed = True
         for con in cons:
@@ -783,16 +796,19 @@ def _exact_solve(board, rows, cols, mines, flagged, all_unknown):
     if safe_certain:
         return sorted(safe_certain)[0], mine_certain
 
-    # 没有确定安全的格：挑「在最多解里是安全」的（雷数占比最低）
-    # —— 精确枚举下这比概率启发式准得多，但仍不保证安全。
-    best = None
-    best_key = None
-    for x in frontier:
-        key = (mine_count[x], -len(cell_cons[x]), x)
-        if best_key is None or key < best_key:
-            best_key = key
-            best = x
-    return best, mine_certain
+    # **没有确定安全的格子了**。
+    #
+    # 原来这里返回「在最多解里是安全」的那一格（雷数占比最低），
+    # 但那**不保证安全** —— 概率低的格子仍然可能是雷。
+    # 实测（2026-11-03，Mate X7）：这一路会点到一个 40% 概率是雷的格子，
+    # 于是判负，造不出胜利框，白白重试二十多分钟。
+    #
+    # 现在改成：把「确定是雷」的格子交给调用方去**插旗**（长按）。
+    # 插旗永远不会踩雷，而且插完旗，全局约束的剩余雷数就变了，
+    # 下一轮往往就能推出确定安全的格子了 —— 这也正是人玩扫雷的思路。
+    # 一个都推不出来时返回 (None, set())，调用方放弃这一局（重来）。
+    print('[solve] 没有确定安全的格子（改用插旗推进）')
+    return None, mine_certain
 
 
 # --------------------------------------------------------------------------
@@ -1054,6 +1070,11 @@ def click(device, x, y):
     hdc_check(device, 'shell', 'uitest', 'uiInput', 'click', str(int(x)), str(int(y)))
 
 
+def flag(device, x, y):
+    """长按一格 = 插旗（不会踩雷；插完旗全局约束的剩余雷数就变了）。"""
+    hdc_check(device, 'shell', 'uitest', 'uiInput', 'longClick', str(int(x)), str(int(y)))
+
+
 def fmt_board(board):
     out = []
     for line in board:
@@ -1259,8 +1280,22 @@ def play_to_win(args, templates, mine_tmpl):
             if step == 0:
                 res = (rows // 2, cols // 2)
                 print('[play] 还没有任何约束 -> 首点（引擎保证安全）')
+            elif mine_certain:
+                # 推不出确定安全的格子，但**推得出确定是雷的格子**：
+                # 长按插旗（不会踩雷），插完旗全局约束的剩余雷数就变了，
+                # 下一轮往往就能推出确定安全的格子 —— 这也是人玩扫雷的思路。
+                r, c = sorted(mine_certain)[0]
+                x = gx + c * pitch + pitch / 2.0
+                y = gy + r * pitch + pitch / 2.0
+                print('[play] 没有确定安全的格子 -> 长按插旗 (r=%d,c=%d) 屏幕(%.0f,%.0f)'
+                      % (r, c, x, y))
+                flag(device, x, y)
+                time.sleep(args.click_wait)
+                img = pull_screenshot(device,
+                                      os.path.join(outdir, 'ANIM_play_%02d.jpeg' % step))
+                continue
             else:
-                print('[play] 没有确定安全的格子了（这一局到此为止）')
+                print('[play] 既没有确定安全的格子，也没有确定是雷的格子（这一局到此为止）')
                 return False, img, (gx, gy, pitch, rows, cols, theme), step
         r, c = res
         x = gx + c * pitch + pitch / 2.0
@@ -1272,32 +1307,115 @@ def play_to_win(args, templates, mine_tmpl):
     return False, img, (gx, gy, pitch, rows, cols, theme), -1
 
 
+def dialog_log_lines(device):
+    """设备日志里所有「[Dialog] 打开 ...」的行（按时间先后）。"""
+    out = hdc(device, 'shell', 'hilog -x')
+    return [ln for ln in out.splitlines() if '[Dialog] 打开 ' in ln]
+
+
+def _log_ts(line):
+    """取 hilog 行开头的时间戳 "MM-DD HH:MM:SS.mmm"（取不到就返回空串）。"""
+    head = line[:18]
+    return head if len(head) == 18 else ''
+
+
+def device_now_marker(device):
+    """取设备当前时间，做成和 hilog 行一样格式的时间戳（当"本轮起点"）。"""
+    out = hdc(device, 'shell', "date '+%m-%d %H:%M:%S'")
+    ts = out.strip().splitlines()[-1].strip()
+    if len(ts) == 14:            # "MM-DD HH:MM:SS" -> 补到毫秒精度
+        ts += '.000'
+    return ts
+
+
+def dialog_log_type(device, marker=None):
+    """
+    读**应用自己的日志**判断最后弹的是哪个框：'win' / 'lose' / None。
+
+    `marker` = 本轮的起点时间戳（dialog_log_type 的 `device_now_marker` 取得）。
+    只认**时间戳不早于 marker** 的行。
+
+    坑（2026-11-03，连踩两次）：
+      ① 原来判胜负靠**动画帧**（扫描条 / 拆雷光束 = 胜利，爆炸 = 判负），
+         但这两者在棋盘截图上**分不开** —— 判负时爆炸动画跑完，
+         引擎照样会把雷插旗、跑一遍胜利的那套收尾，于是连拍里**同时**能看到
+         扫描条和爆炸光束。实测：win_probe 打印「判定：胜利动画」、
+         连拍了 16 帧胜利动画，而**应用日志里明明写着「[Dialog] 打开 失败」**。
+      ② 改用日志判据之后又踩了一次：hilog 是**环形缓冲**，跑久了旧行被挤掉，
+         「跳过前 N 行」的数法会错位，于是本轮的胜利框读不出来
+         （实测那一局应用日志明明是「[Dialog] 打开 胜利」）。
+         所以改成按**时间戳**过滤：只看本轮开始之后出现的行。
+
+    应用日志是唯一权威判据（click_mkstate.py 早就在用同一招）。
+    """
+    lines = dialog_log_lines(device)
+    if marker:
+        lines = [ln for ln in lines if _log_ts(ln) and _log_ts(ln) >= marker]
+    last = lines[-1] if lines else None
+    if last is None:
+        return None
+    if '胜利' in last:
+        return 'win'
+    if '失败' in last:
+        return 'lose'
+    return None
+
+
 def run_phase_win(args, templates, mine_tmpl):
     device = args.device
     outdir = args.out
     os.makedirs(outdir, exist_ok=True)
+    # 先记下本轮的起点时间戳：之后只看**这个时间之后**出现的对话框行，
+    # 免得把上一轮留下的「[Dialog] 打开 失败」当成本轮的结果。
+    marker = device_now_marker(device)
     ended, img, grid, step = play_to_win(args, templates, mine_tmpl)
     if not ended:
         print('[win] 没到终局')
         return []
     gx, gy, pitch, rows, cols, theme = grid
     print('[win] 到终局了（用了 %d 步）！连拍终局动画' % step)
+
     paths = burst(device, outdir, 'ANIM_win', args.burst, args.burst_gap)
     print('[win] 抓到 %d 帧' % len(paths))
     unit = pitch / 18.0
-    win = False
+    anim_win = False
     for p in paths:
         im = Image.open(p).convert('RGB')
         bar = locate_scan_bar(im, gx, gy, pitch, unit, rows, cols)
         beams = analyse_disarm(im, gx, gy, pitch, unit, rows, cols)
         ex = analyse_explode(im, gx, gy, pitch, unit, rows, cols)
         if bar or beams:
-            win = True
+            anim_win = True
         print('  %s  扫描条=%s  光束=%s  爆炸=%s'
               % (os.path.basename(p),
                  '无' if bar is None else 'y=%d (相似度 %.3f)' % bar,
                  beams, ex))
-    print('[win] 判定：%s' % ('胜利动画（扫描条/拆雷光束）' if win else '没有看到胜利动画'))
+
+    # **等对话框真的弹出来再读日志**。
+    # 终局动画播完（几秒）应用才弹框；读早了只会读到上一轮留下的旧行。
+    dlg = None
+    deadline = time.time() + 15.0
+    while time.time() < deadline:
+        dlg = dialog_log_type(device, marker=marker)
+        if dlg is not None:
+            break
+        time.sleep(1.0)
+    print('[win] 应用日志：%s' % ({'win': '弹的是胜利框',
+                                  'lose': '弹的是失败框',
+                                  None: '没读到对话框日志'}[dlg]))
+    # 判定：**应用日志说了算**；动画只作参考。
+    # 动画在判负时也会出现（引擎照跑胜利收尾），单看它会误判。
+    if dlg == 'win':
+        print('[win] 判定：胜利（应用日志确认：弹的是胜利框）')
+    elif dlg == 'lose':
+        print('[win] 判定：**失败**（应用日志确认：弹的是失败框）—— '
+              '这次赢不了，重来')
+        return []
+    else:
+        # 没有日志可依（老版本应用 / 日志被刷掉）时退回动画判据，
+        # 但要说清楚这是次优判据。
+        print('[win] 判定：%s（应用日志不可用，**只**看动画，次优判据）'
+              % ('胜利动画（扫描条/拆雷光束）' if anim_win else '没有看到胜利动画'))
     return paths
 
 

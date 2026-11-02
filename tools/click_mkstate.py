@@ -240,13 +240,36 @@ def _run_win_probe(device, phase, outdir):
     return proc.returncode
 
 
-def _dialog_log_type(device, outdir):
+def _now_marker(device):
+    """设备当前时间，做成和 hilog 行一样格式的时间戳（当"本轮起点"）。"""
+    out = _hdc(device, "shell", "date", "+%m-%d %H:%M:%S")
+    if out.returncode != 0:
+        return None
+    data = out.stdout or b""
+    if isinstance(data, bytes):
+        data = data.decode("utf-8", "replace")
+    lines = [ln.strip() for ln in data.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    ts = lines[-1]
+    if len(ts) == 14:            # "MM-DD HH:MM:SS" -> 补到毫秒精度
+        ts += ".000"
+    return ts
+
+
+def _dialog_log_type(device, outdir, marker=None):
     """问**应用自己**：屏幕上弹的是胜利框还是失败框。
 
     应用在打开结束框时打一条 `[Dialog] 打开 胜利` / `[Dialog] 打开 失败`
     （2026-11-01 加）。靠这条日志而不是靠像素猜 —— 像素猜会把失败框
     认成胜利框（两个框的长宽比只差 12 %，而且亮度分布也不一样）。
     返回 'win' / 'lose' / None（读不到）。
+
+    `marker` = 本轮的起点时间戳（"MM-DD HH:MM:SS.mmm"）。
+    只认**时间戳不早于 marker** 的行。
+    坑（2026-11-03）：hilog 是**环形缓冲**，跑久了旧行被挤掉，
+    「取最后一条」的数法会把**上一轮**的「[Dialog] 打开 失败」当成本轮的结果 ——
+    明明赢了的局被判成失败，白白重来二十多分钟。
     """
     out = _hdc(device, "shell", "hilog", "-x")
     if out.returncode != 0:
@@ -256,8 +279,13 @@ def _dialog_log_type(device, outdir):
         data = data.decode("utf-8", "replace")
     last = None
     for ln in data.splitlines():
-        if "[Dialog] 打开 " in ln:
-            last = ln
+        if "[Dialog] 打开 " not in ln:
+            continue
+        if marker:
+            ts = ln[:18]
+            if len(ts) != 18 or ts < marker:
+                continue
+        last = ln
     if last is None:
         return None
     if "胜利" in last:
@@ -280,6 +308,9 @@ def make_state(device, state, timeout=120.0, attempts=2):
     for attempt in range(1, attempts + 1):
         outdir = tempfile.mkdtemp(prefix="cm_mkstate_")
         print("[mkstate] 第 %d/%d 遍造 %s 局面" % (attempt, attempts, state))
+        # 本轮的起点时间戳：之后只认这个时间之后出现的对话框日志行
+        # （hilog 是环形缓冲，旧行会被挤掉，取「最后一条」会拿到上一轮的）。
+        marker = _now_marker(device)
         # 先在**未开局**的棋盘上量画布顶偏移（赢局之后棋盘全翻开，量不到砖块了）
         geom, canvas_y = _measure_canvas_offset(device, outdir)
         rc = _run_win_probe(device, phase, outdir)
@@ -294,7 +325,7 @@ def make_state(device, state, timeout=120.0, attempts=2):
             # 框是出现了，但**未必是要的那个框**：win_probe 的「赢一局」偶尔会踩到雷，
             # 弹出来的是失败框；后面按胜利框的坐标点按钮就全是空点。
             # 判据用**应用自己的日志**（[Dialog] 打开 胜利/失败）✓。
-            got = _dialog_log_type(device, outdir)
+            got = _dialog_log_type(device, outdir, marker=marker)
             if got == state:
                 print("[mkstate] %s 框核对通过（应用日志确认）" % state)
                 return True
