@@ -629,75 +629,170 @@ def solve(board, rows, cols, mines, max_nodes=200000):
     if safe_certain:
         return sorted(safe_certain)[0], mine_certain
 
-    # 推不出确定安全的格子：用**约束子集枚举**估每个格子的「是雷概率」，
-    # 点概率最低的那个。
+    # 推不出确定安全的格子：**精确枚举**所有与已知数字一致的雷位分配，
+    # 统计每格在多少个解里是雷。
     #
-    # 为什么不用「穷举所有可行解」：9x9 的盘面在约束不足时解数是组合爆炸的，
-    # 枚举要跑几十秒到几分钟（实测 188 秒 CPU 还没完），每一步都等不起。
-    # 子集枚举只看**单个约束**（最多 8 个未知格 <=> C(8,4)=70 个子集），
-    # 是毫秒级的；各约束之间的相关性被忽略，但排序足够好。
-    from itertools import combinations
+    # 为什么不用「按概率点」：概率启发式会**踩雷**（实测在 Mate X7 上
+    # 连输两局、弹出来的是失败框）。原因很直接 —— 概率低的格子仍然可能是雷，
+    # 而这个脚本必须**赢**才能造出胜利框。
+    # 精确枚举能把「确定安全」和「确定是雷」都算出来。
+    #
+    # 为什么能算得完：只枚举**挨着已揭开数字的格子**（frontier），
+    # 不挨着的未知格彼此等价，可以当成一个「吸收剩余雷数的坑」，
+    # 不用进搜索。9x9/10 雷的盘面 frontier 通常 <= 40 个变量，
+    # 加上传播剪枝，实测毫秒级到百毫秒级。
+    return _exact_solve(board, rows, cols, mines, flagged, all_unknown)
 
-    all_unk = set(all_unknown)
-    total_unk = len(all_unk)
-    if total_unk == 0:
-        return None, mine_certain
-    prior = float(remaining_mines) / float(total_unk) if remaining_mines > 0 else 0.0
 
-    # 约束：(未知邻格集合, 还差几颗雷)。已插旗的格算「已知是雷」，不进集合。
-    local_cons = []
+def _exact_solve(board, rows, cols, mines, flagged, all_unknown):
+    """
+    精确枚举可行解，统计每格是雷的解数。
+
+    返回 (要点, 确定是雷的格集合)。要点为 None 表示算不出来。
+    """
+    import time
+
+    # 未揭开的、**没插旗**的格（只有这些才可能是安全格）
+    x_cells = set((r, c) for r in range(rows) for c in range(cols)
+                   if board[r][c] == 'X')
+    if not x_cells:
+        return None, set()
+
+    # 约束：每个已揭开的数字格 -> (未知邻格集合, 还差几颗雷)
+    cons = []
+    frontier = set()
     for r in range(rows):
         for c in range(cols):
             v = board[r][c]
             if isinstance(v, int) and v > 0:
-                unk = [(rr, cc) for rr, cc in neighbours(r, c, rows, cols)
-                       if board[rr][cc] == 'X']
-                if unk:
-                    local_cons.append((unk, v))
-    if not local_cons:
-        return None, mine_certain
+                nb = list(neighbours(r, c, rows, cols))
+                unk = set((rr, cc) for rr, cc in nb if board[rr][cc] == 'X')
+                flags = sum(1 for rr, cc in nb if board[rr][cc] == 'F')
+                need = v - flags
+                if not unk:
+                    continue
+                if need < 0 or need > len(unk):
+                    # 数字与周围对不上 —— 这一条约束不可信，丢掉它
+                    # （宁可少一条约束，也不能因为一条读错的数字推出错误的雷位）
+                    continue
+                cons.append([set(unk), need])
+                frontier |= unk
+    if not cons:
+        return None, set()
 
-    prob = dict((x, 0.0) for x in all_unk)
-    weight_total = 0.0
-    for unk, need in local_cons:
-        m = len(unk)
-        if need < 0 or need > m:
-            continue
-        # 每个满足 |S| = need 的子集先验概率相同（先验下独立同分布）
-        share = prior ** need * (1.0 - prior) ** (m - need)
-        weight_total += share
-        for subset in combinations(unk, need):
-            w = share / len(subset)
-            for x in subset:
-                prob[x] = prob.get(x, 0.0) + w
-    if weight_total <= 0:
-        return None, mine_certain
+    remaining = mines - len(flagged)
+    # 不挨着任何已揭开数字的未知格：彼此等价，可以当作「吸收剩余雷数的坑」
+    outside = len(x_cells) - len(frontier)
+    if remaining < 0 or remaining > len(x_cells):
+        return None, set()
 
-    # 每个格只出现在少数约束里，直接按它出现过的约束加权和归一，
-    # 得到一个「相对是雷概率」，够用来排序了。
-    seen = dict((x, 0.0) for x in all_unk)
-    for unk, need in local_cons:
-        m = len(unk)
-        if need < 0 or need > m:
-            continue
-        share = prior ** need * (1.0 - prior) ** (m - need)
-        for x in unk:
-            seen[x] = seen.get(x, 0.0) + share
-    ranked = []
-    for x in all_unk:
-        if prob.get(x, 0.0) <= 0.0:
-            continue
-        pr = prob[x] / seen[x] if seen.get(x, 0.0) > 0 else 1.0
-        # 落在约束外面的格（周围没有已揭开的数字）用全局先验
-        if seen.get(x, 0.0) <= 0.0:
-            pr = prior
-        ranked.append((pr, x))
-    if not ranked:
-        return None, mine_certain
-    ranked.sort(key=lambda t: (t[0], t[1]))
-    print('[solve] 概率最低的 3 格: %s'
-          % ', '.join('(r=%d,c=%d) p=%.3f' % (x[0], x[1], p) for p, x in ranked[:3]))
-    return ranked[0][1], mine_certain
+    # cell -> 涉及它的约束下标
+    cell_cons = {x: [] for x in frontier}
+    for i, con in enumerate(cons):
+        for x in con[0]:
+            cell_cons[x].append(i)
+
+    MAX_SOL = 60000
+    deadline = time.time() + 4.0
+    solutions = 0
+    mine_count = dict((x, 0) for x in frontier)
+    exhaustive = True
+
+    def propagate(unk_sets, needs, assign):
+        """强制赋值 + 冲突检测。矛盾返回 False。"""
+        changed = True
+        while changed:
+            changed = False
+            for i in range(len(unk_sets)):
+                u = unk_sets[i]
+                need = needs[i]
+                if need < 0 or need > len(u):
+                    return False
+                if not u:
+                    continue
+                if need == 0:
+                    for x in list(u):
+                        if x in assign:
+                            continue
+                        assign[x] = False
+                        for j in cell_cons[x]:
+                            unk_sets[j].discard(x)
+                        changed = True
+                elif need == len(u):
+                    for x in list(u):
+                        if x in assign:
+                            continue
+                        assign[x] = True
+                        for j in cell_cons[x]:
+                            unk_sets[j].discard(x)
+                            needs[j] -= 1
+                        changed = True
+        return True
+
+    def dfs(assign, unk_sets, needs):
+        nonlocal solutions, exhaustive
+        if solutions >= MAX_SOL or time.time() > deadline:
+            exhaustive = False
+            return
+        # 选约束最多的未赋值变量（最受限优先）
+        pick = None
+        pick_n = -1
+        for x in frontier:
+            if x not in assign:
+                n = len(cell_cons[x])
+                if n > pick_n:
+                    pick_n = n
+                    pick = x
+        if pick is None:
+            m = sum(1 for x in frontier if assign[x])
+            # 剩下的雷必须能塞进「不挨着数字的未知格」里
+            if 0 <= remaining - m <= outside:
+                solutions += 1
+                for x in frontier:
+                    if assign[x]:
+                        mine_count[x] += 1
+            return
+        for val in (False, True):
+            a2 = dict(assign)
+            u2 = [set(s) for s in unk_sets]
+            n2 = list(needs)
+            a2[pick] = val
+            for j in cell_cons[pick]:
+                u2[j].discard(pick)
+                if val:
+                    n2[j] -= 1
+            if propagate(u2, n2, a2):
+                dfs(a2, u2, n2)
+
+    if not propagate([set(c[0]) for c in cons], [c[1] for c in cons], {}):
+        return None, set()
+    dfs({}, [set(c[0]) for c in cons], [c[1] for c in cons])
+
+    if solutions == 0:
+        # 没有可行解：说明读到的盘面自相矛盾（数字认错了）
+        print('[solve] 没有可行解（盘面读数可能自相矛盾）')
+        return None, set()
+
+    # **只有穷举完整时**才能断言「某格在所有解里都是安全的」——
+    # 提前截断的话，未搜到的解里可能还有雷，不能拿它当结论。
+    mine_certain = set(x for x in frontier if exhaustive and mine_count[x] == solutions)
+    safe_certain = set(x for x in frontier if exhaustive and mine_count[x] == 0)
+    print('[solve] 精确枚举：%d 个解%s；确定安全 %d 格，确定是雷 %d 格'
+          % (solutions, '' if exhaustive else '（提前截断，结论不作数）',
+             len(safe_certain), len(mine_certain)))
+    if safe_certain:
+        return sorted(safe_certain)[0], mine_certain
+
+    # 没有确定安全的格：挑「在最多解里是安全」的（雷数占比最低）
+    # —— 精确枚举下这比概率启发式准得多，但仍不保证安全。
+    best = None
+    best_key = None
+    for x in frontier:
+        key = (mine_count[x], -len(cell_cons[x]), x)
+        if best_key is None or key < best_key:
+            best_key = key
+            best = x
+    return best, mine_certain
 
 
 # --------------------------------------------------------------------------

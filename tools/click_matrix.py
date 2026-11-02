@@ -887,7 +887,18 @@ class Runner:
 
     def _mkstate(self, state: str) -> None:
         cmd = [sys.executable, MKSTATE, "--device", self.hdc.device, "--state", state]
-        proc = run(cmd, capture_output=True, text=True, errors="replace", timeout=600)
+        # 超时预算必须**大于** click_mkstate 自己要花的时间，否则用例会被
+        # 记成「造局面失败」，而实际上只是跑测器的预算不够。
+        #
+        # 一遍造 win 局要多久（2026-11-02 在 Mate X7 模拟器上实测）：
+        #   重启应用 + 量画布偏移 ≈ 20 s
+        #   win_probe 一步步解算+点击+截图 ≈ 90~200 s
+        #     （每步一次截图：X7 是 2210x2416，snapshot_display + file recv
+        #      实测合计 0.7~8 s —— 模拟器负载高时明显变慢）
+        #   等对话框出现 ≈ 3~30 s
+        # click_mkstate 默认 attempts=6（造不出就重来），6 遍最坏 ≈ 1500 s。
+        # 所以这里给 1800 s：够 6 遍跑完，也留了余量。
+        proc = run(cmd, capture_output=True, text=True, errors="replace", timeout=1800)
         if self.verbose:
             print("   [mkstate %s] rc=%d" % (state, proc.returncode))
             for ln in (proc.stdout or "").splitlines()[-4:]:
