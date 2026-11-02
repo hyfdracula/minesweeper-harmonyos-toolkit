@@ -113,6 +113,20 @@ CANVASES = [
     Canvas('Pura X Max 典藏版 外屏', 1323, 1936, 2.75, '折起来 · 竖屏'),
     Canvas('Mate X7 模拟器内屏', 2210, 2208, 3.125, '折叠屏 · 近方形'),
     Canvas('Mate 90 Pro 模拟器', 1280, 2598, 3.5, '又窄又长'),
+    # 平板（用户 2026-11-03 追加）。分辨率取自华为官方规格页：
+    #   MatePad Pro 12.2  2800x1840  274ppi  3:2
+    #   MatePad Pro 13    2880x1920（模拟器镜像，实测画布见 docs/LAYOUT-MATRIX.md）
+    # 密度：HarmonyOS 的 densityPixels = 屏 density / 160。
+    #   DevEco 模拟器「MatePad Pro 12」屏配置给的 density=360 -> densityPixels=2.25，
+    #   这正是 MatePad Pro 12.2 精确镜像用的那一档（screen 2800x1840）。
+    #   真机上系统可能给 2.0；274ppi/160 ≈ 1.71 是纯换算值。几种都推演一遍。
+    Canvas('MatePad Pro 12.2 (2800x1840)', 2800, 1840, 2.0, '平板 · 3:2 · 官方分辨率'),
+    Canvas('MatePad Pro 12.2 密度2.25', 2800, 1840, 2.25, '平板 · DevEco 屏配置 density=360'),
+    Canvas('MatePad Pro 12.2 密度1.75', 2800, 1840, 1.75, '平板 · 换算密度 274ppi/160≈1.71'),
+    Canvas('MatePad Pro 13 (2880x1920)', 2880, 1920, 2.0, '平板 · 3:2 · 模拟器镜像'),
+    # 平板竖屏（用户把平板竖着拿是常态）
+    Canvas('MatePad Pro 12.2 竖屏', 1840, 2800, 2.0, '平板 · 竖屏 3:2'),
+    Canvas('MatePad Pro 12.2 竖屏 密度2.25', 1840, 2800, 2.25, '平板 · 竖屏 · density=360'),
 ]
 
 # 三个内置难度 + 一个 30 列自定义局（最大尺寸 24 行 x 30 列）
@@ -678,21 +692,39 @@ def assert_rules(all_res):
                '断言4：%s / %s 的 %s %s 出画布（画布 %dx%d）'
                % (cv_name, board_name, el, r['g']['strip'][el], cv.w, cv.h))
 
-    # --- 断言 5：HUD 模式只出现在内屏 24×30，其余 15 组状态条贴在棋盘下沿 ---
+    # --- 断言 5：HUD 模式只出现在「纵向溢出」的局，其余状态条贴在棋盘下沿 ---
+    #
+    # 2026-11-03 改写：原来这里是**画布白名单**（只认 Pura X Max 内屏 24×30），
+    # 加了平板画布之后立刻误报。正确的判据是**溢出事实**：
+    #   v4.0 规则：整块装得下的那档格边 < 48 设备像素时，宁可**纵向溢出**也要够大，
+    #   纵向装不下时顶对齐菜单栏下沿，状态条钉画布底边当 HUD。
+    # 所以：纵向溢出 ⇒ 必须是 HUD 且状态条钉画布底边；不溢出 ⇒ 不许是 HUD，
+    # 状态条贴在棋盘下沿。这与 v4.0 之前的 15 组基线**完全等价**
+    # （那 15 组溢出都是 0），但对新画布自动成立，不必再维护白名单。
     for (cv_name, board_name), (cv, r) in lookup.items():
         band = r['g']['strip']['band']
-        if cv_name == 'Pura X Max 典藏版 内屏' and board_name == '自定义':
-            ck(r['g']['hud'], '断言5：内屏 24×30 应是 HUD 模式')
+        if r['over_y'] > 0:
+            ck(r['g']['hud'],
+               '断言5：%s / %s 纵向溢出 %s px，应是 HUD 模式'
+               % (cv_name, board_name, r['over_y']))
             ck(band[1] + band[3] == cv.h,
-               '断言5：内屏 24×30 的状态条带下沿 %s，应等于画布高 %s'
-               % (band[1] + band[3], cv.h))
+               '断言5：%s / %s 的状态条带下沿 %s，应等于画布高 %s（HUD 钉底边）'
+               % (cv_name, board_name, band[1] + band[3], cv.h))
             ck(r['g']['board'][1] + r['g']['board'][3] > r['g']['strip_top'],
-               '断言5：内屏 24×30 的状态条应当压在棋盘下沿上（否则用不着排除命中）')
+               '断言5：%s / %s 的状态条应当压在棋盘下沿上（否则用不着排除命中）'
+               % (cv_name, board_name))
         else:
             ck(not r['g']['hud'], '断言5：%s / %s 不该是 HUD 模式' % (cv_name, board_name))
             ck(band[1] == r['g']['board'][1] + r['g']['board'][3],
                '断言5：%s / %s 的状态条应贴在棋盘下沿 %s，实际 %s'
                % (cv_name, board_name, r['g']['board'][1] + r['g']['board'][3], band[1]))
+
+    # --- 断言 5b： Pura X Max 内屏 24×30 仍然是唯一的**基准** HUD 局，数值不许变 ---
+    cv, r = lookup[('Pura X Max 典藏版 内屏', '自定义')]
+    ck(r['g']['hud'], '断言5b：内屏 24×30 应是 HUD 模式')
+    ck(r['g']['strip']['band'][1] + r['g']['strip']['band'][3] == cv.h,
+       '断言5b：内屏 24×30 的状态条带下沿 %s，应等于画布高 %s'
+       % (r['g']['strip']['band'][1] + r['g']['strip']['band'][3], cv.h))
 
     # --- 断言 6：纵向平移上限 = 整个溢出量（Codex P1），且不溢出时为 0 ---
     for (cv_name, board_name), (cv, r) in lookup.items():
