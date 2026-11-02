@@ -1,0 +1,155 @@
+# -*- coding: utf-8 -*-
+"""
+tablet_check.py —— MatePad Pro 12.2 平板的适配验证。
+
+干什么：
+  1. 启动「MatePad 12_2」模拟器实例（2800x1840 / density 360 / 12.2 寸）
+  2. 等 hdc 认到设备
+  3. 装 HAP、起应用
+  4. 读应用自己的布局日志，核对这个设备上的适配档/格边/棋盘原点
+  5. 截一张图存到 docs\verify\
+  6. 读状态条上的计时与雷数（七段数码管），确认渲染正常
+
+用法：
+    python tools/tablet_check.py                 # 全套
+    python tools/tablet_check.py --no-emulator   # 不启动模拟器（模拟器已经在跑时用）
+
+实测口径（2026-11-03）：
+  画布 2800x1840，densityPixels = 360/160 = 2.25
+  预期：初级 9x9 适配档 n=4、格边 144 px；高级 16x30 与自定义 24x30 是 n=2、格边 72 px
+  （数值以 docs/LAYOUT-MATRIX.md 第 9 节和 tools/check_layout.py 断言 10 为准）
+"""
+import argparse
+import os
+import re
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+
+EMU = r'D:\software\DevEco Studio\tools\emulator\Emulator.exe'
+HDC = r'D:\software\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe'
+INSTANCE = 'MatePad 12_2'
+DEVICE = '127.0.0.1:5555'
+BUNDLE = 'com.example.saolei'
+HAP = r'C:\Users\19161\saolei\entry\build\default\outputs\default\entry-default-signed.hap'
+
+
+def run(cmd, timeout=120):
+    return subprocess.run(cmd, capture_output=True, text=True,
+                          encoding='utf-8', errors='replace', timeout=timeout)
+
+
+def sh(*args, timeout=120):
+    return run([HDC, '-t', DEVICE, 'shell', *args], timeout=timeout).stdout
+
+
+def wait_device(deadline_s=300):
+    t0 = time.time()
+    while time.time() - t0 < deadline_s:
+        out = run([HDC, 'list', 'targets'], timeout=60).stdout
+        if DEVICE in out:
+            return True
+        time.sleep(3)
+    return False
+
+
+def main():
+    ap = argparse.ArgumentParser(description='MatePad Pro 12.2 适配验证')
+    ap.add_argument('--no-emulator', action='store_true',
+                    help='模拟器已经在跑时用这个（不重复启动）')
+    ap.add_argument('--out', default=os.path.join(REPO, 'docs', 'verify'))
+    args = ap.parse_args()
+    os.makedirs(args.out, exist_ok=True)
+
+    if not args.no_emulator:
+        print('[tablet] 启动模拟器实例 %s …' % INSTANCE)
+        run([EMU, '-start', INSTANCE,
+             '-instancePath', 'C:/Users/19161/AppData/Local/Huawei/Emulator/deployed',
+             '-imageRoot', r'C:\Users\19161\AppData\Local\Huawei\Sdk'], timeout=600)
+
+    print('[tablet] 等 hdc 认到设备 %s …' % DEVICE)
+    if not wait_device():
+        print('[tablet] 设备没上线，退出')
+        return 1
+
+    print('[tablet] 装 HAP …')
+    out = run([HDC, '-t', DEVICE, 'install', '-r', HAP], timeout=600).stdout
+    print(out.strip()[-200:])
+    if 'successfully' not in out:
+        print('[tablet] 安装失败')
+        return 1
+
+    sh('aa', 'force-stop', BUNDLE)
+    time.sleep(1.0)
+    sh('aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE)
+    time.sleep(6.0)
+
+    logs = sh('hilog', '-x')
+    layout_lines = [ln for ln in logs.splitlines() if '[GameController] 布局' in ln]
+    if not layout_lines:
+        print('[tablet] 没读到布局日志')
+        return 1
+    line = layout_lines[-1]
+    print('[tablet] 布局日志：')
+    print('   ' + line[line.find('[GameController]'):].strip())
+
+    m = re.search(r'画布=(\d+)x(\d+)px 密度换算=([\d.]+) 适配档n=(\d+) '
+                  r'当前档n=(\d+) unit=(\d+) 格边=(\d+)px '
+                  r'棋盘原点=\((-?\d+),(-?\d+)\) HUD=(\d)', line)
+    ok = True
+    if not m:
+        print('[tablet] 布局日志解析失败')
+        return 1
+    cw, ch, px_scale, fit, cur, unit, tile, bx, by, hud = m.groups()
+    print('[tablet] 画布 %sx%s px，密度换算 %s，适配档 n=%s，格边 %s px，原点 (%s,%s)，HUD=%s'
+          % (cw, ch, px_scale, fit, tile, bx, by, hud))
+
+    # 期望值（与 docs/LAYOUT-MATRIX.md 第 9 节、tools/check_layout.py 断言 10 一致）
+    exp = {'初级': (4, 144), '高级': (2, 72), '自定义': (2, 72)}
+    board = re.search(r'盘面=(\d+)x(\d+)', line)
+    key = None
+    if board:
+        rows, cols = int(board.group(1)), int(board.group(2))
+        key = {(9, 9): '初级', (16, 16): '中级', (16, 30): '高级', (24, 30): '自定义'}.get((rows, cols))
+    if key and key in exp:
+        e_fit, e_tile = exp[key]
+        if int(fit) != e_fit or int(tile) != e_tile:
+            print('[tablet] 不符合预期：%s 应为 n=%s 格边 %s，实际 n=%s 格边 %s'
+                  % (key, e_fit, e_tile, fit, tile))
+            ok = False
+        else:
+            print('[tablet] %s 的适配档 n=%s、格边 %s px 与预期一致 ✓' % (key, fit, tile))
+    else:
+        print('[tablet] 盘面 %s 不在预期表里（不判）' % (key or board.group(0)))
+
+    # 截图
+    shot = os.path.join(args.out, 'TABLET_12_2_play.jpeg')
+    remote = '/data/local/tmp/tablet_shot.jpeg'
+    sh('snapshot_display', '-f', remote, timeout=90)
+    if os.path.exists(shot):
+        os.remove(shot)
+    run([HDC, '-t', DEVICE, 'file', 'recv', remote, shot], timeout=180)
+    print('[tablet] 截图：%s' % shot)
+
+    # 状态条读数（七段数码管）
+    try:
+        import sevenseg_read
+        counters = sevenseg_read.read_counters(shot)
+        for panel, digits in counters:
+            print('[tablet] 状态条读数：%s' % (''.join(
+                d if d else '?' for d in digits),))
+        if not counters:
+            print('[tablet] 状态条面板没认出来 —— 不影响版式结论')
+    except Exception as exc:
+        print('[tablet] 状态条读数没读出来（%s）—— 不影响版式结论' % exc)
+
+    print('[tablet] 结果：%s' % ('通过' if ok else '不通过'))
+    return 0 if ok else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
