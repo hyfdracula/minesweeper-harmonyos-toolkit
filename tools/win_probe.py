@@ -1077,42 +1077,72 @@ def restart_app(device, outdir):
     """
     重启应用，并且**等到棋盘真的画出来了**才返回第一帧截图。
 
-    返回 (截图, 布局)。布局必须在重启之后读，否则拿到的是上一局的旧版式。
-    """
-    hdc_check(device, 'shell', 'aa', 'force-stop', BUNDLE)
-    # 等进程真的消失，否则 aa start 会把**残局**带回来（带对话框、带败局）
-    for _ in range(25):
-        time.sleep(0.4)
-        out = hdc(device, 'shell', "ps -ef | grep -a saolei | grep -v grep")
-        if not out.strip():
-            break
-    else:
-        raise RuntimeError('force-stop 之后进程还在')
-    hdc_check(device, 'shell', 'aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE)
-    time.sleep(2.0)
+    返回 (截图, 布局, 行, 列)。布局必须在重启之后读，否则拿到的是上一局的旧版式。
 
-    # 冷启动要几秒；轮询到能读出**当次**的布局行，并且能用深色缝找到网格
-    for i in range(40):
-        time.sleep(0.8)
-        layout = read_layout(device, required=False)
-        if layout is None or layout['tile'] <= 0:
+    关于「有东西盖住棋盘」（Codex 复审 2026-11-03 的 P2）：
+    原来这里按返回键来清对话框，但**屏幕上没有对话框时返回键会把应用退到桌面**，
+    退到桌面后桌面壁纸的花纹也是规则网格，find_grid_by_seams 会在上面认出一个
+    **假网格**，于是后面整局都在对着桌面截图推理（实测表现为「没到终局」）。
+    现在改成：
+      * 绝不按返回键；
+      * 认不出棋盘时，如果**进程不在**就 `aa start` 重新拉起；
+      * 如果**进程还在**却认不出棋盘（有对话框盖着，或应用在后台），
+        就**整个重拉一遍**（force-stop + start）—— 新起的应用没有对话框，
+        这是既能清掉对话框、又不会把应用按到桌面的办法。
+    """
+    for attempt in range(3):
+        hdc_check(device, 'shell', 'aa', 'force-stop', BUNDLE)
+        # 等进程真的消失，否则 aa start 会把**残局**带回来（带对话框、带败局）
+        gone = False
+        for _ in range(25):
+            time.sleep(0.4)
+            out = hdc(device, 'shell', "ps -ef | grep -a saolei | grep -v grep")
+            if not out.strip():
+                gone = True
+                break
+        if not gone:
+            print('[app] force-stop 之后进程还在（第 %d 次重拉）' % (attempt + 1))
             continue
-        img = pull_screenshot(device, os.path.join(outdir, 'ANIM_wait_%02d.jpeg' % i))
-        g = validate_grid(img, layout)
-        if g is None:
-            # 可能是残留的对话框盖住了棋盘：按一次返回键再试。
-            # 但**不能多按**：屏幕上没有对话框时，返回键会把应用退出到桌面。
-            if i in (6, 14):
-                print('[app] 没找到棋盘网格，试一次返回键（第 %d 次轮询）' % (i + 1))
-                hdc_check(device, 'shell', 'uitest', 'uiInput', 'keyEvent', 'Back')
-                time.sleep(0.8)
-            continue
-        gx, gy, cols, rows = g
-        print('[app] 棋盘已就绪：%dx%d 格边=%d 屏幕原点=(%d,%d) 画布原点=(%d,%d)（第 %d 次轮询）'
-              % (rows, cols, layout['tile'], gx, gy,
-                 layout['board_x'], layout['board_y'], i + 1))
-        return img, layout, rows, cols
-    raise RuntimeError('应用启动后 32 秒内没找到棋盘网格')
+        hdc_check(device, 'shell', 'aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE)
+        time.sleep(2.0)
+
+        # 冷启动要几秒；轮询到能读出**当次**的布局行，并且能用深色缝找到网格
+        for i in range(40):
+            time.sleep(0.8)
+            layout = read_layout(device, required=False)
+            if layout is None or layout['tile'] <= 0:
+                continue
+            if not app_alive(device):
+                print('[app] 应用进程不在了，重新拉起（第 %d 次轮询）' % (i + 1))
+                hdc_check(device, 'shell', 'aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE)
+                time.sleep(2.0)
+                continue
+            img = pull_screenshot(device, os.path.join(outdir, 'ANIM_wait_%02d.jpeg' % i))
+            g = validate_grid(img, layout)
+            if g is None:
+                continue
+            gx, gy, cols, rows = g
+            # 网格里的格子必须**真的是扫雷的砖块**（蓝盘或绿盘），
+            # 否则很可能是桌面壁纸的规则花纹。
+            if detect_theme(img, gx, gy, layout['tile'], rows, cols) == 'other':
+                print('[app] 找到的网格里没有扫雷砖块（多半是桌面），继续等（第 %d 次轮询）'
+                      % (i + 1))
+                continue
+            print('[app] 棋盘已就绪：%dx%d 格边=%d 屏幕原点=(%d,%d) 画布原点=(%d,%d)（第 %d 次轮询）'
+                  % (rows, cols, layout['tile'], gx, gy,
+                     layout['board_x'], layout['board_y'], i + 1))
+            return img, layout, rows, cols
+
+        # 40 次轮询还没认出棋盘：可能是有对话框盖着、或者应用被按到后台了。
+        # 重拉一遍：新起的应用一定是干净的棋盘。
+        print('[app] 没能认出棋盘，整个重拉一次（第 %d 次）' % (attempt + 1))
+    raise RuntimeError('应用启动后仍找不到棋盘网格（已重拉 3 遍）')
+
+
+def app_alive(device) -> bool:
+    """应用进程还在不在。"""
+    out = hdc(device, 'shell', "ps -ef | grep -a saolei | grep -v grep")
+    return bool(out.strip())
 
 
 def dismiss_dialogs(device, outdir, layout, rows, cols):
@@ -1122,21 +1152,45 @@ def dismiss_dialogs(device, outdir, layout, rows, cols):
     判据用**深色缝网格**（与主题无关），不是颜色包围盒。
     按返回键**最多两次**，而且每次按完都确认应用还活着 ——
     屏幕上没有对话框时返回键会把应用退出到桌面。
+
+    坑（2026-11-02 在 Mate X7 上踩到）：返回键把应用退到桌面后，
+    桌面壁纸的花纹也是规则网格，validate_grid 会在上面**认出假网格**并
+    以为「棋盘干净了」直接返回 —— 后面整局都在对着桌面截图推理。
+    所以这里除了「应用还活着」，还要看网格里**真的是不是扫雷砖块**；
+    按返回键把应用按没了，就**重新拉起来**再继续。
+
+    返回 (截图, 布局)。**布局要跟着截图一起返回**（Codex 复审 2026-11-03 的 P2/P3）：
+    重拉之后应用会重新布局（密度、格边、棋盘原点都可能变），
+    而调用方（run_phase_explode、tools/anim_frames.py）会**继续拿旧布局**
+    去定位和点击格子 —— 那是错的。
+    拿不到干净棋盘时返回 (None, None)，由调用方走它自己的重启路径。
     """
     img = None
     for attempt in range(4):
         img = pull_screenshot(device, os.path.join(outdir, 'ANIM_dlg_%02d.jpeg' % attempt))
         g = validate_grid(img, layout)
         if g is not None and g[2] == cols and g[3] == rows:
-            return img          # 干净的
+            # 光有网格形状不够：得确认格子里是扫雷砖块，不是桌面花纹
+            if detect_theme(img, g[0], g[1], layout['tile'], rows, cols) != 'other':
+                return img, layout          # 干净的
+            print('[dlg] 找到的网格里没有扫雷砖块（多半是桌面）')
         alive = hdc(device, 'shell', "ps -ef | grep -a saolei | grep -v grep")
         if not alive.strip():
-            print('[dlg] 应用已经不在了（可能刚才的返回键退出了它）')
-            return None
+            print('[dlg] 应用已经不在了（刚才的返回键把它退出到桌面了），重新拉起')
+            hdc_check(device, 'shell', 'aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE)
+            time.sleep(2.0)
+            # 重拉之后应用会重新布局 —— 布局必须重读，
+            # 而且**这一轮拿到的是新截图**（下面循环开头会重拍）。
+            layout = read_layout(device, required=False) or layout
+            continue
         print('[dlg] 棋盘上还有东西，按一次返回键（第 %d 次）' % (attempt + 1))
         hdc_check(device, 'shell', 'uitest', 'uiInput', 'keyEvent', 'Back')
         time.sleep(0.8)
-    return img
+    # 4 遍都没清干净：交回 None，让调用方自己重启。
+    # （以前这里返回 img —— 那是**重拉之前**的截图，可能是桌面，
+    #   调用方会把它当成有效棋盘，Codex 复审 2026-11-03 的 P2。）
+    print('[dlg] 没能清出干净棋盘，返回 None 让调用方重启')
+    return None, None
 
 
 def play_to_win(args, templates, mine_tmpl):
@@ -1155,15 +1209,21 @@ def play_to_win(args, templates, mine_tmpl):
     outdir = args.out
     os.makedirs(outdir, exist_ok=True)
     img, layout, rows, cols = restart_app(device, outdir)
-    img = dismiss_dialogs(device, outdir, layout, rows, cols)
+    img, layout = dismiss_dialogs(device, outdir, layout, rows, cols)
     if img is None:
-        print('[play] 应用被关掉了，重新启动一次')
+        print('[play] 没拿到干净棋盘，重新启动一次')
         img, layout, rows, cols = restart_app(device, outdir)
-        img = dismiss_dialogs(device, outdir, layout, rows, cols)
+        img, layout = dismiss_dialogs(device, outdir, layout, rows, cols)
         if img is None:
             raise RuntimeError('棋盘上有盖不住的对话框')
+    # dismiss_dialogs 里可能因为返回键把应用按没了又重新拉起，
+    # 重新拉起之后应用会**重新布局**（密度、格边、棋盘原点都可能变）。
+    # 所以布局必须跟着截图一起更新 —— 沿用旧的坐标会点到错的地方
+    # （Codex 复审 2026-11-03 的 P2/P3）。
+    layout = read_layout(device, required=True)
     gx, gy, pitch = grid_from_layout(img, layout, rows, cols)
     mines = args.mines
+
     theme = detect_theme(img, gx, gy, pitch, rows, cols)
     print('[play] 屏幕网格原点=(%.1f, %.1f) 格边=%d 盘面=%dx%d 雷数=%d 主题=%s'
           % (gx, gy, pitch, rows, cols, mines, theme))
@@ -1247,12 +1307,14 @@ def run_phase_explode(args, templates, mine_tmpl):
     outdir = args.out
     os.makedirs(outdir, exist_ok=True)
     img, layout, rows, cols = restart_app(device, outdir)
-    img = dismiss_dialogs(device, outdir, layout, rows, cols)
+    img, layout = dismiss_dialogs(device, outdir, layout, rows, cols)
     if img is None:
         img, layout, rows, cols = restart_app(device, outdir)
-        img = dismiss_dialogs(device, outdir, layout, rows, cols)
+        img, layout = dismiss_dialogs(device, outdir, layout, rows, cols)
         if img is None:
             raise RuntimeError('棋盘上有盖不住的对话框')
+    # 重拉之后应用会重新布局，布局要跟着换（Codex 复审 2026-11-03 的 P2/P3）
+    layout = read_layout(device, required=True)
     gx, gy, pitch = grid_from_layout(img, layout, rows, cols)
     mines = args.mines
     print('[exp] 屏幕网格原点=(%.1f, %.1f) 格边=%d' % (gx, gy, pitch))

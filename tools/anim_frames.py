@@ -259,12 +259,14 @@ def main():
 
     print('[%s] 开机' % args.tag)
     img, layout, rows, cols = wp.restart_app(device, outdir)
-    img = wp.dismiss_dialogs(device, outdir, layout, rows, cols)
+    img, layout = wp.dismiss_dialogs(device, outdir, layout, rows, cols)
     if img is None:
         img, layout, rows, cols = wp.restart_app(device, outdir)
-        img = wp.dismiss_dialogs(device, outdir, layout, rows, cols)
+        img, layout = wp.dismiss_dialogs(device, outdir, layout, rows, cols)
         if img is None:
             raise RuntimeError('棋盘上有盖不住的对话框')
+    # 重拉之后应用会重新布局，布局要跟着换（Codex 复审 2026-11-03 的 P2/P3）
+    layout = wp.read_layout(device, required=True)
     gx, gy, pitch = wp.grid_from_layout(img, layout, rows, cols)
     unit = layout['unit']
     print('[%s] 网格=(%.0f,%.0f) 格边=%d unit=%d' % (args.tag, gx, gy, pitch, unit))
