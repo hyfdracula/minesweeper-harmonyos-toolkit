@@ -622,10 +622,12 @@ INNER_CUSTOM_EXPECT = {
 
 
 def assert_rules(all_res):
-    """把 v4.0 的新规则钉死。返回失败条数。"""
+    """把 v4.0 的新规则钉死。返回 (失败条数, 实测断言条数)。"""
     fails = []
+    n_checks = [0]
 
     def ck(cond, msg):
+        n_checks[0] += 1
         if not cond:
             fails.append(msg)
 
@@ -827,7 +829,7 @@ def assert_rules(all_res):
                    '断言10：%s / %s 的横向平移上限 %s，应等于溢出量的一半 %s'
                    % (cv_name, board_name, r['lim_x'], r['over_x'] / 2.0))
 
-    return fails
+    return fails, n_checks[0]
 
 
 def main():
@@ -847,7 +849,7 @@ def main():
         print('<!-- ===== markdown 状态条表 ===== -->')
         print(strip_table(all_res))
 
-    fails = assert_rules(all_res)
+    fails, n_checks = assert_rules(all_res)
     print()
     print('== 断言 ==')
     if fails:
@@ -855,9 +857,15 @@ def main():
             print('  FAIL: ' + f)
         print('  断言失败 %d 条' % len(fails))
         return 1
-    print('  9 组断言全部通过（v3.0 基线 15 行不变 / 内屏 24×30 新数字 / 格边>=48 / '
-          '状态条在画布内 / HUD 只在竖向溢出时出现 / 纵向平移上限=溢出量 / '
-          '拖到底齐平 / 可视区=菜单栏到 HUD 顶 / 极限缩放时两个计数仍在屏内且不重叠）')
+    # 断言的**条数**是实测出来的（ck() 的调用点数），
+    # 不要写死数字 —— 写死过一回（一直写「9 组」，加了断言 10 之后没改，
+    # 读的人会以为断言 10 没跑）。下面这句话只列**名字**，个数从实测来。
+    print('  %d 组断言全部通过（%s）'
+          % (n_checks,
+             'v3.0 基线 15 行不变 / 内屏 24×30 新数字 / 格边>=48 / '
+             '状态条在画布内 / HUD 只在竖向溢出时出现 / 纵向平移上限=溢出量 / '
+             '拖到底齐平 / 可视区=菜单栏到 HUD 顶 / '
+             '极限缩放时两个计数仍在屏内且不重叠 / 平板 MatePad Pro 12.2 期望值'))
     return 0
 
 
