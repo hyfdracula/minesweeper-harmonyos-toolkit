@@ -191,12 +191,81 @@ def test_random_never_steps_on_a_mine():
           '随机对局：求解器有 %d/%d 次返回了真雷格子' % (bad, runs))
 
 
+def test_flagging_path():
+    """
+    插旗路径：插完旗再求解，**不能**把真雷标成安全。
+
+    坑（2026-11-03，Codex 对抗性复审 P1）：
+    `solve()` 的 all_unknown 原来把 'F'（已插旗）也算进去，
+    而全局约束的 need = 雷数 - 旗数又把旗子减掉了 ——
+    **旗子被算了两遍**，全局约束的缺口算错，会把真雷标成安全。
+
+    Codex 给的复现：1x4 盘面 [1,'F','X','X]、2 颗雷，
+    求解器返回 (0,2) 当安全格点，而 (0,2) 完全可能是第二颗雷。
+    """
+    res, mc = wp.solve(mk([[1, 'F', 'X', 'X']]), 1, 4, 2)
+    check(res is None or res != (0, 2),
+          '插旗路径：solve([1,F,X,X],1,4,2) 把 (0,2) 当安全格点了，而它可能是第二颗雷')
+    # 已插旗的格**不能**出现在「确定是雷」里 ——
+    # 调用方拿这个集合去长按插旗，重复插一次等于把旗取消。
+    check((0, 1) not in mc,
+          '插旗路径：已插旗的 (0,1) 不该出现在「确定是雷」里（会被重复插旗）')
+
+    # 两面旗 + 2 颗雷 -> 剩下的 (0,3) **确实**是安全格（这里期望求解器点它）
+    res2, mc2 = wp.solve(mk([[1, 'F', 'F', 'X']]), 1, 4, 2)
+    check(res2 == (0, 3),
+          '插旗路径：solve([1,F,F,X],1,4,2) 应推出 (0,3) 安全，实际 %s' % (res2,))
+
+    # 更一般地：任何「插了旗」的盘面，求解器返回的格子都不能是旗子数
+    # 之外算出来的假安全格 —— 用随机对局覆盖（见下面的随机用例）。
+    return True
+
+
+def test_random_with_flags_never_steps_on_a_mine():
+    """随机对局 + 随机插旗：求解器返回的格子绝不能是真雷。"""
+    rng = random.Random(20261104)
+    bad = 0
+    runs = 0
+    import io
+    import contextlib
+    for _ in range(120):
+        rows, cols, mines = 9, 9, 10
+        board, mine_set = _make_board(rows, cols, mines, rng)
+        # 随机把几个**确实是雷**的未揭开格插上旗（模拟解算器的插旗推进）
+        candidates = [x for x in mine_set if board[x[0]][x[1]] == 'X']
+        rng.shuffle(candidates)
+        for x in candidates[:rng.randint(0, 3)]:
+            board[x[0]][x[1]] = 'F'
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                res, mc = wp.solve(board, rows, cols, mines)
+        except Exception as exc:
+            check(False, '随机插旗对局：求解器崩了：%s' % exc)
+            return
+        runs += 1
+        if res is None:
+            continue
+        if res in mine_set:
+            bad += 1
+        # 「确定是雷」的集合里不能有**已经插了旗**的格 ——
+        # 调用方会拿它去长按插旗，重复插一次等于把旗取消。
+        flagged_cells = set((x[0], x[1]) for x in mine_set
+                            if board[x[0]][x[1]] == 'F')
+        if flagged_cells & set(mc):
+            bad += 1
+    check(bad == 0,
+          '随机插旗对局：求解器有 %d/%d 次返回了真雷格子或重复插旗' % (bad, runs))
+
+
 def main():
     t0 = time.time()
     test_accident()
     test_subset_rule()
     test_basics()
+    test_flagging_path()
     test_random_never_steps_on_a_mine()
+    test_random_with_flags_never_steps_on_a_mine()
     dt = time.time() - t0
     print('solve_test: 通过 %d，失败 %d（用时 %.1f 秒）' % (PASSED[0], len(FAILS), dt))
     for m in FAILS:

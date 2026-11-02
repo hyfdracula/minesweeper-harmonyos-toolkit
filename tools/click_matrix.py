@@ -262,9 +262,16 @@ class Hdc:
         self.shell("aa", "force-stop", BUNDLE, timeout=60, check=True)
         time.sleep(1.0)
 
-    def start_app(self) -> None:
-        self.shell("aa", "start", "-a", "EntryAbility", "-b", BUNDLE, timeout=90, check=True)
+    def start_app(self) -> str:
+        """起应用，返回命令输出。
+
+        返回输出是给**前置检查**用的：`aa start` 对没装的 ability
+        也是退出码 0，只有输出里带错误（见 preflight）。
+        """
+        out = self.shell("aa", "start", "-a", "EntryAbility", "-b", BUNDLE,
+                         timeout=90, check=True)
         time.sleep(3.0)
+        return out
 
 
 # ===========================================================================
@@ -661,17 +668,36 @@ class Runner:
         这里把它提到最前面，几秒钟就知道。
         """
         # 1) 装没装
-        probe = self.hdc.shell("ls", "/data/app/el1/bundle/public/" + BUNDLE,
-                               timeout=60, check=False)
-        if not probe.strip():
-            return False, ("设备 %s 上没装 %s（%s 的目录不存在）"
-                           % (self.hdc.device, BUNDLE, "/data/app/el1/bundle/public/" + BUNDLE))
+        #
+        # 坑（2026-11-03，Codex 对抗性复审 P2）：
+        # 原来用 `ls /data/app/el1/bundle/public/<bundle>` 判断。
+        # 那个办法**不可靠**：`hdc shell ls` 对不存在的路径也是**退出码 0**，
+        # 只是输出里带着「No such file or directory」；对**存在**的路径，
+        # 设备上还可能回「Permission denied」（目录不可读）。
+        # 两种情况输出都非空，于是「输出为空 = 没装」这个判据**永远不成立**，
+        # 前置检查形同虚设 —— 这正是它当初该抓的那一类失败。
+        #
+        # 现在用 `bm dump -n <bundle>`：包不存在时它明确回
+        # 「error: failed to get information and the parameters may be wrong.」
+        probe = self.hdc.shell("bm", "dump", "-n", BUNDLE, timeout=90, check=False)
+        low = (probe or "").strip().lower()
+        if not low or "error" in low or "failed to get information" in low:
+            return False, ("设备 %s 上没装 %s（bm dump 说：%s）"
+                           % (self.hdc.device, BUNDLE,
+                              (probe or "").strip()[:160] or "没有输出"))
         # 2) 起不起来
+        #
+        # `aa start` 对**没装的** ability 也是**退出码 0**（只是输出里带错误），
+        # 所以光靠异常抓不住 —— 要看输出内容。
         try:
             self.hdc.stop_app()
-            self.hdc.start_app()
+            out = self.hdc.start_app()
         except Exception as exc:
             return False, "应用起不来：%s" % exc
+        low = (out or "").strip().lower()
+        if low and ("error" in low or "not exist" in low or "not found" in low
+                    or "not installed" in low or "ability not" in low):
+            return False, ("应用起不来（aa start 说：%s）" % (out or "").strip()[:160])
         # 3) 起来之后有没有布局日志
         try:
             self.geom.refresh_layout(retries=12, gap_s=2.0)

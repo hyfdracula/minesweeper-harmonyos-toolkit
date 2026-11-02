@@ -540,10 +540,23 @@ def solve(board, rows, cols, mines, max_nodes=200000):
     传播：单格规则 + 子集规则。传播完仍推不出的，
     用「穷举所有可行解」算出每个格在多少比例的解里是安全的，挑最安全的。
     """
+    # **已插旗的格子不在这套「未知格」里**。
+    #
+    # 坑（2026-11-03，Codex 对抗性复审 P1）：
+    # 原来 `all_unknown` 把 'F'（已插旗）也算进去，而全局约束的
+    # `remaining_mines = mines - len(flagged)` 又把旗子减掉了 ——
+    # **旗子被算了两遍**：全局约束说「剩下 N 颗雷在这批格子里」，
+    # 可这批格子里已经包含了旗子（旗子本身也是雷）。
+    # 后果：插旗之后再求解，全局约束的缺口算错，会把真雷标成安全。
+    # 实测（Codex 给的复现）：1x4 盘面 [1,'F','X','X]、2 颗雷，
+    # 求解器返回 (0,2) 当安全格点，而 (0,2) 完全可能是第二颗雷。
+    #
+    # 正确口径：**全局约束的格集 = 未插旗的未知格，缺口 = 雷数 - 旗数**。
+    # 插了旗的格单独算进 mine_certain（下面 state[x] = MINE 那步）。
     all_unknown = set()
     for r in range(rows):
         for c in range(cols):
-            if board[r][c] in ('X', 'F'):
+            if board[r][c] == 'X':
                 all_unknown.add((r, c))
     if not all_unknown:
         return None, set()
@@ -637,7 +650,14 @@ def solve(board, rows, cols, mines, max_nodes=200000):
                     need -= 1
             con[1] = need
 
-    mine_certain = set(x for x in all_unknown if state.get(x) == MINE) | flagged
+    # 「确定是雷」的格子：**只算还没插旗的**。
+    #
+    # 一致性（2026-11-03）：`_exact_solve` 返回的 mine_certain 只含 frontier 里
+    # 的未插旗格，这里原来却 `| flagged` 把已插旗的也算进去 ——
+    # 两条路径口径不一致。调用方拿这个集合去**长按插旗**，
+    # 拿到已插旗的格子再插一次 = **把旗取消**，局面就乱了。
+    # 所以两条路径统一：**已插旗的格不算**（它们早就处理过了）。
+    mine_certain = set(x for x in all_unknown if state.get(x) == MINE)
     safe_certain = set(x for x in all_unknown if state.get(x) == SAFE)
     if safe_certain:
         return sorted(safe_certain)[0], mine_certain
