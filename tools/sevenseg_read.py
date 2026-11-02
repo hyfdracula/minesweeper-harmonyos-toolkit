@@ -153,9 +153,19 @@ def find_panels(im, strip_box=None):
 
 
 def _sample_slots(im, outer_x, outer_y, s):
-    """按几何采样三个槽位的七段掩码。"""
+    """按几何采样三个槽位的七段掩码。
+
+    返回 (掩码列表, 亮段包围盒)：
+    包围盒是**亮起来的那些段**的并集范围（设备像素）。
+    有了它才能判断「这组采样是不是正好把墨迹全占了」——
+    见 read_panel 里的包围盒吻合判据。
+    """
     white = _white_mask(im)
     digits = []
+    bx0 = None
+    by0 = None
+    bx1 = None
+    by1 = None
     for i in range(SLOT_COUNT):
         sx = outer_x + (SLOT_X0 + i * SLOT_PITCH) * s
         sy = outer_y + CELL_Y * s
@@ -177,8 +187,17 @@ def _sample_slots(im, outer_x, outer_y, s):
                             hit += 1
             if tot and hit * 2 > tot:
                 mask |= BIT[name]
+                x0 = int(round(sx + rx * s))
+                y0 = int(round(sy + ry * s))
+                x1 = int(round(sx + (rx + rw) * s))
+                y1 = int(round(sy + (ry + rh) * s))
+                bx0 = x0 if bx0 is None else min(bx0, x0)
+                by0 = y0 if by0 is None else min(by0, y0)
+                bx1 = x1 if bx1 is None else max(bx1, x1)
+                by1 = y1 if by1 is None else max(by1, y1)
         digits.append(mask)
-    return digits
+    bbox = None if bx0 is None else (bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1)
+    return digits, bbox
 
 
 def read_panel(im, panel):
@@ -236,7 +255,7 @@ def read_panel(im, panel):
         base_y = ink_cy - CELL_Y * s - CELL_H * s / 2.0
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
-                digits = _sample_slots(im, outer_x + dx * s, base_y + dy * s, s)
+                digits, bbox = _sample_slots(im, outer_x + dx * s, base_y + dy * s, s)
                 # 评分：解出合法数字的槽位 +2；**读不出（非法掩码）的槽位 -3**；
                 # 空槽（右边补零前的空位）算 0 分。
                 # 不能给空槽加分 —— 采样整体偏掉时三个槽位全是空的，
@@ -255,6 +274,24 @@ def read_panel(im, panel):
                         score += 2
                     else:
                         score -= 3                  # 非法掩码 = 没采样对
+                # **包围盒吻合判据**（2026-11-02 折叠屏实测加的）：
+                # 光靠「掩码合法与否」不够 —— 采样偏掉一档时，
+                # 有时也能凑出一个**合法**的数字掩码（实测 s=4 时把「3」读成
+                # 一个不存在的组合，却因为在 MASKS 表里而被判成合法 ✗）。
+                # 正确的那一档有个硬特征：**亮起来的段的并集范围，
+                # 必须和墨迹的实际范围吻合**（差不超过 1 个参考单位）。
+                # 采样偏了，亮的段要么盖不住墨迹、要么比墨迹多出一块 ✗。
+                if bbox is not None:
+                    ix0 = x0 + inset_x + int(xs.min())
+                    iy0 = y0 + inset_y + int(ys.min())
+                    iw = int(xs.max()) - int(xs.min()) + 1
+                    ih = int(ys.max()) - int(ys.min()) + 1
+                    tol = max(1.0, s * 0.35)
+                    if (abs(bbox[0] - ix0) <= tol and abs(bbox[1] - iy0) <= tol
+                            and abs(bbox[2] - iw) <= tol and abs(bbox[3] - ih) <= tol):
+                        score += 4               # 严丝合缝
+                    else:
+                        score -= 4               # 对不上墨迹，基本是采样偏了
                 if score > best_score or (score == best_score and best is not None
                                           and lit > best_lit):
                     best_score = score
