@@ -283,14 +283,29 @@ class Hdc:
         「取最后一条 `[Dialog] 打开 …`」会拿到**上一轮**留下的行，
         于是把明明赢了的一局判成失败（2026-11-03 踩过）。
         所以凡是「认这一轮的行」的地方，都得带上这个起点标记。
+
+        两个坑（2026-11-03）：
+        ① 不要取输出的**最后一行**。设备启动那一瞬间，hdc 的输出里会混进
+           别的内容（实测混进过一行 hilog），取最后一行就取到了一个
+           根本不是日期的字符串。这里**按格式找**第一行匹配的。
+        ② 时间戳往前**挪 1 秒**。设备给的秒级时间戳，毫秒位只能补 .000，
+           而日志行是 .xxx —— 同一秒内的日志会被判成「之前的」，
+           于是刚启动的应用布局日志被误杀。
         """
-        # 注意：`Hdc.shell()` 自己已经加 "shell" 前缀，
-        # 这里再写一遍就成了 `hdc shell shell date`（2026-11-03 写错过一次）。
         out = self.shell("date '+%m-%d %H:%M:%S'", timeout=60)
-        ts = (out or "").strip().splitlines()[-1].strip() if out else ""
-        if len(ts) == 14:            # "MM-DD HH:MM:SS" -> 补到毫秒精度
-            ts += ".000"
-        return ts
+        m = re.search(r"(\d{2}-\d{2}) (\d{2}):(\d{2}):(\d{2})", out or "")
+        if not m:
+            return ""
+        mon, hh, mm, ss = m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4))
+        # 往前挪 1 秒（时分秒进位）
+        ss -= 1
+        if ss < 0:
+            ss, mm = 59, mm - 1
+        if mm < 0:
+            mm, hh = 59, hh - 1
+        if hh < 0:
+            hh = 23
+        return "%s %02d:%02d:%02d.000" % (mon, hh, mm, ss)
 
     def start_app(self) -> str:
         """起应用，返回命令输出。
@@ -505,27 +520,38 @@ class Geom:
             bx = lay.board_x + c * lay.tile + lay.tile / 2.0
             by = lay.board_y + r * lay.tile + lay.tile / 2.0
             return int(round(bx)), int(round(by)) + cy
-        if space == "free":
-            # 画布上一块**保证空白**的位置：菜单栏下方、棋盘上方的左边缘。
+        if space == "outside_stats":
+            # 统计窗**外面**的一个点（设备无关）。
             #
-            # 为什么需要（2026-11-03，Mate 90 Pro 上 dialogs.stats.outside 失败）：
-            # 「点统计窗外面关窗」原来用 canvas_frac(0.95, 0.55)，想着点画布右侧。
-            # 可统计窗是**居中**的，而且在窄屏上**几乎占满整宽**
-            # （Mate 90 Pro 实测 x 18..1261，画布才 1280 宽），
-            # 加上画布顶偏移不是「屏幕高-画布高」，那个点算下来**落在窗内**
-            # （重置按钮附近），于是窗外关闭根本没触发 —— 用例失败，
-            # 但应用是对的。
+            # 必须**按窗的实际边界**挑点，不能假设「菜单栏和棋盘之间的空隙」
+            # 一定在窗外 —— Codex 对抗性复审 2026-11-03 的 P2 给的反例：
+            # 画布 1280x484、密度 3.5 时，缩放后的统计窗占 x=16..1264、y=16..468
+            # （几乎占满整屏），而「棋盘上方的空隙」算出来是 (26, 80) ——
+            # **正好落在窗内**，于是「点窗外关窗」那条用例又挂了。
             #
-            # 这里的取法与设备无关：
-            #   x = 画布左边缘（棋盘是居中的，左边缘一定空着）
-            #   y = 菜单栏下沿与棋盘上沿之间的中点
-            # 统计窗是**垂直居中**的，三个设备上它的上沿都远在这条带子下面，
-            # 所以这个点一定在窗外。
+            # 窗是居中的，所以窗外只可能在它的左/右/上/下；
+            # 按「左 → 右 → 上 → 下」的顺序挑第一个够得着的位置。
+            lay = self.layout
+            ref_w, ref_h = DIALOG_REF["stats"]
+            s = self.dialog_scale(ref_w, ref_h)
+            ox, oy = self.dialog_origin(ref_w, ref_h)
+            dw, dh = ref_w * s, ref_h * s
             menu_px = 21.0 / lay.px_scale          # MENU_BAR_H = 21 vp
-            top = menu_px + 4
-            bottom = max(top + 4, lay.board_y - 4)
-            return (int(round(max(6.0, lay.canvas_w * 0.02))),
-                    int(round((top + bottom) / 2.0)) + cy)
+            cands = []
+            if ox - 8 >= 4:
+                cands.append((ox - 8, oy + dh / 2.0))                  # 左侧留白
+            if ox + dw + 8 <= lay.canvas_w - 4:
+                cands.append((ox + dw + 8, oy + dh / 2.0))              # 右侧留白
+            if oy - 8 >= menu_px + 4:
+                cands.append((ox + dw / 2.0, oy - 8))                   # 上方
+            if oy + dh + 8 <= lay.canvas_h - 4:
+                cands.append((ox + dw / 2.0, oy + dh + 8))              # 下方
+            if not cands:
+                raise RuntimeError(
+                    "画布 %dx%d 太窄，统计窗外没有可点的位置（窗 %dx%d）"
+                    % (lay.canvas_w, lay.canvas_h, dw, dh))
+            fx, fy = cands[0]
+            return int(round(fx)), int(round(fy)) + cy
         if space == "dialog":
             name = dialog
             if name is None:

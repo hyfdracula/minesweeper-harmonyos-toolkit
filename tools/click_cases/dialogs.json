@@ -189,7 +189,7 @@
       "steps": [
         {"act": "reset"},
         {"act": "menu", "top": "game", "entry": "最佳成绩"},
-        {"act": "tap", "space": "free"},
+        {"act": "tap", "space": "outside_stats"},
         {"act": "wait", "ms": 1500},
         {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 点击关闭"},
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 620, "h": 160}},
