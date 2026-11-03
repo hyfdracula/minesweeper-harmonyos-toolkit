@@ -41,9 +41,41 @@ sys.path.insert(0, HERE)
 try:
     from click_matrix import (CUSTOM_DLG_W, CUSTOM_DLG_H, CUSTOM_GAP,
                               KEY_W, KEY_H, KEY_GAP, KEYPAD_W, KEYPAD_H,
-                              CUSTOM_BTN_OK, MENU_TOPS, MENU_ENTRIES)
+                              KEYPAD_KEYS, CUSTOM_BTN_OK, CUSTOM_BTN_CANCEL,
+                              MENU_TOPS, MENU_ENTRIES, Hdc, Geom, Layout)
 except Exception as exc:      # pragma: no cover
     raise SystemExit("拿不到 click_matrix 的几何常量：%s" % exc)
+
+# 离线推演（check_layout.py）当判据 —— **用模拟器实际的画布**推，
+# 不要用「全屏 1840」的期望值。
+#
+# 坑（2026-11-03）：check_layout.py 的 TABLET_EXPECT 是按**画布 2800x1840**
+# 推的（真机上画布就是全屏，没有系统条）。可模拟器上画布只有 **1690**
+# （顶部 90 px 状态栏 + 底部 60 px 手势条），棋盘在画布里居中，
+# 于是原点 y 整体上移 ~75 px：初级 165 -> 93、中级 301 -> 229。
+# 拿全屏期望去比模拟器实测，当然对不上。
+# 正确做法：**拿同一个画布去推**，推出来的才是判据。
+try:
+    import check_layout
+except Exception as exc:      # pragma: no cover
+    raise SystemExit("拿不到 check_layout 的推演器：%s" % exc)
+
+
+def expected_for(canvas_w, canvas_h, density):
+    """用 check_layout 的几何推演，算出四个盘面在这个画布上的期望值。
+
+    返回 {盘面名: (适配档n, 格边px, 棋盘x, 棋盘y, HUD)}。
+    """
+    cv = check_layout.Canvas('实测画布 %dx%d@%s' % (canvas_w, canvas_h, density),
+                             canvas_w, canvas_h, density, 'tablet_check 实测画布')
+    out = {}
+    for row in check_layout.analyze(cv):
+        g = row['g']
+        out[row['bname']] = (int(row['fit']), int(g['tile']),
+                             int(g['board'][0]), int(g['board'][1]),
+                             1 if g.get('hud') else 0)
+    return out
+
 
 EMU = r'D:\software\DevEco Studio\tools\emulator\Emulator.exe'
 HDC = r'D:\software\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe'
@@ -51,15 +83,14 @@ INSTANCE = 'MatePad 12_2'
 DEVICE = '127.0.0.1:5555'
 BUNDLE = 'com.example.saolei'
 HAP = r'C:\Users\19161\saolei\entry\build\default\outputs\default\entry-default-signed.hap'
+WORKDIR = os.path.join(REPO, 'docs', 'verify', '.work')
+os.makedirs(WORKDIR, exist_ok=True)
 
-# 四个盘面的期望值：(适配档n, 格边px, 棋盘x, 棋盘y, HUD)
-# 与 docs/LAYOUT-MATRIX.md 第 9 节、tools/check_layout.py 断言 10 一致
-EXPECT = {
-    "初级": (4, 144, 752, 93, 0),
-    "中级": (2, 72, 824, 301, 0),
-    "高级": (2, 72, 320, 301, 0),
-    "自定义": (2, 72, 320, 42, 1),
-}
+# 四个盘面的期望值**不写死** —— 由 expected_for() 按**实测画布**离线推演出来。
+# 写死的那份（来自 check_layout.py 的 TABLET_EXPECT）假设画布是全屏 1840，
+# 那是**真机**的情况；模拟器画布只有 1690，棋盘居中后原点会上移 ~75 px。
+# 推演与实测必须在**同一个画布**上比。
+EXPECT = None
 
 LAYOUT_RE = re.compile(
     r"画布=(\d+)x(\d+)px\s+密度换算=([0-9.]+)\s+适配档n=(\d+)\s+当前档n=(\d+)\s+"
@@ -134,16 +165,18 @@ def screen_size(shot_path):
         return 0, 0
 
 
-def tap_menu(px_scale, canvas_y, top_vp, entry_vp):
-    """点菜单栏的一个下拉条目（坐标是画布 vp）。"""
-    x = int(round(top_vp[0] / px_scale))
-    y = canvas_y + int(round(top_vp[1] / px_scale))
+def tap_menu(geom, top_vp, entry_vp):
+    """点菜单栏的一个下拉条目（坐标是画布 vp）。
+
+    换算**走 geom.to_screen()** —— 和跑测器逐字一致，不自己算
+    （自己算过一次，忘了加画布顶偏移，菜单点了没反应）。
+    """
+    x, y = geom.to_screen("menu", top_vp[0], top_vp[1])
     sh('uitest', 'uiInput', 'click', str(x), str(y))
-    time.sleep(0.9)
-    x = int(round(entry_vp[0] / px_scale))
-    y = canvas_y + int(round(entry_vp[1] / px_scale))
+    time.sleep(1.0)
+    x, y = geom.to_screen("menu", entry_vp[0], entry_vp[1])
     sh('uitest', 'uiInput', 'click', str(x), str(y))
-    time.sleep(1.6)
+    time.sleep(1.8)
 
 
 def grab(outdir, name):
@@ -222,20 +255,47 @@ def main():
     print('[tablet] 画布 %dx%d px，密度换算 %s，适配档 n=%s，格边 %s px，原点 (%s,%s)，HUD=%s'
           % (cw, ch, px_scale, fit, tile, bx, by, hud))
 
-    # 先截一张：屏幕尺寸要从截图里量（画布顶偏移 = 屏幕高 - 画布高）
+    # 先截一张（后面截图取不到要判失败，先确认这条路通）
     probe_shot = grab(args.out, 'TABLET_12_2_probe.jpeg')
+
+    # 画布顶偏移**实测**，不要用「屏幕高 - 画布高」去推。
+    #
+    # 坑（2026-11-03）：平板模拟器屏幕 2800x1840、画布 2800x1690，
+    # 差 150 px —— 但那 150 px **不都在顶部**：
+    # 实测顶部有 ~87 px 的系统状态栏（时钟、信号、电��），底部还有 ~63 px 的手势条，
+    # 87+1690+63 = 1840 ✓。按「屏幕高 - 画布高」算成 150 就会点偏 60 多像素，
+    # 菜单栏点了个空 —— 表现是「菜单点了没反应」。
+    # 跑测器一直是对的，因为它用**实测**（找棋盘第一行砖色上沿），
+    # 这里直接复用它的 Geom.probe_canvas_y()。
+    hdc = Hdc(DEVICE)
+    geom = Geom(hdc, WORKDIR)
+    geom.layout = Layout(line)
+    try:
+        canvas_y = int(geom.probe_canvas_y())
+    except Exception as exc:
+        print('[tablet] 量不到画布顶偏移（%s）' % exc)
+        return 1
     sw, sh_ = screen_size(probe_shot) if probe_shot else (0, 0)
-    canvas_y = max(0, sh_ - ch) if sh_ else 0
-    print('[tablet] 屏幕 %dx%d，画布顶偏移 %d px' % (sw, sh_, canvas_y))
+    print('[tablet] 屏幕 %dx%d，画布 %dx%d，画布顶偏移**实测** %d px'
+          % (sw, sh_, cw, ch, canvas_y))
 
     ok = True
     checked = []
     last_line = line
 
+    # 期望值：按**实测画布**离线推演（不是写死的全屏期望）
+    exp_all = expected_for(cw, ch, 1.0 / px_scale)
+    print('[tablet] 离线推演（画布 %dx%d）：' % (cw, ch))
+    for k in ("初级", "中级", "高级", "自定义"):
+        if k in exp_all:
+            e = exp_all[k]
+            print('[tablet]   %-4s n=%d 格边 %d px 原点 (%d,%d) HUD=%d'
+                  % (k, e[0], e[1], e[2], e[3], e[4]))
+
     def check_board(name):
         """核对一个盘面的布局是否符合期望。"""
         nonlocal ok, last_line
-        exp = EXPECT.get(name)
+        exp = exp_all.get(name)
         if exp is None:
             print('[tablet] %s 没有期望值，跳过' % name)
             return
@@ -261,6 +321,12 @@ def main():
             print('[tablet] %-4s 实测 %s，期望 %s ✗' % (name, got, exp))
             ok = False
         checked.append(name)
+        # 换盘面后几何变了（格边、画布高度、状态条位置都可能不同），
+        # 后面点菜单/点自定义框都要用**当前**这一版的布局
+        try:
+            geom.layout = Layout(ln)
+        except Exception:
+            pass
 
     # 第一个盘面（应用启动默认是初级）
     check_board("初级")
@@ -268,51 +334,51 @@ def main():
     # 依次切到其余三个盘面
     for name in ("中级", "高级"):
         print('[tablet] 切到 %s …' % name)
-        tap_menu(px_scale, canvas_y, MENU_TOPS["game"], MENU_ENTRIES[name])
+        tap_menu(geom, MENU_TOPS["game"], MENU_ENTRIES["game"][name])
         check_board(name)
 
     # 自定义 24x30：要先把「高度」设成 24、「宽度」设成 30
     print('[tablet] 切到 自定义 24x30 …')
-    tap_menu(px_scale, canvas_y, MENU_TOPS["game"], MENU_ENTRIES["自定义"])
+    tap_menu(geom, MENU_TOPS["game"], MENU_ENTRIES["game"]["自定义"])
     time.sleep(1.2)
-    # 自定义框 + 右侧数字键盘（几何常量全从 click_matrix 来）
-    s = max(0.5, min(2.0, 1.0 / px_scale,
-                     (cw - 32) / (CUSTOM_DLG_W + CUSTOM_GAP + KEYPAD_W),
-                     (ch - 32) / max(CUSTOM_DLG_H, KEYPAD_H)))
-    total_w = CUSTOM_DLG_W * s + CUSTOM_GAP * s + KEYPAD_W * s
-    total_h = max(CUSTOM_DLG_H * s, KEYPAD_H * s)
-    ox = int(round((cw - total_w) / 2))
-    oy = int(round((ch - total_h) / 2)) if total_h <= ch else 0
-    key_x = ox + (CUSTOM_DLG_W + CUSTOM_GAP) * s
-    keypad = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5,
-              "7": 6, "8": 7, "9": 8, "0": 9}
 
-    def press_digit(ch):
-        i = keypad[ch]
+    def press_key(k):
+        """按自定义框右侧数字键盘的一个键。
+
+        键位表**从 click_matrix 拿**：["1".."9","back","0"] ——
+        **0 在右下角中间，左下角是退格**。
+        坑（2026-11-03）：我按「0 在左下角」写，输宽度 30 的时候
+        第一个 3 正常、第二个 0 点到了**退格**，宽度变成 3，确定后非法。
+        """
+        i = KEYPAD_KEYS.index(k)
         col, row = i % 3, i // 3
-        x = int(round(key_x + (col * (KEY_W + KEY_GAP) + KEY_W / 2.0) * s))
-        y = int(round(oy + (row * (KEY_H + KEY_GAP) + KEY_H / 2.0) * s))
-        sh('uitest', 'uiInput', 'click', str(x), str(y))
-        time.sleep(0.45)
+        x = col * (KEY_W + KEY_GAP) + KEY_W / 2.0
+        y = row * (KEY_H + KEY_GAP) + KEY_H / 2.0
+        sx, sy = geom.to_screen("keypad", x, y)
+        sh('uitest', 'uiInput', 'click', str(sx), str(sy))
+        time.sleep(0.55)
 
-    def tap_field(vx, vy):
-        """点自定义框里的输入框（参考像素坐标，与 click_matrix 的用例同源）。"""
-        x = int(round(ox + vx * s))
-        y = int(round(oy + vy * s))
-        sh('uitest', 'uiInput', 'click', str(x), str(y))
-        time.sleep(0.6)
+    def tap_custom(vx, vy):
+        """点自定义框里的一个位置（参考像素坐标，与跑测器的用例同源）。"""
+        sx, sy = geom.to_screen("custom", vx, vy)
+        sh('uitest', 'uiInput', 'click', str(sx), str(sy))
+        time.sleep(0.7)
 
-    tap_field(162, 56)          # 高度框
-    press_digit("2")
-    press_digit("4")
-    tap_field(162, 86)          # 宽度框
-    press_digit("3")
-    press_digit("0")
-    # 确定按钮
-    bx_ = int(round(ox + (CUSTOM_BTN_OK[0] + CUSTOM_BTN_OK[2] / 2.0) * s))
-    by_ = int(round(oy + (CUSTOM_BTN_OK[1] + CUSTOM_BTN_OK[3] / 2.0) * s))
-    sh('uitest', 'uiInput', 'click', str(bx_), str(by_))
-    time.sleep(2.0)
+    def press_ok():
+        rect = CUSTOM_BTN_OK
+        sx, sy = geom.to_screen("custom",
+                                rect[0] + rect[2] / 2.0,
+                                rect[1] + rect[3] / 2.0)
+        sh('uitest', 'uiInput', 'click', str(sx), str(sy))
+        time.sleep(2.2)
+
+    tap_custom(162, 56)          # 高度框
+    press_key("2")
+    press_key("4")
+    tap_custom(162, 86)          # 宽度框
+    press_key("3")
+    press_key("0")
+    press_ok()
     check_board("自定义")
 
     # 截图（取不到就判失败）
