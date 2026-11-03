@@ -1161,3 +1161,25 @@ hw.lcd.density=360
 
 **横屏（真机 + 模拟器）和竖屏（模拟器）都验过了，四个盘面全部与推演吻合，
 应用代码一行没改。** 平板适配到此收尾。
+
+#### 9.6.4 真平板上的四域点击回归：82 / 86（未定性）
+
+版式收尾之后，在真平板上又跑了一遍四域点击回归：
+
+```powershell
+python tools\click_matrix.py --device 3KQYD25331202962 --cases menu,board,dialogs,custom --tag 1430tabreal
+```
+
+**86 条里 82 通过、4 失败**，用时 **3456 秒**。
+失败的 4 条：`board.cell.04`、`board.counter.negative`、`board.counter.flag`、
+`dialogs.lose.close_hitarea`。
+
+失败截图在 `docs\verify\CM_1430tabreal_FAIL_*` —— **只有 3 条留了图**
+（`board_cell_04`、`board_counter_flag`、`board_counter_negative`），
+`dialogs.lose.close_hitarea` **一张都没有**。这些图**全是竖屏**
+（平板按重力方向转了，而跑测器此前按横屏调的）。截图上**应用本身画得完全正确** ——
+菜单栏、棋盘、底部状态条、对话框位置都对，但**插旗没插上**，用例点到了雷。
+
+**当前判断**：大概率是工具侧问题（布局日志陈旧 / 真机更慢 / 竖屏几何假设），
+**尚未定性**，正在由另一个 agent 归因修复。
+归因与后续见 `docs\DEV-CHECKLIST.md` §3.1 与 `docs\HANDOVER.md` §13.2。

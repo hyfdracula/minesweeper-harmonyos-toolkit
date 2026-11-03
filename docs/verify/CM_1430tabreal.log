@@ -1,0 +1,42 @@
+[tablet] 等 hdc 认到设备 3KQYD25331202962 ...
+[tablet] 装 HAP ...
+[Info]App install path:C:\Users\19161\saolei\entry\build\default\outputs\default\entry-default-signed.hap msg:install bundle successfully.
+AppMod finish
+
+命令：
+    cd D:\software\harmony\projects\minesweeper
+    python tools\click_matrix.py --device 3KQYD25331202962 --cases menu,board,dialogs,custom --tag 1430tabreal
+
+设备：HUAWEI MatePad Pro（MRO-W00），tablet，API 26，屏幕 2800x1840
+开始时间：2026-11-03 14:31 左右
+结束时间：2026-11-03 15:23
+用时：3456 秒
+
+总计 86 条：通过 82，失败 4
+
+失败明细：
+  board.cell.04                失败：第4步 cell_opened: 第(0,4)格没有被翻开
+  board.counter.negative       失败：第15步 counter: 计数器读数 '10'（要 '-1'），掩码 [0, 6, 63]，面板 (1048, 2166, 351, 169)
+  board.counter.flag           失败：第5步 counter: 计数器读数 '10'（要 '9'），掩码 [0, 6, 63]，面板 (1048, 2166, 351, 169)；失败：第6步 unchanged: 差异像素 4575 / 59319 (7.713%) -> 有变化（等了 4 拍仍不符）
+  dialogs.lose.close_hitarea   失败：第2步 lose_game 执行异常: hilog 里没有布局日志
+
+事后核对（2026-11-03 傍晚）：
+  1. 失败截图 CM_1430tabreal_FAIL_* 只有 3 条用例的图（board_cell_04、board_counter_flag、
+     board_counter_negative）。dialogs.lose.close_hitarea **没有截图**，所以它的失败原因
+     在仓内无从查证（跑测器当时没给它存图）。
+  2. 这些截图**全是竖屏**（1840x2800）。平板上午是横屏（画布 2800x1690），
+     下午跑的时候按重力方向转成了竖屏 —— 而跑测器此前是按横屏调的。
+  3. 从截图能确认的事实：应用在竖屏下**画得完全正确**（菜单栏、棋盘、底部状态条、
+     对话框位置都对）；board.counter.* 那两张里**棋盘上一面旗都没有**、
+     右边的雷数面板显示 10 —— 也就是**插旗（长按）根本没生效**；
+     board_cell_04 那张是**「游戏失败」对话框**，说明那一局踩雷了。
+  4. 当前判断：**大概率是跑测器侧问题**（布局日志陈旧 / 真机比模拟器慢 / 竖屏几何假设），
+     **尚未定性**，不是「已确认是工具问题」，也不是「应用有 bug」。
+
+证据图（本次）：
+  docs\verify\CM_1430tabreal_*.jpeg          （86 张，按用例）
+  docs\verify\CM_1430tabreal_FAIL_*.jpeg    （8 张，3 条用例的 base/cur）
+
+对照：同一套用例在三台**模拟器**上都是 86/86
+  Mate X7（tag 0920x7）、MatePad 12.2 平板（tag 0840tab）、Mate 90 Pro（tag 1150m90）。
+  真平板是第四台、第四个成绩，**不要**和模拟器合起来说成「四台全绿」。
