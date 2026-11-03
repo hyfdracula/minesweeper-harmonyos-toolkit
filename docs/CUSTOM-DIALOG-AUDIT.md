@@ -374,11 +374,20 @@
   但不影响任何行为。属于「意图不清但无害」。
 - **建议**：删掉这行，或移进 `if (!this.customGame)` 分支。
 
-### P8 [LOW] 退格键的 ⌫ 字形可能缺字形
+### P8 [LOW] 退格键的 U+232B 字形 —— **已确认：渲染正常，不缺字形**
 
 - **位置**：`NumKeypad.ets:66`。
-- **说明**：U+232B 不是 emoji，但系统 sans-serif 未必包含该码位，缺字形时会显示豆腐块。
-- **建议**：真机看一眼；不稳妥就改成 `DEL` 文本。
+- **原 concern**：U+232B 不是 emoji，但系统 sans-serif 未必包含该码位，缺字形时会显示豆腐块。
+- **2026-11-04 实测确认（两台设备都对）**：
+  - 模拟器（Mate 90 Pro，`CM_1201a_custom_backspace.jpeg`）：键盘左下角那个键
+    显示的是标准退格箭头（五边形外框 + 里面的叉），**不是豆腐块**；
+  - **真平板 MatePad Pro MRO-W00**（`CM_2355tabfull_custom_backspace.jpeg`）：
+    同样正常，形状与模拟器一致。
+- **结论**：**不改**，保留 U+232B。
+  另外它是 Unicode 的 Emoji 属性字符，但本项目的约定点名的是 Dingbats
+  （U+2700–U+27BF）与 Misc Symbols（U+2600–U+26FF），不含 U+232B；
+  而这块数字键盘本身就是本项目的**增强**（原版用系统软键盘，见 §6），
+  字形由我们定，用退格箭头本身是恰当的。
 
 ### P9 [LOW] 键盘没有「下一个字段」键，换字段只能点输入框
 
@@ -426,7 +435,7 @@
 | 3 | 裁决雷数上限口径：改 `maxOfField` 或改 SPEC §8-2 / §2 | `CustomField.ets` + `docs/SPEC.md` | P2 |
 | 4 | 自定义框预填用当前盘面；缩放系数独立算 | `GameController.ets` | P4 + P5 |
 | 5 | 自定义局时清掉菜单勾选、隐藏结束框的「最快时间」 | `GameController.ets` | P6 |
-| 6 | 删 `GameStats.level` 死代码；真机确认 ⌫ 字形；键盘加「下一个」 | `GameController.ets` / `NumKeypad.ets` | P7-P9 |
+| 6 | 删 `GameStats.level` 死代码；~~真机确认退格键字形~~（2026-11-04 已确认：模拟器与真平板都渲染正常，P8 结案）；键盘加「下一个」 | `GameController.ets` / `NumKeypad.ets` | P7-P9 |
 
 ---
 
