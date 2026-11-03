@@ -1,0 +1,12 @@
+The revised startup and dialog paths can time out on a covered board, return a stale desktop frame, or use stale layout coordinates after relaunch. These paths were reviewed statically; no device run was available.
+
+Full review comments:
+
+- [P2] Handle dialogs that remain over the board at startup — D:\software\harmony\projects\minesweeper\tools\win_probe.py:1109-1113
+  If a dialog covers the grid while the app process remains alive, `restart_app` now only polls until it times out. The removed Back-key fallback previously gave this state a way to clear, and `dismiss_dialogs` is never reached unless `restart_app` first finds the board.
+
+- [P2] Do not return the pre-relaunch screenshot — D:\software\harmony\projects\minesweeper\tools\win_probe.py:1163-1166
+  If the app is found dead on the fourth `dismiss_dialogs` attempt, this branch relaunches it and exits the loop, but the function then returns `img` from before the relaunch. Callers treat that desktop screenshot as a valid board; previously this case returned `None` and triggered their restart path.
+
+- [P2] Refresh layout for every caller after an internal relaunch — D:\software\harmony\projects\minesweeper\tools\win_probe.py:1163-1165
+  When the display layout changes during the relaunch, `dismiss_dialogs` still validates against the layout passed before that relaunch. Even if it obtains a new board screenshot, `run_phase_explode` and `tools/anim_frames.py` continue using the old layout to locate and click cells. The new layout refresh in `play_to_win` covers only one caller.

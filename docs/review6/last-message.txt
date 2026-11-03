@@ -1,0 +1,6 @@
+The new device-independent coordinate can fall inside the stats dialog on a short canvas, breaking the changed regression case.
+
+Review comment:
+
+- [P2] Keep the outside tap outside the stats dialog on short canvases — D:\software\harmony\projects\minesweeper\tools\click_matrix.py:524-528
+  On a 1280×484 canvas at density 3.5, this `free` calculation produces approximately (26, 80), but the scaled stats dialog occupies x=16..1264 and y=16..468. The tap therefore lands inside the dialog, so `dialogs.stats.outside` fails even when outside-tap dismissal works. Choose the point against the dialog bounds rather than assuming the gap above the board is outside it.

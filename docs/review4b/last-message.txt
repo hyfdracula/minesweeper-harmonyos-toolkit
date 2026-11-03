@@ -1,0 +1,9 @@
+The new flagging path can turn a known-mine deduction into a losing click, and the installation preflight fails to recognize the missing-app case it was added to catch. The added solver tests and layout assertions pass, but they do not cover these scenarios.
+
+Full review comments:
+
+- [P1] Fix the global constraint before using the new flagging path — D:\software\harmony\projects\minesweeper\tools\win_probe.py:1283-1295
+  After this branch places a flag, `solve()` still includes flagged cells in `all_unknown` while also subtracting them from `remaining_mines`. This can label a real mine safe. Reproduction: on the valid 1×4 board `[1, X, X, X]` with two mines, `solve()` returns `(None, {(0, 1)})`; after flagging `(0, 1)`, `solve([1, F, X, X], 1, 4, 2)` returns `(0, 2)` as a safe click, although `(0, 2)` can be the second mine. Exclude flags from the global unknown set and add a regression test that solves again after flagging.
+
+- [P2] Detect a missing installation from the ls error — D:\software\harmony\projects\minesweeper\tools\click_matrix.py:664-666
+  When the bundle directory is absent, `hdc shell ls` prints `No such file or directory` and exits with code 0 on the connected emulator. `Hdc.shell()` returns that nonempty error text, so this condition treats the app as installed. `aa start` likewise reports an uninstalled ability with exit code 0, leaving preflight to wait for layout logs and give the wrong diagnosis. Check the command output or use a package query that distinguishes an absent bundle.

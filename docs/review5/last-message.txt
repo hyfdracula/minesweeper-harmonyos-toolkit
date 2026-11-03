@@ -1,0 +1,12 @@
+The solver and offline layout tests pass, but the new device verification paths can report success without a fresh app layout, without checking all tablet boards, or without a screenshot.
+
+Full review comments:
+
+- [P2] Require a fresh layout log during preflight — D:\software\harmony\projects\minesweeper\tools\click_matrix.py:723-724
+  If hilog still contains a layout line from an earlier run but the newly started app fails to render, `refresh_layout()` accepts the old line and preflight reports success. The full case suite then proceeds despite the startup failure this check is meant to catch. Record a marker before launch and require a layout entry produced afterward.
+
+- [P2] Check every tablet board configuration — D:\software\harmony\projects\minesweeper\tools\tablet_check.py:118-125
+  The script restarts the app and reads only its current board, so a passing run does not validate the other three difficulties. Medium is absent from `exp` and would be explicitly skipped even if selected before running the check. Exercise all four boards and assert each expected layout before reporting tablet adaptation as passed.
+
+- [P2] Fail when the tablet screenshot cannot be retrieved — D:\software\harmony\projects\minesweeper\tools\tablet_check.py:139-149
+  If `file recv` fails, its return code is ignored; opening the missing screenshot then falls back to `ch`, and the script can still print `通过` and exit zero. Check the capture and transfer results and require a readable image before claiming the visual verification succeeded.
