@@ -24,7 +24,7 @@
         {"act": "wait", "ms": 1500},
         {"act": "expect", "type": "hilog_regex", "re": "\\[Dialog\\] 点击按钮 menu"},
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "lose", "x": 16, "y": 40, "w": 300, "h": 130}},
-        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 100, "y": 90, "w": 150, "h": 590}},
+        {"act": "expect", "type": "changed", "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "shot", "name": "lose_menu"}
       ]
     },
@@ -189,7 +189,7 @@
       "steps": [
         {"act": "reset"},
         {"act": "menu", "top": "game", "entry": "最佳成绩"},
-        {"act": "tap", "space": "canvas", "x": 640, "y": 2000},
+        {"act": "tap", "space": "canvas_frac", "x": 0.95, "y": 0.55},
         {"act": "wait", "ms": 1500},
         {"act": "expect", "type": "hilog_regex", "re": "\\[Stats\\] 点击关闭"},
         {"act": "expect", "type": "changed", "region": {"space": "dialog", "dialog": "stats", "x": 20, "y": 43, "w": 620, "h": 160}},

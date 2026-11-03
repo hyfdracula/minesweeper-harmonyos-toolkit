@@ -441,6 +441,19 @@ class Geom:
         if space == "canvas":
             # 画布**设备像素**
             return int(round(x)), int(round(y)) + cy
+        if space == "canvas_frac":
+            # 画布**比例坐标**（0..1）：与画布实际尺寸无关。
+            #
+            # 为什么需要它（2026-11-03 平板四域回归）：
+            # 「点统计窗口外面关窗」那条用例原来写的是 canvas 像素 (640, 2000)。
+            # 那个点在 Mate X7（画布 2210x2208）上确实在画布内的空白处，
+            # 可平板的画布只有 2800x**1690**（顶部 150 px 是系统状态栏）——
+            # y=2000 直接点到画布外面去了，点名不副实，窗口自然关不掉。
+            # 写死画布像素的坐标**换个设备就废**，比例坐标不会。
+            if lay is None:
+                raise RuntimeError("还没有布局信息")
+            return (int(round(lay.canvas_w * x)),
+                    int(round(lay.canvas_h * y)) + cy)
         if space == "menu":
             # 菜单栏的**画布 vp**
             return (int(round(x / lay.px_scale)),
@@ -501,6 +514,14 @@ class Geom:
             s = self.custom_scale()
         elif space == "menu":
             s = 1.0 / lay.px_scale
+        elif space == "canvas_frac":
+            # 比例坐标：x/y/w/h 都是画布的 0..1，w/h 要乘画布实际尺寸
+            s = 1.0
+            x, y = self.to_screen(space, region.get("x", 0), region.get("y", 0),
+                                   dialog=region.get("dialog"), cell=region.get("cell"))
+            w = int(round(lay.canvas_w * int(region.get("w", 0))))
+            h = int(round(lay.canvas_h * int(region.get("h", 0))))
+            return x, y, w, h
         else:
             s = 1.0
         x, y = self.to_screen(space, region.get("x", 0), region.get("y", 0),

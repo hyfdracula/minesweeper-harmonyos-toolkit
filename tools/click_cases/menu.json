@@ -8,6 +8,12 @@
     "面板区域取的是下拉面板里一块**没有文字**的地方（实测打开时亮度 240、",
     "关闭时是画布底色 205），所以 region_light(min=230) = 面板在、",
     "region_dark(max=215) = 面板不在，可以直接判「菜单面板有没有消失」。",
+    "那块区域用 space=menu（画布 vp 70..130 / 30..44），**不要用 canvas 像素**：",
+    "下拉面板在画布上的**像素宽度** = 168vp ÷ px_scale，各设备 px_scale 不同",
+    "（Mate X7 是 0.32、模拟器平板是 0.4444），写死画布像素在别的设备上就落到",
+    "面板外面去了 —— 2026-11-03 平板四域回归就栽在这：面板开得好好的，",
+    "断言却说「没变化」。面板几何实测（两台设备一致）：左缘画布 vp 4、",
+    "上缘 vp 21（MENU_BAR_H）、宽 168vp（DROP_W）、首项行 vp 25..49。",
     "退出(X) 会终止应用，放在最后一条。"
   ],
   "cases": [
@@ -17,8 +23,8 @@
       "steps": [
         {"act": "reset"},
         {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
-        {"act": "expect", "type": "changed", "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
-        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "changed", "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "shot", "name": "game_menu_open"}
       ]
     },
@@ -28,9 +34,9 @@
       "steps": [
         {"act": "reset"},
         {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
-        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
-        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "shot", "name": "game_menu_toggle"}
       ]
     },
@@ -118,10 +124,10 @@
       "steps": [
         {"act": "reset"},
         {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
-        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "menu", "top": "game", "entry": "标记(?)"},
         {"act": "wait", "ms": 600},
-        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "expect", "type": "hilog_regex", "re": "菜单动作 marks"},
         {"act": "shot", "name": "game_marks"}
       ]
@@ -132,10 +138,10 @@
       "steps": [
         {"act": "reset"},
         {"act": "tap", "space": "menu", "x": 25.7, "y": 7.7},
-        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_light", "min": 230, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "menu", "top": "game", "entry": "声音"},
         {"act": "wait", "ms": 600},
-        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "canvas", "x": 400, "y": 200, "w": 150, "h": 60}},
+        {"act": "expect", "type": "region_dark", "max": 215, "region": {"space": "menu", "x": 70, "y": 30, "w": 60, "h": 14}},
         {"act": "expect", "type": "hilog_regex", "re": "菜单动作 sound"},
         {"act": "shot", "name": "game_sound"}
       ]
