@@ -34,21 +34,23 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
+# 几何常量**直接从 click_matrix 导入** —— 别自己抄一份。
+# 抄过一次的教训：我按「参考像素 402x200」写，对话框实际是 280x200，
+# 按键也不是 44x32 而是 34x30，确定按钮在 (116,158) 而不是 (250,175)。
+# 这些是同一份事实，抄一份就会漂。
+try:
+    from click_matrix import (CUSTOM_DLG_W, CUSTOM_DLG_H, CUSTOM_GAP,
+                              KEY_W, KEY_H, KEY_GAP, KEYPAD_W, KEYPAD_H,
+                              CUSTOM_BTN_OK, MENU_TOPS, MENU_ENTRIES)
+except Exception as exc:      # pragma: no cover
+    raise SystemExit("拿不到 click_matrix 的几何常量：%s" % exc)
+
 EMU = r'D:\software\DevEco Studio\tools\emulator\Emulator.exe'
 HDC = r'D:\software\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe'
 INSTANCE = 'MatePad 12_2'
 DEVICE = '127.0.0.1:5555'
 BUNDLE = 'com.example.saolei'
 HAP = r'C:\Users\19161\saolei\entry\build\default\outputs\default\entry-default-signed.hap'
-
-# 菜单栏坐标（**画布 vp**，设备无关）—— 与 click_matrix.py 同源
-MENU_TOPS = {"game": (25.7, 7.7)}
-MENU_ENTRIES = {
-    "初级": (33.0, 66.3),
-    "中级": (33.0, 90.3),
-    "高级": (33.0, 114.3),
-    "自定义": (33.0, 138.3),
-}
 
 # 四个盘面的期望值：(适配档n, 格边px, 棋盘x, 棋盘y, HUD)
 # 与 docs/LAYOUT-MATRIX.md 第 9 节、tools/check_layout.py 断言 10 一致
@@ -117,17 +119,19 @@ def latest_layout(marker=None):
     return hit
 
 
-def canvas_geometry():
-    """量画布顶在屏幕上的偏移（画布高 = 屏幕高 - 顶偏移）。
+def screen_size(shot_path):
+    """从截图里读**屏幕**尺寸（截图就是屏幕像素）。
 
-    平板模拟器顶部有 150 px 的系统状态栏，画布从它下面开始。
-    量法：看画面里**有没有**那条状态栏的分界（状态栏和画布底色不同）。
+    画布顶偏移 = 屏幕高 - 画布高（模拟器顶部有系统状态栏，画布从它下面开始）。
+    用截图量比问设备可靠：截图一定存在，而且尺寸就是屏幕尺寸。
     """
-    out = sh('hidumper -s RenderService -a screen', timeout=60)
-    m = re.search(r"['\"]?mainScreen['\"]?.*?(\d{3,4})\s*x\s*(\d{3,4})", out)
-    if m:
-        return int(m.group(1)), int(m.group(2))
-    return 0, 0
+    try:
+        from PIL import Image
+        w, h = Image.open(shot_path).size
+        return int(w), int(h)
+    except Exception as exc:
+        print('[tablet] 量不到屏幕尺寸（%s），画布顶偏移按 0 算' % exc)
+        return 0, 0
 
 
 def tap_menu(px_scale, canvas_y, top_vp, entry_vp):
@@ -218,17 +222,19 @@ def main():
     print('[tablet] 画布 %dx%d px，密度换算 %s，适配档 n=%s，格边 %s px，原点 (%s,%s)，HUD=%s'
           % (cw, ch, px_scale, fit, tile, bx, by, hud))
 
-    # 画布顶偏移 = 屏幕高 - 画布高（模拟器顶部有系统状态栏）
-    sw, sh_ = canvas_geometry()
+    # 先截一张：屏幕尺寸要从截图里量（画布顶偏移 = 屏幕高 - 画布高）
+    probe_shot = grab(args.out, 'TABLET_12_2_probe.jpeg')
+    sw, sh_ = screen_size(probe_shot) if probe_shot else (0, 0)
     canvas_y = max(0, sh_ - ch) if sh_ else 0
     print('[tablet] 屏幕 %dx%d，画布顶偏移 %d px' % (sw, sh_, canvas_y))
 
     ok = True
     checked = []
+    last_line = line
 
     def check_board(name):
         """核对一个盘面的布局是否符合期望。"""
-        nonlocal ok
+        nonlocal ok, last_line
         exp = EXPECT.get(name)
         if exp is None:
             print('[tablet] %s 没有期望值，跳过' % name)
@@ -238,14 +244,16 @@ def main():
             print('[tablet] %s：没读到布局日志 ✗' % name)
             ok = False
             return
+        last_line = ln
         mm = LAYOUT_RE.search(ln)
         if not mm:
             print('[tablet] %s：布局日志解析失败 ✗' % name)
             ok = False
             return
         g = mm.groups()
+        hm = HUD_RE.search(ln)
         got = (int(g[3]), int(g[6]), int(g[7]), int(g[8]),
-               int(HUD_RE.search(ln).group(1)) if HUD_RE.search(ln) else 0)
+               int(hm.group(1)) if hm else 0)
         if got == exp:
             print('[tablet] %-4s n=%d 格边 %d px 原点 (%d,%d) HUD=%d —— 与期望一致 ✓'
                   % (name, got[0], got[1], got[2], got[3], got[4]))
@@ -267,25 +275,28 @@ def main():
     print('[tablet] 切到 自定义 24x30 …')
     tap_menu(px_scale, canvas_y, MENU_TOPS["game"], MENU_ENTRIES["自定义"])
     time.sleep(1.2)
-    # 自定义框里的三个输入框 + 右侧数字键盘（参考像素，坐标与 click_matrix 相同）
-    dlg_w, dlg_h = 402, 200
-    s = max(0.5, min(2.0, 1.0 / px_scale, (cw - 32) / dlg_w, (ch - 32) / dlg_h))
-    ox = int(round((cw - (dlg_w + 12) * s) / 2))
-    oy = int(round((ch - dlg_h * s) / 2)) if dlg_h * s <= ch else 0
-    key_x = ox + (dlg_w + 12) * s
-    key_w, key_h, key_gap = 44, 32, 6      # 数字键盘按键（参考像素）
+    # 自定义框 + 右侧数字键盘（几何常量全从 click_matrix 来）
+    s = max(0.5, min(2.0, 1.0 / px_scale,
+                     (cw - 32) / (CUSTOM_DLG_W + CUSTOM_GAP + KEYPAD_W),
+                     (ch - 32) / max(CUSTOM_DLG_H, KEYPAD_H)))
+    total_w = CUSTOM_DLG_W * s + CUSTOM_GAP * s + KEYPAD_W * s
+    total_h = max(CUSTOM_DLG_H * s, KEYPAD_H * s)
+    ox = int(round((cw - total_w) / 2))
+    oy = int(round((ch - total_h) / 2)) if total_h <= ch else 0
+    key_x = ox + (CUSTOM_DLG_W + CUSTOM_GAP) * s
     keypad = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5,
               "7": 6, "8": 7, "9": 8, "0": 9}
 
     def press_digit(ch):
         i = keypad[ch]
         col, row = i % 3, i // 3
-        x = int(round(key_x + (col * (key_w + key_gap) + key_w / 2.0) * s))
-        y = int(round(oy + (row * (key_h + key_gap) + key_h / 2.0) * s))
+        x = int(round(key_x + (col * (KEY_W + KEY_GAP) + KEY_W / 2.0) * s))
+        y = int(round(oy + (row * (KEY_H + KEY_GAP) + KEY_H / 2.0) * s))
         sh('uitest', 'uiInput', 'click', str(x), str(y))
         time.sleep(0.45)
 
     def tap_field(vx, vy):
+        """点自定义框里的输入框（参考像素坐标，与 click_matrix 的用例同源）。"""
         x = int(round(ox + vx * s))
         y = int(round(oy + vy * s))
         sh('uitest', 'uiInput', 'click', str(x), str(y))
@@ -297,9 +308,9 @@ def main():
     tap_field(162, 86)          # 宽度框
     press_digit("3")
     press_digit("0")
-    # 确定按钮（框内右下角）
-    bx_ = int(round(ox + 250 * s))
-    by_ = int(round(oy + 175 * s))
+    # 确定按钮
+    bx_ = int(round(ox + (CUSTOM_BTN_OK[0] + CUSTOM_BTN_OK[2] / 2.0) * s))
+    by_ = int(round(oy + (CUSTOM_BTN_OK[1] + CUSTOM_BTN_OK[3] / 2.0) * s))
     sh('uitest', 'uiInput', 'click', str(bx_), str(by_))
     time.sleep(2.0)
     check_board("自定义")
@@ -310,11 +321,23 @@ def main():
         ok = False
 
     # 状态条读数（七段数码管）
+    #
+    # 坑（2026-11-03）：不能直接 `read_counters(path)` 全图搜索 ——
+    # 棋盘上的蓝砖和计数器面板会被并成同一段列区间，面板就找不到了；
+    # 而且「状态条上沿」是**画布内**坐标，截图是**屏幕**坐标，
+    # 差着一段画布顶偏移（模拟器顶部 150 px 的系统状态栏）。
+    # 必须限定在状态条那条横带里找（跟跑测器 click_matrix 的做法一致）。
     if shot:
         try:
             import sevenseg_read
-            counters = sevenseg_read.read_counters(
-                shot, strip_box=(0, canvas_y + (ch - 301), cw, 301))
+            strip_top = None
+            m2 = re.search(r'状态条上沿=(\d+)px', last_line or '')
+            if m2:
+                strip_top = canvas_y + int(m2.group(1))
+            counters = []
+            if strip_top is not None:
+                counters = sevenseg_read.read_counters(
+                    shot, strip_box=(0, strip_top, cw, max(1, sh_ - strip_top)))
             for panel, digits in counters:
                 print('[tablet] 状态条读数：%s' % (''.join(
                     d if d else '?' for d in digits),))
