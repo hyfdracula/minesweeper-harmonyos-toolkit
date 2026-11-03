@@ -280,7 +280,7 @@ def main():
     # 坑（2026-11-03）：平板模拟器屏幕 2800x1840、画布 2800x1690，
     # 差 150 px —— 但那 150 px **不都在顶部**：
     # 实测顶部有 ~87 px 的系统状态栏（时钟、信号、电��），底部还有 ~63 px 的手势条，
-    # 87+1690+63 = 1840 ✓。按「屏幕高 - 画布高」算成 150 就会点偏 60 多像素，
+    # 87+1690+63 = 1840。按「屏幕高 - 画布高」算成 150 就会点偏 60 多像素，
     # 菜单栏点了个空 —— 表现是「菜单点了没反应」。
     # 跑测器一直是对的，因为它用**实测**（找棋盘第一行砖色上沿），
     # 这里直接复用它的 Geom.probe_canvas_y()。
@@ -318,13 +318,13 @@ def main():
             return
         ln = latest_layout(marker)
         if ln is None:
-            print('[tablet] %s：没读到布局日志 ✗' % name)
+            print('[tablet] %s：没读到布局日志 [NG]' % name)
             ok = False
             return
         last_line = ln
         mm = LAYOUT_RE.search(ln)
         if not mm:
-            print('[tablet] %s：布局日志解析失败 ✗' % name)
+            print('[tablet] %s：布局日志解析失败 [NG]' % name)
             ok = False
             return
         g = mm.groups()
@@ -332,10 +332,10 @@ def main():
         got = (int(g[3]), int(g[6]), int(g[7]), int(g[8]),
                int(hm.group(1)) if hm else 0)
         if got == exp:
-            print('[tablet] %-4s n=%d 格边 %d px 原点 (%d,%d) HUD=%d —— 与期望一致 ✓'
+            print('[tablet] %-4s n=%d 格边 %d px 原点 (%d,%d) HUD=%d —— 与期望一致 [OK]'
                   % (name, got[0], got[1], got[2], got[3], got[4]))
         else:
-            print('[tablet] %-4s 实测 %s，期望 %s ✗' % (name, got, exp))
+            print('[tablet] %-4s 实测 %s，期望 %s [NG]' % (name, got, exp))
             ok = False
         checked.append(name)
         # 换盘面后几何变了（格边、画布高度、状态条位置都可能不同），

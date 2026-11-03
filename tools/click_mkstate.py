@@ -328,7 +328,7 @@ def make_state(device, state, timeout=120.0, attempts=2):
         if _wait_dialog(device, state, rect, outdir, timeout):
             # 框是出现了，但**未必是要的那个框**：win_probe 的「赢一局」偶尔会踩到雷，
             # 弹出来的是失败框；后面按胜利框的坐标点按钮就全是空点。
-            # 判据用**应用自己的日志**（[Dialog] 打开 胜利/失败）✓。
+            # 判据用**应用自己的日志**（[Dialog] 打开 胜利/失败）。
             got = _dialog_log_type(device, outdir, marker=marker)
             if got == state:
                 print("[mkstate] %s 框核对通过（应用日志确认）" % state)

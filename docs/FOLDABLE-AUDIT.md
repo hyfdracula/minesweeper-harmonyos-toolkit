@@ -101,7 +101,7 @@
 
 而且**离线推演与实测完全一致**：`tools/check_layout.py` 的断言 10 对平板
 24×30 的期望值就是 `(适配档n=2, 格边 72, 棋盘原点(320,42), 横向溢出 0,
-纵向溢出 58, HUD=True)` —— 实测逐项吻合 ✓。
+纵向溢出 58, HUD=True)` —— 实测逐项吻合（已验证）。
 
 H1 里剩下的仍是**真机专属**的那部分（ Pura X Max 内屏 24×30 的纵向拖动、
 状态条区域点击不翻开格子）：那是折在中间的那块屏，模拟器给不了。
@@ -279,11 +279,11 @@ H1 里剩下的仍是**真机专属**的那部分（ Pura X Max 内屏 24×30 �
 
 | 条目 | 处置 | 证据 |
 |---|---|---|
-| **H3** 密度只在 `aboutToAppear` 取一次 | **已修**：改读**窗口所在屏**的密度（`window.getLastWindow()` → `displayId` → `display.getDisplayByIdSync(id).densityPixels`）；画布 `onAreaChange`（尺寸变化）也触发一次重取，密度变了就重算布局 | 折叠后布局日志从 2210×2208/n=5 变成 1080×2236/n=3 ✓ |
-| **H2** 折叠开合会重建窗口舞台 | **部分修好**：Ability 里的 `onWindowStageChange` 方法**根本不会被调用**（UIAbility 没有这个回调 ✗ —— Codex 复审 P1 ✓）；换成 `window.on('windowSizeChange')` ✓，折叠时确实触发（日志「窗口尺寸变化」）✓ | `docs\verify\X7_folded_play.jpeg` ✓ |
-| **H4** 折叠后保留用户手动缩放档 | **逻辑保留**（`layout()` 里 `if (!this.userZoomed)` 那条没动 ✓）：没手动缩放过时换屏按新的适配档重算 ✓；手动缩放过时保留原档 ✓。**手感要用户自己捏合验证**（模拟器没有多点触控 ✗） | 代码路径 + 布局日志 ✓ |
-| **H1** HUD 模式在两个模拟器上没执行过 | **仍待真机**：24×30 在 Pura X Max 内屏（画布 2584×1644）会溢出 322 px 进 HUD ✓（算式见 `LAYOUT-MATRIX.md` §4.3.2.1 ✓）；Mate X7 / Mate 90 Pro 都装得下 ✗ → 模拟器出不了 HUD | `LAYOUT-MATRIX.md` §4.3.2.1 ✓ |
-| **新发现（Codex 复审 P1）** | 「画布 `context.width` ÷ 组件 vp 宽」算密度是**错的** —— ArkUI 的 Canvas 2D 上下文整个坐标系都是 vp，这个比值恒等于 1（曾把画布画成 707×707 ✗） | 已改为读窗口所在屏的密度 ✓ |
+| **H3** 密度只在 `aboutToAppear` 取一次 | **已修**：改读**窗口所在屏**的密度（`window.getLastWindow()` → `displayId` → `display.getDisplayByIdSync(id).densityPixels`）；画布 `onAreaChange`（尺寸变化）也触发一次重取，密度变了就重算布局 | 折叠后布局日志从 2210×2208/n=5 变成 1080×2236/n=3 |
+| **H2** 折叠开合会重建窗口舞台 | **部分修好**：Ability 里的 `onWindowStageChange` 方法**根本不会被调用**（UIAbility 没有这个回调 —— Codex 复审 P1 已确认）；换成 `window.on('windowSizeChange')`，折叠时确实触发（日志「窗口尺寸变化」）| `docs\verify\X7_folded_play.jpeg` |
+| **H4** 折叠后保留用户手动缩放档 | **逻辑保留**（`layout()` 里 `if (!this.userZoomed)` 那条没动）：没手动缩放过时换屏按新的适配档重算；手动缩放过时保留原档。**手感要用户自己捏合验证**（模拟器没有多点触控） | 代码路径 + 布局日志 |
+| **H1** HUD 模式在两个模拟器上没执行过 | **仍待真机**：24×30 在 Pura X Max 内屏（画布 2584×1644）会溢出 322 px 进 HUD（算式见 `LAYOUT-MATRIX.md` §4.3.2.1）；Mate X7 / Mate 90 Pro 都装得下，但模拟器出不了 HUD，所以这一条没能在模拟器上验证 | `LAYOUT-MATRIX.md` §4.3.2.1 |
+| **新发现（Codex 复审 P1）** | 「画布 `context.width` ÷ 组件 vp 宽」算密度是**错的** —— ArkUI 的 Canvas 2D 上下文整个坐标系都是 vp，这个比值恒等于 1（曾把画布画成 707×707） | 已改为读窗口所在屏的密度 |
 
 ### 7.1 折叠实测记录（Mate X7 模拟器）
 
@@ -292,9 +292,9 @@ H1 里剩下的仍是**真机专属**的那部分（ Pura X Max 内屏 24×30 �
 | 展开 | 2210×2416 | 画布 2210×2208，适配档 n=5，unit=10，格边 180 px，棋盘原点 (295,167)，HUD=0 |
 | 折叠（**不重启应用**） | 1080×2444 | 画布 **1080×2236**，适配档 **n=3**，unit=6，格边 **108 px**，棋盘原点 **(54,569)**，HUD=0 |
 
-- **活的重排**：两次切换应用都没重启，日志直接变了 ✓
-- **局面完整保留**：同样的「1」「2」、同样的雷、同样翻开的格子 ✓；计时继续走 ✓
-- 折叠后状态条读数 **计时 3 / 雷数 10** ✓（用 `tools/sevenseg_read.py` 反解出来 ✓）
+- **活的重排**：两次切换应用都没重启，日志直接变了
+- **局面完整保留**：同样的「1」「2」、同样的雷、同样翻开的格子；计时继续走
+- 折叠后状态条读数 **计时 3 / 雷数 10**（用 `tools/sevenseg_read.py` 反解出来）
 - 证据图：`docs\verify\X7_unfolded_play.jpeg`、`X7_folded_play.jpeg`、
   `X7_state_before.png`、`X7_state_after.png`、`X7_strip_after.png`
 
@@ -302,8 +302,8 @@ H1 里剩下的仍是**真机专属**的那部分（ Pura X Max 内屏 24×30 �
 
 `Emulator.exe -instance 'Mate X7' -foldedState close` 有时**只改了屏幕尺寸、
 没把正在运行的窗口叫醒**（应用仍按旧尺寸画）。这时需要**重启一次应用**
-才能让它在新屏上布局 ✓。判据看截图分辨率：
-`snapshot_display` 的输出里 width/height 变了才算数 ✓。
+才能让它在新屏上布局。判据看截图分辨率：
+`snapshot_display` 的输出里 width/height 变了才算数。
 
 ---
 

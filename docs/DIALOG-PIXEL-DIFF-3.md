@@ -43,7 +43,7 @@
 | 7 | 同上 | 526-533 | 统计对话框填数：右栏 6 行（`IDC_STATIC1..6`）分别写 局数/胜局/胜率/连胜/连败/当前连败 |
 | 8 | 同上 | 536-547 | 中栏「最佳时间」表：按难度分节填 `IDC_TIME1..5` + 日期 |
 | 9 | `Minesweeper-master/Minesweeper/utf8/Minesweeper.rc` | **45-66** | `IDD_STATISTIC DIALOGEX 0,0,457,133` 的完整版式：左 `LISTBOX` (8,8,105,49)、中 `GROUPBOX "最佳时间"` (123,8,158,70)、右 6 个标签 (x=290) + 6 个数值 (x=328, y=8/22/36/50/64/78)、底部 `关闭(C)` (328,107,104,18) 与 `重置(&R)` |
-| 10 | `linux-minesweeper-main/src/game/Statistics.cpp` | 25-51 | Win7 观感复刻的**按难度**统计：`load/recordGame/reset`，键 `stats/<难度>/played|won|bestTime|curStreak|bestWinStreak|worstLossStreak` |
+| 10 | `linux-minesweeper-main/src/game/Statistics.cpp` | 25-51 | Win7 观感复刻的**按难度**统计：`load/recordGame/reset`，键 `stats/<难度>/played / won / bestTime / curStreak / bestWinStreak / worstLossStreak` |
 | 11 | `linux-minesweeper-main/src/ui/StatisticsDialog.cpp` | 34-44, 64-77 | 统计窗口的 6 个标题（Games played/won/Win percentage/Best time/Longest winning streak/Longest losing streak）与**胜率 = `won*100/played`（整除）** |
 | 12 | `ReversingMinesweeper-master/Minesweeper/windowing.c` | 304-361 | **Windows XP 原版**的 Winners 对话框：只有「每档最快用时 + 玩家名」（`GameConfig.Times[0..2]`、`ShowWinnerNameAndTime`） |
 
@@ -123,10 +123,10 @@
 
 | 对话框 | 渲染图（证据） | 参考图 | 缩放 | 客户区一致率 | 整框一致率 | 备注 |
 |---|---|---|---|---|---|---|
-| 胜利框 | `docs/verify/DLG2_win_dialog_v2.jpeg`（build 323a324） | `win.jpg` 396x340 | k=2 整数 | **90.55%**（差异 44384 / 469680） | **79.29%**（差异 111523 / 538560） | 与第二轮 `DIALOG-PIXEL-DIFF-2.md` 完全复现 ✓ |
+| 胜利框 | `docs/verify/DLG2_win_dialog_v2.jpeg`（build 323a324） | `win.jpg` 396x340 | k=2 整数 | **90.55%**（差异 44384 / 469680） | **79.29%**（差异 111523 / 538560） | 与第二轮 `DIALOG-PIXEL-DIFF-2.md` 完全复现 |
 | 失败框 | `docs/verify/P90_lose_dialog.jpeg`（**旧 build 66e6c33**） | `loss.jpg` 483x288 | k=2 整数 | **92.50%**（差异 35048 / 467000） | **81.36%**（差异 103699 / 556416） | **这是旧 build 的数**，见下 |
 | 关于框 | `docs/verify/CM_1101c_help_about.jpeg`（当前 build） | `about.jpg` 615x408（整窗） | k=2 整数 | **87.54%**（差异 23310 / 187144） | **69.41%**（差异 75679 / 247432） | 比第一轮（旧 build）的 86.27% / 68.28% 高（客户区 +1.08 pt），因为 2026-10-31 修过「客户区整体下移 1 参考像素」 |
-| 统计窗口 | `docs/verify/CM_1101d_stats_list_beginner.jpeg`（当前 build） | `information.jpg` 702x254 | **1.7778 最近邻** | 无（非整数倍不做分块口径） | **79.20%**（差异 117096 / 562848） | 与 `DIALOG-PIXEL-DIFF-2.md` 同口径复算一致 ✓ |
+| 统计窗口 | `docs/verify/CM_1101d_stats_list_beginner.jpeg`（当前 build） | `information.jpg` 702x254 | **1.7778 最近邻** | 无（非整数倍不做分块口径） | **79.20%**（差异 117096 / 562848） | 与 `DIALOG-PIXEL-DIFF-2.md` 同口径复算一致 |
 | 帮助框 | `docs/verify/CM_1101c_help_help.jpeg`（当前 build） | 无（Lmy 克隆里没有帮助框参考图） | — | — | — | 只做几何核对 |
 | 外观框 | `docs/verify/CM_1101_appearance_thumb_mines.jpeg`（当前 build） | 无 | — | — | — | 只做几何核对 |
 
