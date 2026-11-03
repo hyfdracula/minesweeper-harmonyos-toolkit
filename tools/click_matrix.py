@@ -505,6 +505,27 @@ class Geom:
             bx = lay.board_x + c * lay.tile + lay.tile / 2.0
             by = lay.board_y + r * lay.tile + lay.tile / 2.0
             return int(round(bx)), int(round(by)) + cy
+        if space == "free":
+            # 画布上一块**保证空白**的位置：菜单栏下方、棋盘上方的左边缘。
+            #
+            # 为什么需要（2026-11-03，Mate 90 Pro 上 dialogs.stats.outside 失败）：
+            # 「点统计窗外面关窗」原来用 canvas_frac(0.95, 0.55)，想着点画布右侧。
+            # 可统计窗是**居中**的，而且在窄屏上**几乎占满整宽**
+            # （Mate 90 Pro 实测 x 18..1261，画布才 1280 宽），
+            # 加上画布顶偏移不是「屏幕高-画布高」，那个点算下来**落在窗内**
+            # （重置按钮附近），于是窗外关闭根本没触发 —— 用例失败，
+            # 但应用是对的。
+            #
+            # 这里的取法与设备无关：
+            #   x = 画布左边缘（棋盘是居中的，左边缘一定空着）
+            #   y = 菜单栏下沿与棋盘上沿之间的中点
+            # 统计窗是**垂直居中**的，三个设备上它的上沿都远在这条带子下面，
+            # 所以这个点一定在窗外。
+            menu_px = 21.0 / lay.px_scale          # MENU_BAR_H = 21 vp
+            top = menu_px + 4
+            bottom = max(top + 4, lay.board_y - 4)
+            return (int(round(max(6.0, lay.canvas_w * 0.02))),
+                    int(round((top + bottom) / 2.0)) + cy)
         if space == "dialog":
             name = dialog
             if name is None:
@@ -1347,7 +1368,7 @@ class Runner:
                         # 只看「差异像素 0」这类数字猜不出原因，得有图。
                         # 2026-11-03 平板回归里就栽在这：菜单面板明明开着，
                         # 断言却说「没变化」，看图才发现**基准帧**里那块已经是面板了。
-                        self._dump_frames(res.case_id, i + 1)
+                        self._dump_frames(res.cid, i + 1)
                     elif self.verbose:
                         print("      ok %s: %s" % (step.get("type"), msg))
                 elif act == "lose_game":
