@@ -1107,13 +1107,32 @@ class Runner:
         base = self.hold if step.get("type", "").endswith("_vs_hold") else self.checkpoint
         if base is None:
             return False, "没有基准画面（前面没有 hold / reset / expect）"
-        cur = self.current()
-        n = diff_count(base, cur, rect)
+        # 断言要**等画面稳定**再判，别拿动画中间帧说事。
+        #
+        # 坑（2026-11-03）：`dialogs.lose.menu` 在 Mate X7 上偶发失败 ——
+        # 点「换个难度(D)」后框是关了，可下拉菜单**还没画出来**，
+        # 断言就说「没变化」（0/8272 像素）。紧接着的截图里菜单又好好开着。
+        # 应用侧的 openGameMenu() 是同步的（置 menuOpenId + draw()），
+        # 所以这是**截图与重绘之间的时序**，不是应用的毛病。
+        #
+        # 判据不放松：最终状态必须真的变了/没变；这里只是**多等几拍**再看。
+        # 同样的机制治过另一条偶发失败（Mate X7 的 custom.focus.replace）。
+        n = diff_count(base, self.current(), rect)
         area = max(1, rect[2] * rect[3])
+        thr = max(6, 0.0008 * area)
+        for attempt in range(4):
+            changed = n >= thr
+            if changed == want_change:
+                ratio = n / float(area)
+                return True, "差异像素 %d / %d (%.3f%%) -> %s" % (
+                    n, area, ratio * 100, "有变化" if changed else "无变化")
+            # 不符合预期：等一拍，**强制重截**再判
+            time.sleep(0.8)
+            self.dirty = True          # 让 current() 真的重新截图
+            n = diff_count(base, self.current(), rect)
         ratio = n / float(area)
-        changed = n >= max(6, 0.0008 * area)
-        ok = changed if want_change else (not changed)
-        return ok, "差异像素 %d / %d (%.3f%%) -> %s" % (
+        changed = n >= thr
+        return False, "差异像素 %d / %d (%.3f%%) -> %s（等了 4 拍仍不符）" % (
             n, area, ratio * 100, "有变化" if changed else "无变化")
 
     def expect_layout_changed(self, step: dict) -> tuple[bool, str]:
@@ -1277,6 +1296,11 @@ class Runner:
                     ok, msg = self.run_expect(step)
                     if not ok:
                         res.fail("第%d步 %s: %s" % (i + 1, step.get("type"), msg))
+                        # 断言失败时把**基准帧**和**当前帧**都存下来 ——
+                        # 只看「差异像素 0」这类数字猜不出原因，得有图。
+                        # 2026-11-03 平板回归里就栽在这：菜单面板明明开着，
+                        # 断言却说「没变化」，看图才发现**基准帧**里那块已经是面板了。
+                        self._dump_frames(res.case_id, i + 1)
                     elif self.verbose:
                         print("      ok %s: %s" % (step.get("type"), msg))
                 elif act == "lose_game":
@@ -1295,6 +1319,26 @@ class Runner:
                 # 「对话框按钮坏了」——把锅甩给被测代码。出错就停。
                 break
         return res
+
+    def _dump_frames(self, case_id: str, step_no: int) -> None:
+        """断言失败时把基准帧 / 当前帧存成图，便于事后看图定位。
+
+        存到 docs\\verify\\，名字 `<tag>_FAIL_<用例>_<步号>_base|cur.jpeg`。
+        存不了就算了 —— 不能因为存图失败把用例判成别的错。
+        """
+        try:
+            from PIL import Image
+            base = self.checkpoint
+            cur = self.current()
+            stem = "CM_%sFAIL_%s_step%d" % (self.tag + "_" if self.tag else "",
+                                            case_id.replace(".", "_"), step_no)
+            for arr, suffix in ((base, "base"), (cur, "cur")):
+                if arr is None:
+                    continue
+                path = os.path.join(VERIFY_DIR, "%s_%s.jpeg" % (stem, suffix))
+                Image.fromarray(arr.astype("uint8")).save(path, quality=92)
+        except Exception:
+            pass
 
     def _before_capture(self) -> None:
         """改动动作之前先把画面存下来。
