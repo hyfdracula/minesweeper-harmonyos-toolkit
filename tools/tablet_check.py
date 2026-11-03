@@ -201,14 +201,22 @@ def grab(outdir, name):
 
 
 def main():
+    global DEVICE
     ap = argparse.ArgumentParser(description='MatePad Pro 12.2 适配验证')
     ap.add_argument('--no-emulator', action='store_true',
                     help='模拟器已经在跑时用这个（不重复启动）')
+    ap.add_argument('--device', default=None,
+                    help='目标设备（hdc 序列号）。不给就用模拟器实例。')
+    ap.add_argument('--tag', default='tablet',
+                    help='截图文件名前缀（区分模拟器和真机）')
     ap.add_argument('--out', default=os.path.join(REPO, 'docs', 'verify'))
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    if not args.no_emulator:
+    # 指定了设备就用它；否则起模拟器
+    if args.device:
+        DEVICE = args.device
+    elif not args.no_emulator:
         print('[tablet] 启动模拟器实例 %s …' % INSTANCE)
         # **不要等它退出**：`Emulator.exe -start` 是个常驻的 GUI 进程，
         # 不会自己返回（早先这里用 subprocess.run 等它，600 秒后超时，
@@ -237,9 +245,18 @@ def main():
     sh('aa', 'force-stop', BUNDLE)
     time.sleep(1.0)
     sh('aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE)
-    time.sleep(6.0)
 
-    line = latest_layout(marker)
+    # **轮询**等布局日志，不要固定睡几秒。
+    # 坑（2026-11-03）：新装的实例首次启动，应用要 ~14 秒才画完第一帧
+    # （固定 sleep 6 秒就报「没读到布局日志」），而真机更快、模拟器更慢，
+    # 时间没法写死 —— 只能等「日志真的出现」。
+    line = None
+    for attempt in range(20):
+        line = latest_layout(marker)
+        if line:
+            break
+        print('[tablet] 还没读到布局日志，等第 %d 次（最多 20 次 × 3 秒）…' % (attempt + 1))
+        time.sleep(3.0)
     if not line:
         print('[tablet] 没读到**本次启动之后**的布局日志')
         return 1
@@ -256,7 +273,7 @@ def main():
           % (cw, ch, px_scale, fit, tile, bx, by, hud))
 
     # 先截一张（后面截图取不到要判失败，先确认这条路通）
-    probe_shot = grab(args.out, 'TABLET_12_2_probe.jpeg')
+    probe_shot = grab(args.out, 'TABLET_%s_probe.jpeg' % args.tag)
 
     # 画布顶偏移**实测**，不要用「屏幕高 - 画布高」去推。
     #
@@ -382,7 +399,7 @@ def main():
     check_board("自定义")
 
     # 截图（取不到就判失败）
-    shot = grab(args.out, 'TABLET_12_2_play.jpeg')
+    shot = grab(args.out, 'TABLET_%s_play.jpeg' % args.tag)
     if shot is None:
         ok = False
 

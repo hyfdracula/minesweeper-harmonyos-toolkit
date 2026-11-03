@@ -751,3 +751,24 @@ preflight，新鲜度判据真正生效）。
 
 > 顺便记一个坑：探针脚本里 `np.array(Image.open(...))` 没 `.astype(int)`，
 > uint8 下 `r + 25` 会**溢出回绕**，面板一个都找不到 —— 七段反解器自己是对的。
+
+#### 12.8 MatePad 适配收尾（2026-11-03 下午）
+
+用户把**真平板**插上了（`MRO-W00` = HUAWEI MatePad Pro，`tablet`，API 26，
+屏幕 2800×1840）。**横屏和竖屏都验过了，四个盘面全部与推演吻合，应用代码一行没改。**
+
+| 项 | 结果 |
+|---|---|
+| 装不上 | `code:9568423 device is unauthorized` —— profile 的 `debug-info.device-ids` 只有 Pura X Max 一台 |
+| 解法 | DevEco 里重新自动签名（两台设备一起连着签）→ profile 变两台 → **两台都装得上** |
+| 新工具 | `tools/check_sign_profile.py`：查 profile 授权了哪些设备、哪台没授权 |
+| 真平板横屏 | 画布 **2800×1690**（和模拟器实例一模一样，顶偏移实测 91 px vs 模拟器 90 px）→ 四个盘面逐项吻合 ✓ |
+| 竖屏 | 新建「MatePad 12_2 P」实例（`-rotation` 命令对本实例无效，改成建实例后手改 `config.ini`）→ 画布 1840×2650 → 四个盘面逐项吻合 ✓ |
+| 竖屏特有 | 初级能到 **n=5 / 格边 180 px**（比横屏的 144 更大）；30 列的局**横向溢出 320 px**，棋盘左右各溢 160 px |
+| 工具改进 | `tablet_check.py` 改成**轮询**等布局日志（原来写死 6 秒，新实例首次启动要 14 秒） |
+
+证据图：`docs\verify\TABLET_real_play.jpeg`（真平板横屏 24×30 + HUD）、
+`docs\verify\TABLET_port_play.jpeg`（竖屏 24×30，左右溢出）。
+
+> **平板适配已收尾**：横屏在**真机**上验过，竖屏在模拟器上验过，
+> 两者四个盘面都与「按实测画布现场推演」逐项吻合。
