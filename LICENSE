@@ -1,0 +1,54 @@
+MIT License
+
+Copyright (c) 2026 扫雷 HarmonyOS 复刻贡献者 (hyfdracula)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## 关于本仓内容与外部参考实现
+
+**本仓（`minesweeper`）采用上面这份 MIT 许可证，它覆盖本仓的全部内容**：
+
+- `tools/` —— 跑测与验证工具（点击回归跑测器、版式推演脚本、逐像素比对脚本等）；
+- `engine/` —— 规则层（`src/MinesweeperEngine.ts`）与其离线测试（`test/engine.test.ts`）；
+- `docs/` —— 规格与逐项核对文档（`SPEC.md`、`WIN7-FEATURE-GAP.md`、`LAYOUT-MATRIX.md`、
+  `HANDOVER.md` 等）以及证据截图与日志（`docs/verify/`）。
+
+**本仓不包含任何 Microsoft Windows 7 扫雷的版权素材。**
+原版的贴图与音效提取件在**应用仓** `C:\Users\19161\saolei` 的
+`entry/src/main/resources/rawfile/` 下，并**单独声明**（见应用仓的 `LICENSE` 与
+`ASSETS-NOTICE.md`），**不在本仓内、也不在本仓的 MIT 授权范围内**。
+
+**外部参考实现不在本仓内。**
+本项目的行为依据来自本机目录 `C:\Users\19161\Desktop\minesweeper-refs\` 下的三份第三方实现：
+
+| 参考实现 | 用途 | 上游许可 |
+|---|---|---|
+| `linux-minesweeper-main/` | 行为事实源（`BoardWidget.cpp`、`Theme.h` 等） | **GPL-3.0** |
+| `ReversingMinesweeper-master/` | 原版 XP 扫雷的逆向重建源码与设计文档 | 随上游自带声明 |
+| `Minesweeper-master/` | 原始实现与规格对照 | 随上游自带声明 |
+
+这些目录**不在本仓内**，其著作权归各自作者所有，本项目**遵循其上游许可**：
+本仓只把它们当作**行为与参数的参考依据**，文档中引用的是**片段与数值**
+（例如动画帧的时长与帧号、精灵图集的坐标、菜单项的名称与快捷键），
+不是把它们的源码复制进本仓。因此本仓的代码仍适用上面这份 MIT。
+
+若要把这些参考实现一并分发，**必须单独处理它们的许可**（例如 `linux-minesweeper`
+是 GPL-3.0，带有传染性条款），**不能**直接并入本仓。
