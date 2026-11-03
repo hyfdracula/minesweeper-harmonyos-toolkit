@@ -1104,6 +1104,12 @@ class Runner:
         lay = self.geom.layout
         if lay is None:
             return False
+        # **必须重新截一张**：current() 只在 self.dirty 为真时才重截，
+        # 而 _launch_fresh_app 刚把应用重启过、没人把 dirty 置真 ——
+        # 于是这里拿到的是**重启之前那一帧**的旧图，拿旧图判「棋盘是不是全新的」
+        # 当然是「不是」，于是每条用例都在第 1 步 reset 上失败
+        # （2026-11-03 23:10 真平板整轮实测：86 条全死在 reset）。
+        self.dirty = True
         img = self.current()
         if img is None:
             return False
