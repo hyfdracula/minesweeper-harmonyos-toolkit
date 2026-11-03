@@ -160,6 +160,20 @@ STRIP_RE = re.compile(r"状态条上沿=(\d+)px")
 BOARD_RE = re.compile(r"盘面=(\d+)x(\d+)\s+雷=(\d+)")
 
 
+def log_line_after(line: str, marker: str) -> bool:
+    """这条 hilog 行是不是在 `marker` 之后？（marker 是 "MM-DD HH:MM:SS.mmm"）
+
+    取行首 18 个字符当时间戳，和 marker 逐字符比（格式相同，直接比字符串即可）。
+    **取不到时间戳的行一律当作「不是之后的」** —— 宁可漏，不可把旧行当新的。
+    """
+    if not marker:
+        return True
+    head = line[:18]
+    if len(head) != 18:
+        return False
+    return head >= marker
+
+
 # ===========================================================================
 #  设备
 # ===========================================================================
@@ -262,6 +276,20 @@ class Hdc:
         self.shell("aa", "force-stop", BUNDLE, timeout=60, check=True)
         time.sleep(1.0)
 
+    def device_now_marker(self) -> str:
+        """取设备当前时间，做成和 hilog 行一样格式的时间戳（当「本轮起点」）。
+
+        hilog 是**环形缓冲**：跑久了旧行会被挤掉/留着。
+        「取最后一条 `[Dialog] 打开 …`」会拿到**上一轮**留下的行，
+        于是把明明赢了的一局判成失败（2026-11-03 踩过）。
+        所以凡是「认这一轮的行」的地方，都得带上这个起点标记。
+        """
+        out = self.shell("shell", "date '+%m-%d %H:%M:%S'", timeout=60)
+        ts = (out or "").strip().splitlines()[-1].strip() if out else ""
+        if len(ts) == 14:            # "MM-DD HH:MM:SS" -> 补到毫秒精度
+            ts += ".000"
+        return ts
+
     def start_app(self) -> str:
         """起应用，返回命令输出。
 
@@ -332,7 +360,8 @@ class Geom:
         self._log_lines = raw.splitlines()
         return self._log_lines
 
-    def refresh_layout(self, retries: int = 24, gap_s: float = 2.0) -> Layout:
+    def refresh_layout(self, retries: int = 24, gap_s: float = 2.0,
+                       marker: str | None = None) -> Layout:
         """从 hilog 里取**最后一条**布局日志。
 
         重试几遍：应用刚起来时布局日志可能还没写进 hilog 缓冲区
@@ -341,14 +370,23 @@ class Geom:
         真机比模拟器慢得多（2026-11-01 晚实测：Pura X Max 上 8 次×1.5 秒不够，
         会偶发「第 1 步 reset 执行异常: hilog 里没有布局日志」），所以重试给到
         24 次×2 秒 ≈ 48 秒。
+
+        `marker` = 「只认这个时刻之后的日志行」。**必须有**。
+        hilog 是环形缓冲，里面可能还留着**上一轮**的布局日志；
+        不看时间的话，应用这次压根没画出来，前置检查也会说「正常」，
+        然后整套用例在一个没起来的应用上白跑。
+        （Codex 对抗性复审 2026-11-03 的 P2）
         """
         last_err = ""
         for _ in range(max(1, retries)):
             lines = self.read_log()
             last = None
             for ln in lines:
-                if "[GameController] 布局" in ln:
-                    last = ln
+                if "[GameController] 布局" not in ln:
+                    continue
+                if marker and not log_line_after(ln, marker):
+                    continue        # 上一轮留下的旧行，不要
+                last = ln
             if last is not None:
                 self.layout = Layout(last)
                 return self.layout
@@ -710,6 +748,13 @@ class Runner:
         #
         # `aa start` 对**没装的** ability 也是**退出码 0**（只是输出里带错误），
         # 所以光靠异常抓不住 —— 要看输出内容。
+        #
+        # 关键：**先记下时间戳**。hilog 是环形缓冲，里面可能还留着**上一轮**
+        # 的布局日志；第 3 步去捞日志时要是把那条旧行当成了这次的，
+        # 应用其实没画出来，前置检查也会说「正常」，然后整套用例在
+        # 一个没起来的应用上白跑一个小时。
+        # （Codex 对抗性复审 2026-11-03 的 P2）
+        marker = self.hdc.device_now_marker()
         try:
             self.hdc.stop_app()
             out = self.hdc.start_app()
@@ -719,9 +764,9 @@ class Runner:
         if low and ("error" in low or "not exist" in low or "not found" in low
                     or "not installed" in low or "ability not" in low):
             return False, ("应用起不来（aa start 说：%s）" % (out or "").strip()[:160])
-        # 3) 起来之后有没有布局日志
+        # 3) 起来之后有没有布局日志（**必须是这一次启动之后**的）
         try:
-            self.geom.refresh_layout(retries=12, gap_s=2.0)
+            self.geom.refresh_layout(retries=12, gap_s=2.0, marker=marker)
         except Exception as exc:
             return False, ("应用起来了但拿不到布局日志：%s\n"
                            "   （装了但没画界面，或者装的不是最新那版）" % exc)
