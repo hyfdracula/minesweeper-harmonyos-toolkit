@@ -284,7 +284,9 @@ class Hdc:
         于是把明明赢了的一局判成失败（2026-11-03 踩过）。
         所以凡是「认这一轮的行」的地方，都得带上这个起点标记。
         """
-        out = self.shell("shell", "date '+%m-%d %H:%M:%S'", timeout=60)
+        # 注意：`Hdc.shell()` 自己已经加 "shell" 前缀，
+        # 这里再写一遍就成了 `hdc shell shell date`（2026-11-03 写错过一次）。
+        out = self.shell("date '+%m-%d %H:%M:%S'", timeout=60)
         ts = (out or "").strip().splitlines()[-1].strip() if out else ""
         if len(ts) == 14:            # "MM-DD HH:MM:SS" -> 补到毫秒精度
             ts += ".000"
