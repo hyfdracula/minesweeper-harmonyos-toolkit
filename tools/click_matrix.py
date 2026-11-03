@@ -1879,6 +1879,40 @@ def load_cases(domains: list[str], only: str | None) -> list[tuple[str, dict]]:
     return out
 
 
+class _Tee:
+    """把 stdout 同时写到屏幕和一个日志文件。
+
+    为什么要有（2026-11-04，Codex 对抗性复审第 8 轮的 P2）：
+    跑测器以前**只往 stdout 打**，成绩单不留档 ——
+    于是文档里写「整轮重跑 86 条」时，别人在仓里**找不到任何能核对的产物**
+    （那轮复审的原话：*"the updated handover relies on a nonexistent log as evidence"*）。
+    现在每轮自动写一份 `docs/verify/CM_<tag>.log`，成绩单和证据截图放在一起。
+    """
+
+    def __init__(self, stream, path: str):
+        self.stream = stream
+        self.path = path
+        self.fh = open(path, "w", encoding="utf-8", newline="\n")
+
+    def write(self, s: str) -> int:
+        self.stream.write(s)
+        self.fh.write(s)
+        return len(s)
+
+    def flush(self) -> None:
+        self.stream.flush()
+        self.fh.flush()
+
+    def isatty(self) -> bool:
+        return bool(getattr(self.stream, "isatty", lambda: False)())
+
+    def close(self) -> None:
+        try:
+            self.fh.close()
+        except OSError:
+            pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="扫雷复刻点击矩阵跑测器")
     ap.add_argument("--device", default="127.0.0.1:5557", help="hdc 设备地址")
@@ -1894,6 +1928,25 @@ def main() -> int:
         print("没有匹配的用例（--cases %s --only %s）" % (args.cases, args.only))
         return 2
 
+    # 成绩单同时写进 docs\verify\CM_<tag>.log（见 _Tee 的说明）。
+    # 开着它跑之前先把这个 tag 的旧日志清掉，免得两轮混在一起。
+    os.makedirs(VERIFY_DIR, exist_ok=True)
+    log_path = os.path.join(VERIFY_DIR, "CM_%s.log" % (args.tag or "run"))
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except OSError:
+            pass
+    tee = _Tee(sys.stdout, log_path)
+    sys.stdout = tee
+    try:
+        return _run(args, cases)
+    finally:
+        sys.stdout = tee.stream
+        tee.close()
+
+
+def _run(args, cases) -> int:
     runner = Runner(args.device, args.tag, args.verbose)
     # 跑测开始前把缓冲区里已有的日志行都算成「已见过」，
     # 这样 hilog_regex 不会匹配到上一轮遗留的同名日志。
