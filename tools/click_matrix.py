@@ -999,7 +999,18 @@ class Runner:
             self.longpress_variant = None
             print("   [preflight] 长按手势校准没跑成：%s" % exc)
         lp = self.longpress_variant
-        lp_txt = ("%dpx/%s" % (lp[0], lp[1])) if lp else "**没校准出来（插旗类用例跑不了）**"
+        # 长按手势的标法有两种：
+        #   ("longClick", None)          -> uitest 自带的长按命令
+        #   ("swipe", (位移px, 时长/速度)) -> swipe 变通写法
+        # 两种的第一个字段都是**字符串**，不能按 %d 格式化
+        # （2026-11-03 实测踩到：这里原本写的是 "%dpx/%s"，
+        #   校准出的是 ('swipe', (1, 1))，于是 preflight 直接 TypeError 崩掉）。
+        if lp is None:
+            lp_txt = "**没校准出来（插旗类用例跑不了）**"
+        elif lp[0] == "longClick":
+            lp_txt = "longClick"
+        else:
+            lp_txt = "swipe %dpx/%s" % (lp[1][0], lp[1][1])
         sw = self.geom.screen_size
         return True, ("应用已装、已启动，布局正常：画布 %dx%d px，适配档 n=%d，格边 %d px；"
                       "屏幕 %s；长按手势 %s"
