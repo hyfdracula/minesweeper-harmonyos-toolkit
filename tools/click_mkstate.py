@@ -100,10 +100,14 @@ def _measure_canvas_offset(device, outdir):
     import click_matrix as cm
 
     hdc = cm.Hdc(device)
+    # 只认**这一次启动之后**的布局日志：hilog 是环形缓冲，里面可能还留着
+    # 上一次运行（甚至另一个方向）的布局行，拿到旧行就等于按错的画布尺寸算坐标。
+    # （2026-11-03 真平板实测）
+    marker = hdc.device_now_marker()
     hdc.stop_app()
     hdc.start_app()
     geom = cm.Geom(hdc, outdir)
-    lay = geom.refresh_layout()
+    lay = geom.refresh_layout(retries=30, gap_s=1.5, marker=marker)
     # 等发牌动画结束再量（动画期间左上角还没翻上来，量到的是错值）
     for _ in range(12):
         time.sleep(0.5)

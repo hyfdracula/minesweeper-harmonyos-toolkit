@@ -115,6 +115,37 @@ CUSTOM_BTN_OK = (116, 158, 70, 25)
 CUSTOM_BTN_CANCEL = (194, 158, 70, 25)
 
 # ---------------------------------------------------------------------------
+#  长按（插旗）的手势候选
+#
+#  首选 **uitest uiInput longClick x y** —— uitest 自带的长按命令
+#  （tools/win_probe.py 的插旗就是用它，见 win_probe.py:1093）。
+#  备选是「极慢的 swipe」顶替：
+#      uitest uiInput swipe x1 y1 x2 y2 <第5个参数>
+#  第 5 个参数**不同设备解释不一样**：
+#    * 模拟器上是**速度**（px/s）：1 px / 1 px·s⁻¹ = 按住约 1 秒 → 应用收到长按；
+#    * 真平板上是**时长**（ms）：1 px / 1 = 只按 1 ms → 应用收到的是**单击**。
+#  2026-11-03 在 MatePad Pro MRO-W00（API 26）上实测就是后者：
+#  「插旗」变成了「点开那一格」，棋面被翻开、计时器开始走，
+#  那一局还因此踩雷输掉（证据：docs/verify/CM_1430tabreal_FAIL_board_counter_flag_step5_cur.jpeg，
+#  画面上第 (0,0) 格是翻开的，没有旗）。
+#
+#  所以：**哪种手势对只能在设备上试**，而且必须**用画面验证**
+#  （试完看那一格到底插上旗了没有）。见 Runner.calibrate_longpress。
+#
+#  格式：(名字, 方式, 参数)
+#  swipe 的位移都控制在 10 vp 以内 —— 应用的平移阈值是 MOVE_THRESHOLD_VP = 10 vp
+#  （MinefieldCanvas.ets:39），超过就变成「拖动棋盘」而不是长按。
+# ---------------------------------------------------------------------------
+LONGPRESS_VARIANTS = [
+    ("longClick", "longClick", None),
+    ("swipe 1px/1", "swipe", (1, 1)),
+    ("swipe 1px/600", "swipe", (1, 600)),
+    ("swipe 3px/1", "swipe", (3, 1)),
+    ("swipe 3px/800", "swipe", (3, 800)),
+    ("swipe 8px/40", "swipe", (8, 40)),
+]
+
+# ---------------------------------------------------------------------------
 #  菜单栏坐标（**画布 vp**）
 #
 #  为什么不给屏幕坐标：条目位置由字体推进量决定，代码算不准，只能实测；
@@ -220,17 +251,28 @@ class Hdc:
         self.shell("uitest", "uiInput", "click", int(round(x)), int(round(y)),
                    timeout=60, check=True)
 
-    def long_press(self, x: float, y: float, ms: int = 900) -> None:
+    def long_press(self, x: float, y: float, variant: tuple | None = None) -> None:
         """长按（用来插旗）。
 
-        实现：uitest 没有长按命令，用**极慢的 swipe** 顶替 ——
-        起终点只差 1 个像素、速度给 1 px/s，设备就当成「按住不动」，
-        触发的正是应用的 onLongPress ✓（2026-11-01 实测能插上旗）。
+        首选 **uitest uiInput longClick x y**（uitest 自带的长按命令，
+        tools\\win_probe.py 的插旗就是用它）。
+
+        备选是「极慢的 swipe」顶替：起终点只差几个像素、速度给得很低，
+        设备就当成「按住不动」，触发的正是应用的 onLongPress。
+        **但 swipe 的第 5 个参数不同设备解释不一样**（速度 px/s 还是时长 ms），
+        解释错了这个手势就变成**单击**（真平板上实测过：格子被翻开、旗没插上）。
+
+        所以 `variant` = (方式, 参数)，由调用方**在设备上试出来**，
+        见 LONGPRESS_VARIANTS 与 Runner.calibrate_longpress。
         """
         xi = int(round(x))
         yi = int(round(y))
-        # 速度单位是 px/s：距离 1 px、速度 1 px/s ⇒ 按住约 1 秒
-        self.shell("uitest", "uiInput", "swipe", xi, yi, xi + 1, yi, 1,
+        kind, params = variant if variant else ("swipe", (1, 1))
+        if kind == "longClick":
+            self.shell("uitest", "uiInput", "longClick", xi, yi, timeout=60, check=True)
+            return
+        dx, arg = params
+        self.shell("uitest", "uiInput", "swipe", xi, yi, xi + dx, yi, arg,
                    timeout=60, check=True)
 
     def screenshot(self, path: str) -> str:
@@ -269,12 +311,39 @@ class Hdc:
         """
         return self.shell("pidof", BUNDLE, timeout=60, check=True).strip()
 
+    def pidof_quiet(self) -> str:
+        """查 PID，**查不到不算错**（有些设备上 pidof 查无此进程会退出码非 0）。"""
+        try:
+            out = self.shell("pidof", BUNDLE, timeout=30, check=False)
+        except HdcError:
+            return ""
+        return (out or "").strip()
+
     def app_alive(self) -> bool:
         return self.pidof().strip() != ""
 
     def stop_app(self) -> None:
+        """停掉应用，并且**等它真的死了**再返回。
+
+        为什么必须等（2026-11-03 真平板 MRO-W00 实测）：
+        `aa force-stop` 是**异步**的 —— 命令返回了，进程可能还活着一两秒。
+        真机上紧接着 `aa start`，系统会把**还活着的那个实例**重新拉到前台，
+        于是「重开一局」其实**没有重开**：上一局的棋盘、已经弹出来的
+        「游戏失败」对话框原封不动地留着。实测就是这样：
+        board.cell.04 这条用例的 base 帧和 cur 帧**一个像素都没差**，
+        两个画面上都是那个失败框（docs/verify/CM_1430tabreal_FAIL_board_cell_04_step4_base.jpeg）
+        —— 说明「游戏失败」框在用例点 (0,4) 之前就已经开着了，
+        点哪儿都没反应（有对话框时应用只让点击穿过、不开格）。
+        模拟器上进程死得快，所以一直没暴露这个坑。
+        """
         self.shell("aa", "force-stop", BUNDLE, timeout=60, check=True)
-        time.sleep(1.0)
+        deadline = time.time() + 20.0
+        while time.time() < deadline:
+            if not self.pidof_quiet():
+                return
+            time.sleep(0.5)
+        # 没死干净就别接着往下跑：后面每一条用例都会莫名其妙地失败
+        raise HdcError("aa force-stop 之后应用进程还在（pidof=%s）" % self.pidof_quiet())
 
     def device_now_marker(self) -> str:
         """取设备当前时间，做成和 hilog 行一样格式的时间戳（当「本轮起点」）。
@@ -370,6 +439,8 @@ class Geom:
         self.layout: Layout | None = None
         self.canvas_y: int | None = None      # 画布顶在屏幕上的纵向偏移
         self._log_lines: list[str] = []
+        #: 最近的截图尺寸（宽, 高）——用来判断一条布局日志是不是**另一个方向**的旧行
+        self.screen_size: tuple[int, int] | None = None
 
     # ---- 日志 -------------------------------------------------------------
     def read_log(self) -> list[str]:
@@ -377,8 +448,27 @@ class Geom:
         self._log_lines = raw.splitlines()
         return self._log_lines
 
+    def layout_fits_screen(self, lay: Layout) -> bool:
+        """这条布局日志描述的画布**放得进当前屏幕**吗？
+
+        为什么要有（2026-11-03 真平板实测）：
+        应用只在**画布尺寸变化**时打一条布局日志（GameController.ets:328），
+        所以「最后一条布局日志」可能是**上一个实例**、甚至**另一个方向**的。
+        横屏那台平板早上的布局是 2800x1690，下午转成竖屏后画布是 1840x2650 ——
+        拿到旧行就等于按**另一个方向的画布**算坐标，点哪儿都是错的。
+
+        判据：**画布比屏幕还大，就不可能是当前这一屏的布局**。
+        画布一般比屏幕略小（系统状态栏/导航栏），所以用「不超过屏幕」来卡。
+        截图尺寸还不知道时（第一次读布局）一律放行 —— 那时还没有可比对的基准。
+        """
+        if self.screen_size is None:
+            return True
+        sw, sh = self.screen_size
+        return lay.canvas_w <= sw + 2 and lay.canvas_h <= sh + 2
+
     def refresh_layout(self, retries: int = 24, gap_s: float = 2.0,
-                       marker: str | None = None) -> Layout:
+                       marker: str | None = None,
+                       allow_cached: bool = True) -> Layout:
         """从 hilog 里取**最后一条**布局日志。
 
         重试几遍：应用刚起来时布局日志可能还没写进 hilog 缓冲区
@@ -388,11 +478,19 @@ class Geom:
         会偶发「第 1 步 reset 执行异常: hilog 里没有布局日志」），所以重试给到
         24 次×2 秒 ≈ 48 秒。
 
-        `marker` = 「只认这个时刻之后的日志行」。**必须有**。
+        `marker` = 「只认这个时刻之后的日志行」。**重开应用时必须有**。
         hilog 是环形缓冲，里面可能还留着**上一轮**的布局日志；
         不看时间的话，应用这次压根没画出来，前置检查也会说「正常」，
         然后整套用例在一个没起来的应用上白跑。
         （Codex 对抗性复审 2026-11-03 的 P2）
+
+        `allow_cached` = 实在找不到新行时，**退回上一次记住的布局**。
+        为什么需要（2026-11-03 真平板实测）：
+        应用**只在画布尺寸变化时**才打布局日志，所以「造完一局失败局面」之后
+        再去要布局，真机上那条日志早就被环形缓冲挤掉了（或被前一次
+        `hilog -x` 清掉了），于是报「hilog 里没有布局日志」——
+        其实布局**根本没变**，手上那份还是对的。
+        退路之前会先用 `layout_fits_screen()` 验一遍尺寸还对不对得上。
         """
         last_err = ""
         for _ in range(max(1, retries)):
@@ -405,9 +503,23 @@ class Geom:
                     continue        # 上一轮留下的旧行，不要
                 last = ln
             if last is not None:
-                self.layout = Layout(last)
-                return self.layout
+                try:
+                    lay = Layout(last)
+                except ValueError as exc:
+                    last_err = str(exc)
+                    lay = None
+                if lay is not None:
+                    if self.layout_fits_screen(lay):
+                        self.layout = lay
+                        return lay
+                    # 画布比屏幕还大 → 这是**另一个方向/上一次**的旧行，继续等
+                    last_err = ("拿到的布局行画布 %dx%d 比屏幕 %s 还大，"
+                                "不是当前这一屏的（多半是另一个方向的旧行）"
+                                % (lay.canvas_w, lay.canvas_h, self.screen_size))
             time.sleep(gap_s)
+        # 退路：用上一次记住的布局（先验尺寸还对不对）
+        if allow_cached and self.layout is not None and self.layout_fits_screen(self.layout):
+            return self.layout
         raise RuntimeError("hilog 里没有布局日志" + (("：" + last_err) if last_err else ""))
 
     # ---- 画布顶偏移 -------------------------------------------------------
@@ -691,6 +803,47 @@ def cell_opened(img, lay: Layout, r: int, c: int, canvas_y: int = 0) -> bool:
     return (tile_px / total) < 0.5
 
 
+def cell_state(img, lay: Layout, r: int, c: int, canvas_y: int = 0) -> str:
+    """这一格现在是什么状态。
+
+    返回：
+      * ``closed`` —— 还是没翻开的砖
+      * ``flag``   —— 插了旗（旗是**红色**的，砖是蓝/绿、数字是蓝/绿/黑）
+      * ``opened`` —— 其它（翻开的空白、数字、雷、被对话框盖住…）
+      * ``unknown`` —— 这一格在截图里取不到（越界）
+
+    为什么要有（2026-11-03 真平板实测）：
+    长按在真平板上**被当成了单击**，格子被翻开而不是插上旗。
+    光看「计数器有没有变」只能知道结果不对，看不出**错在哪一步**；
+    有了这一格的状态，才能分辨：
+      * 格子还是砖   → 手势压根没送到（换一种手势再试）
+      * 格子插上了旗 → 手势对了
+      * 格子被翻开了 → 手势被当成了单击（**这一局已经脏了**，必须报错退出）
+    """
+    x0 = lay.board_x + c * lay.tile
+    y0 = lay.board_y + r * lay.tile + canvas_y
+    t = lay.tile
+    m = max(1, t // 4)
+    xs0, xs1 = max(0, x0 + m), min(img.shape[1], x0 + t - m)
+    ys0, ys1 = max(0, y0 + m), min(img.shape[0], y0 + t - m)
+    if xs1 <= xs0 or ys1 <= ys0:
+        return "unknown"
+    blk = img[ys0:ys1, xs0:xs1].astype(int)
+    R = blk[:, :, 0]
+    G = blk[:, :, 1]
+    B = blk[:, :, 2]
+    total = blk.shape[0] * blk.shape[1]
+    # 旗是红色的（blueSheet 里 RECT_FLAG 区域均色约 (197,128,143)，最红处 255）
+    red = int(((R > 140) & (R > G + 55) & (R > B + 55)).sum())
+    if red >= max(3, total // 60):
+        return "flag"
+    tile = int((((B > 110) & (B - R > 45)) |
+                ((G > 100) & (G - np.maximum(R, B) > 60))).sum())
+    if tile / float(total) >= 0.5:
+        return "closed"
+    return "opened"
+
+
 # ===========================================================================
 #  跑测器
 # ===========================================================================
@@ -731,6 +884,8 @@ class Runner:
         self.dirty = True                 # 画面是否已过期
         self.last_layout: Layout | None = None
         self.shot_seq = 0
+        #: 校准出来的长按手势 (位移, 第5参数)；None = 这台设备上还没校准 / 校准失败
+        self.longpress_variant: tuple | None = None
 
     # ---- 画面 -------------------------------------------------------------
     def capture(self, path: str | None = None) -> str:
@@ -739,6 +894,8 @@ class Runner:
             self.hdc.screenshot(p)
             self.img = load_rgb(p)
             self.dirty = False
+            # 记下屏幕尺寸：后面判断「一条布局日志是不是另一个方向的旧行」要用
+            self.geom.screen_size = (self.img.shape[1], self.img.shape[0])
         return ""
 
     def current(self):
@@ -815,40 +972,96 @@ class Runner:
             return False, ("应用起不来（aa start 说：%s）" % (out or "").strip()[:160])
         # 3) 起来之后有没有布局日志（**必须是这一次启动之后**的）
         try:
-            self.geom.refresh_layout(retries=12, gap_s=2.0, marker=marker)
+            self.geom.refresh_layout(retries=30, gap_s=1.5, marker=marker)
         except Exception as exc:
             return False, ("应用起来了但拿不到布局日志：%s\n"
                            "   （装了但没画界面，或者装的不是最新那版）" % exc)
         lay = self.geom.layout
-        return True, ("应用已装、已启动，布局正常：画布 %dx%d px，适配档 n=%d，格边 %d px"
-                       % (lay.canvas_w, lay.canvas_h, lay.fit, lay.tile))
+        # 4) 校准长按手势（要一块**空白**棋盘：等画面稳定、量出画布顶偏移）
+        #
+        # 为什么放在这里：长按在真平板上被当成了单击（见 calibrate_longpress），
+        # 插旗类用例全废。哪种手势能用**只能在设备上试**，而且要**用画面验证**。
+        # 校准用的这块棋盘是一次性的：每条用例开头都会 reset。
+        try:
+            self.geom.canvas_y = None
+            self.wait_board_stable(timeout_ms=20000)
+            if self.geom.canvas_y is None:
+                try:
+                    self.geom.probe_canvas_y()
+                except Exception:
+                    pass
+            if self.geom.canvas_y is None:
+                self.geom.canvas_y = self.canvas_top_from_shot()
+            self.poke()
+            self.wait_board_stable(timeout_ms=20000)
+            self.longpress_variant = self.calibrate_longpress()
+        except Exception as exc:
+            self.longpress_variant = None
+            print("   [preflight] 长按手势校准没跑成：%s" % exc)
+        lp = self.longpress_variant
+        lp_txt = ("%dpx/%s" % (lp[0], lp[1])) if lp else "**没校准出来（插旗类用例跑不了）**"
+        sw = self.geom.screen_size
+        return True, ("应用已装、已启动，布局正常：画布 %dx%d px，适配档 n=%d，格边 %d px；"
+                      "屏幕 %s；长按手势 %s"
+                      % (lay.canvas_w, lay.canvas_h, lay.fit, lay.tile,
+                         ("%dx%d" % sw) if sw else "未知", lp_txt))
 
     # ---- 动作 -------------------------------------------------------------
-    def act_reset(self, step: dict) -> None:
+    def _launch_fresh_app(self) -> None:
+        """真正重开一局：停应用（**等进程真死**）→ 起应用 →
+        **只认本次启动之后的布局日志** → 量画布顶偏移 → 戳醒应用 → 等画面稳定。
+
+        少了任何一步都会在真机上出错（2026-11-03 真平板 MRO-W00 实测）：
+        旧实例没被杀掉 → 上一局的失败对话框还开着 → 后面那条用例点哪儿都没反应。
+
+        「画布顶偏移」**每次都重量**：设备转屏 / 折叠屏展开之后，
+        上一次量的偏移就是错的了（2026-11-03 真平板：上午横屏、下午竖屏，
+        画布从 2800x1690 变成 1840x2650）。
+        """
+        marker = self.hdc.device_now_marker()
         self.hdc.stop_app()
         self.hdc.start_app()
-        self.geom.refresh_layout()
-        # 顺序要紧：**先戳醒应用，再等画面稳定（发牌动画结束），最后量画布顶偏移**。
+        self.geom.refresh_layout(retries=40, gap_s=1.5, marker=marker)
+        # 顺序要紧：**等画面稳定（发牌动画结束）→ 量画布顶偏移 → 戳醒应用 → 再等稳定**。
         #
         # 坑（2026-11-01 晚，四个外观用例稳定复现 19859 px 的差异才查出来）：
         # 模拟器窗口被别的窗口盖住时，应用会**完全冻结** —— 界面不重绘、
-        # setInterval 也不跑（连状态条上的秒数都不跳）。这��候截到的图是
+        # setInterval 也不跑（连状态条上的秒数都不跳）。这时候截到的图是
         # 「冻结前那一帧」，跑测器把它当基准帧；等后面任何一次点击把应用唤醒、
         # 待办的发牌动画补完，棋盘的砖块就弹起来了 —— 「棋盘没变」的断言必然失败，
         # 而且每次失败的像素数一模一样（19859）。这不是被测代码的毛病。
         #
         # 唤醒办法：戳一下。戳**菜单栏最右边的空白**（菜单项都在左边）——
         # 应用被唤醒、开始渲染、把发牌动画跑完，而棋盘/状态条一个像素都不变。
-        self.poke()
+        self.geom.canvas_y = None
         self.wait_board_stable()
         if self.geom.canvas_y is None:
-            self.geom.probe_canvas_y()
-            # 量完偏移**再戳一次**（第一次戳的时候还不知道画布顶偏移，可能戳到
-            # 系统状态栏上、应用根本没收到）。
-            self.poke()
-        # 量完偏移**再等一次稳定**（发牌动画可能在量偏移的这段时间里才补完）。
+            try:
+                self.geom.probe_canvas_y()
+            except Exception as exc:
+                print("   [reset] 量画布顶偏移失败（%s），改用截图量" % exc)
+        if self.geom.canvas_y is None:
+            # 退路：从截图里量（系统状态栏是黑的，画布是浅色的）。
+            # 这时候应用**一定已经画过界面**了（上面 refresh_layout 带 marker，
+            # 拿到的是本次启动之后的布局行），所以量到的确实是应用窗口。
+            self.geom.canvas_y = self.canvas_top_from_shot()
+        if self.geom.canvas_y is None:
+            raise RuntimeError("量不到画布顶偏移")
+        self.poke()
         self.wait_board_stable()
+
+    def act_reset(self, step: dict) -> None:
         diff = step.get("difficulty")
+        # 「重开」要真的重开：起完还得**看一眼画面**确认这一局是全新的。
+        for attempt in range(1, 4):
+            self._launch_fresh_app()
+            if self.verify_fresh_board():
+                break
+            print("   [reset] 第 %d 遍重开之后棋盘不是全新的（多半是旧实例没被杀干净），"
+                  "再重开一遍" % attempt)
+        else:
+            raise RuntimeError("重开应用之后棋盘始终不是全新的"
+                               "（旧实例没被杀掉，或应用没有正常启动）")
         if diff:
             name = {"beginner": "初级", "intermediate": "中级",
                     "expert": "高级"}.get(diff)
@@ -861,6 +1074,36 @@ class Runner:
         self.checkpoint = self.img.copy() if self.img is not None else None
         self.before = None
         self.last_layout = self.geom.layout
+
+    def verify_fresh_board(self) -> bool:
+        """这一局是不是**全新的**：每一格都还是砖，没有翻开的格子、没有插着旗，
+        也没有对话框盖在上面。
+
+        为什么要有（2026-11-03 真平板 MRO-W00 实测）：
+        那台平板上 `aa force-stop` 之后进程没立刻死，`aa start` 又把**还活着的
+        旧实例**拉回前台 —— 「reset」于是根本没有重开：上一局输掉的棋盘和
+        「游戏失败」对话框原封不动地留着。实测证据：
+        board.cell.04 的 base 帧与 cur 帧**一个像素都没差**，两个画面上都是
+        那个失败框（docs/verify\\CM_1430tabreal_FAIL_board_cell_04_step4_base.jpeg），
+        说明框在用例点 (0,4) **之前**就已经开着 —— 有对话框时应用只让点击穿过、
+        不开格，于是那条用例必然失败。
+
+        所以「重开」不能只看命令返回，**得看一眼画面**。
+        """
+        lay = self.geom.layout
+        if lay is None:
+            return False
+        img = self.current()
+        if img is None:
+            return False
+        cy = self.geom.canvas_y or 0
+        rows = lay.rows or 9
+        cols = lay.cols or 9
+        for r in range(rows):
+            for c in range(cols):
+                if cell_state(img, lay, r, c, cy) != "closed":
+                    return False
+        return True
 
     def wait_board_stable(self, timeout_ms: int = 25000, gap_ms: int = 450) -> bool:
         """等到**画面稳定**再继续（发牌 / 涟漪动画结束）。
@@ -966,39 +1209,139 @@ class Runner:
 
         戳哪儿：**菜单栏那一行的空白处**（菜单项都在左边）——
         应用被唤醒、开始渲染、把发牌动画跑完，而棋盘/状态条一个像素都不变。
+
+        位置**由布局算出来**（画布 vp 的菜单栏空白处），不写死屏幕像素：
+        原来这里写死「y=130 像素」（90 Pro 的实测值），换一台设备就可能戳到
+        **棋盘上** —— 那一格就被点开了（甚至因此踩雷输掉）。
+        菜单栏在棋盘**上面**，所以这个点在任何设备上都不可能点到棋盘。
+        画布顶偏移还没量出来时，用**截图量出来的**画布顶（也不猜）。
         """
         lay = self.geom.layout
         if lay is None:
             return
         cy = self.geom.canvas_y
         if cy is None:
-            # 还没量到画布顶偏移：先按「菜单栏大概在 130 像素那一条」戳（90 Pro 的
-            # 实测值是 125）。戳不到也无妨，后面量完偏移还会再戳一次。
-            x = int(lay.canvas_w / 2)
-            y = 130
-        else:
-            x = int(lay.canvas_w - 24)
-            y = int(cy + 20)
+            cy = self.canvas_top_from_shot()
+        if cy is None:
+            return                      # 量不到画布顶就不戳（宁可不动，也别戳到棋盘）
         try:
-            self.hdc.click(x, y)
+            bx = int(round(lay.canvas_w - 16.0 / lay.px_scale))
+            by = int(round(cy + 8.0 / lay.px_scale))
+            self.hdc.click(bx, by)
         except Exception:
             pass
         time.sleep(0.6)
 
+    def canvas_top_from_shot(self) -> int | None:
+        """从截图里量画布顶（系统状态栏是黑的，画布是浅色的）。
+
+        为什么需要：画布顶偏移 `canvas_y` 是所有屏幕 y 坐标的原点，
+        量错了**整张图的所有点击都会偏**。老办法是拿棋盘上沿反推
+        （`Geom.probe_canvas_y`），但发牌动画期间左上角那几行还没翻上来，
+        量到的是错值（实测 239 vs 真值 125）。这一条**不受发牌动画影响**：
+        画布顶就是系统状态栏下面那一行，跟棋盘翻没翻没关系。
+
+        判据：从上往下找第一行「中间 60% 不是深色」的行 ——
+        状态栏中间是黑的（时间、信号在两端），画布整片是浅色的。
+        """
+        img = self.current()
+        if img is None:
+            return None
+        h, w = img.shape[0], img.shape[1]
+        x0, x1 = int(w * 0.2), int(w * 0.8)
+        for y in range(0, min(600, h)):
+            seg = img[y, x0:x1, :].astype(float)
+            if float(seg.mean()) > 120.0:
+                return int(y)
+        return None
+
     def act_longpress(self, step: dict) -> None:
         """长按一格（插旗）。
 
-        实现走 Hdc.long_press()：uitest 没有长按命令，用极慢的 swipe 顶替 ✓。
+        实现走 Hdc.long_press()：uitest 没有长按命令，用极慢的 swipe 顶替。
+
+        **手势在设备上校准过**（见 calibrate_longpress）：真平板上
+        「1 px @ 1」被当成了单击，格子直接被翻开而不是插上旗。
+        这里用校准出来的手势，并且**做完必须验证**：
+          * 插上了旗 → 对了；
+          * 格子被翻开了 → 手势被当成了单击，**这一局已经脏了**，
+            必须报错退出，不能接着往下断言（不然失败会被记到别的地方）；
+          * 格子没变 → 手势没送到，报告出来，别假装插上了。
         """
         space = step.get("space", "board")
         x = step.get("x", 0)
         y = step.get("y", 0)
+        cell = step.get("cell")
         sx, sy = self.geom.to_screen(space, x, y,
-                                     dialog=step.get("dialog"),
-                                     cell=step.get("cell"))
-        self.hdc.long_press(sx, sy)
-        time.sleep(0.8)
+                                     dialog=step.get("dialog"), cell=cell)
+        variant = self.longpress_variant
+        if variant is None:
+            raise RuntimeError("这台设备上没能找到能用的长按手势（插旗没法测）")
+        self.hdc.long_press(sx, sy, variant=variant)
+        time.sleep(1.2)
         self.dirty = True
+        if space == "board" and cell is not None:
+            lay = self.geom.layout
+            if lay is None:
+                raise RuntimeError("还没有布局信息")
+            st = cell_state(self.current(), lay, int(cell[0]), int(cell[1]),
+                            self.geom.canvas_y or 0)
+            if st == "flag":
+                return
+            if st == "opened":
+                raise RuntimeError(
+                    "长按被设备当成了**单击**：第(%d,%d)格被翻开了，没有插上旗。"
+                    "这一局已经不可信，停止这条用例"
+                    % (int(cell[0]), int(cell[1])))
+            raise RuntimeError("长按之后第(%d,%d)格还是砖（%s），旗没插上"
+                               % (int(cell[0]), int(cell[1]), st))
+
+    def calibrate_longpress(self) -> tuple | None:
+        """找出这台设备上**能真的插上旗**的长按手势。
+
+        为什么必须有（2026-11-03 真平板 MRO-W00 实测）：
+        `uitest uiInput swipe` 的第 5 个参数，模拟器当**速度**（px/s），
+        真平板当**时长**（ms）—— 「1 px @ 1」在平板上是一次 1 ms 的滑动，
+        **被应用当成单击**：格子被翻开、旗没插上、计时器开始走，
+        那一局还因此踩雷输掉（证据：docs/verify\\CM_1430tabreal_FAIL_board_counter_flag_step5_cur.jpeg，
+        画面上第 (0,0) 格是翻开的，没有旗；board.counter.negative 那条更明显：
+        十来次「长按」把棋盘点开了一大片，最后一脚踩雷，失败框弹出来，
+        后面所有点击都被对话框挡住 —— base 与 cur 两个画面**一个像素都没差**）。
+
+        哪种解释对，只能**在设备上试**：挨个手势试，**用画面验证**
+        （看那一格到底插上旗了没有）。
+
+        试的时候**只用第 (0,0) 格**：某个手势要是变成了单击，洪水填充会把
+        **一大片**格子翻开（9x9 初级盘上空区本来就大），后面再试别的格子
+        就没有「干净的砖」可试了 —— 所以变成单击之后就**重开一局**再试下一种手势。
+
+        校准用的是**一次性的**那块棋盘：每条用例开头都会 reset，
+        所以校准留下的痕迹下一条用例就看不到了。
+        """
+        for _name, kind, params in LONGPRESS_VARIANTS:
+            lay = self.geom.layout
+            if lay is None or self.geom.canvas_y is None:
+                return None
+            sx, sy = self.geom.to_screen("board", 0, 0, cell=[0, 0])
+            try:
+                self.hdc.long_press(sx, sy, variant=(kind, params))
+            except Exception:
+                continue
+            time.sleep(1.5)
+            self.dirty = True
+            lay = self.geom.layout
+            st = cell_state(self.current(), lay, 0, 0, self.geom.canvas_y)
+            if st == "flag":
+                return (kind, params)
+            if st == "opened":
+                # 这个手势变成了单击：棋盘已经脏了（洪水填充还翻开了一大片），
+                # 重开一局再来试下一种手势。
+                try:
+                    self._launch_fresh_app()
+                except Exception as exc:
+                    print("   [calibrate] 重开失败：%s" % exc)
+                    return None
+        return None
 
     def act_key(self, step: dict) -> None:
         """数字键盘的一个键（自定义难度框用）。
@@ -1085,7 +1428,16 @@ class Runner:
                 "造局面失败（click_mkstate %s 退出码 %d）：%s"
                 % (state, proc.returncode, (proc.stderr or proc.stdout or "")[-400:]))
         self.dirty = True
-        self.geom.refresh_layout()
+        # 造完局面之后再要一次布局：**不强制要新的**。
+        #
+        # 坑（2026-11-03 真平板 MRO-W00 实测）：
+        # 应用**只在画布尺寸变化时**才打一条布局日志（GameController.ets:328），
+        # 造完一局失败局面之后画布根本没变 → 那条日志要么被 hilog 的环形缓冲
+        # 挤掉、要么被前面的 `hilog -x` 清掉了 → 「hilog 里没有布局日志」→
+        # 这条用例报「第 2 步 lose_game 执行异常」，而**被测代码一点问题都没有**。
+        # refresh_layout() 现在会**退回上一次记住的布局**（先验尺寸还对不对得上），
+        # 所以这里拿到的还是对的布局。
+        self.geom.refresh_layout(retries=12, gap_s=1.5, allow_cached=True)
 
     # ---- 断言 -------------------------------------------------------------
     def _strip_panel_rect(self, region: dict) -> tuple[int, int, int, int]:
@@ -1171,24 +1523,43 @@ class Runner:
 
         「变了」这种断言太弱：数字从 10 变成 11 也是「变了」（Codex 复审 P2）。
         这里用 tools/sevenseg_read.py 按七段几何**反解**出数字，直接比对。
+
+        **轮询**：真机上应用收到点击之后重画要 0.5~2 秒（模拟器几乎立刻）。
+        读一次就下结论会把「还没来得及画」当成「数字不对」
+        （2026-11-03 真平板实测：插旗那两条用例读到的还是 10）。
         """
         region = step.get("region") or {"space": "strip", "panel": 0}
         want = str(step.get("value", "")).strip()
-        # 现截一张（不要用可能过期的缓存帧）：布局刚变的那一瞬间，缓存帧里的
-        # 状态条还在老位置，照着老位置采样会读到一片「全亮」的假读数。
-        self.capture()
-        rect = self._strip_panel_rect(region)
-        import sevenseg_read as ss
-        img = self.current()
-        if img is None:
-            return False, "还没有截图"
-        box = (rect[0], rect[1], rect[2], rect[3])
-        digits = ss.read_panel(img, box)
-        if digits is None:
-            return False, "面板 %s 量不出来" % (box,)
-        got = "".join(str(d) for d in ss.decode(digits) if d is not None)
-        ok = (got == want)
-        return ok, "计数器读数 %r（要 %r），掩码 %s，面板 %s" % (got, want, digits, box)
+        timeout_ms = float(step.get("timeout_ms", 8000))
+        deadline = time.time() + timeout_ms / 1000.0
+        last = ""
+        while True:
+            # 现截一张（不要用可能过期的缓存帧）：布局刚变的那一瞬间，缓存帧里的
+            # 状态条还在老位置，照着老位置采样会读到一片「全亮」的假读数。
+            self.dirty = True
+            self.capture()
+            try:
+                rect = self._strip_panel_rect(region)
+                import sevenseg_read as ss
+                img = self.current()
+                if img is None:
+                    return False, "还没有截图"
+                box = (rect[0], rect[1], rect[2], rect[3])
+                digits = ss.read_panel(img, box)
+                if digits is None:
+                    last = "面板 %s 量不出来" % (box,)
+                else:
+                    got = "".join(str(d) for d in ss.decode(digits) if d is not None)
+                    if got == want:
+                        return True, "计数器读数 %r（要 %r），掩码 %s，面板 %s" % (
+                            got, want, digits, box)
+                    last = "计数器读数 %r（要 %r），掩码 %s，面板 %s" % (got, want, digits, box)
+            except Exception as exc:
+                # 面板还没画出来 / 截图失败 → 当成「还没到」，继续等
+                last = "读计数器出错：%s" % exc
+            if time.time() >= deadline:
+                return False, last + "（等了 %.1f 秒仍是这个读数）" % (timeout_ms / 1000.0)
+            time.sleep(0.6)
 
     def expect_changed(self, step: dict, want_change: bool) -> tuple[bool, str]:
         region = step.get("region")
@@ -1214,7 +1585,9 @@ class Runner:
         n = diff_count(base, self.current(), rect)
         area = max(1, rect[2] * rect[3])
         thr = max(6, 0.0008 * area)
-        for attempt in range(4):
+        # 重试 6 拍（约 5 秒）：真机上应用收到点击之后重画要 0.5~2 秒，
+        # 模拟器几乎立刻 —— 4 拍（3.2 秒）在真机上不够（2026-11-03 真平板实测）。
+        for attempt in range(6):
             changed = n >= thr
             if changed == want_change:
                 ratio = n / float(area)
@@ -1226,11 +1599,13 @@ class Runner:
             n = diff_count(base, self.current(), rect)
         ratio = n / float(area)
         changed = n >= thr
-        return False, "差异像素 %d / %d (%.3f%%) -> %s（等了 4 拍仍不符）" % (
+        return False, "差异像素 %d / %d (%.3f%%) -> %s（等了 6 拍仍不符）" % (
             n, area, ratio * 100, "有变化" if changed else "无变化")
 
     def expect_layout_changed(self, step: dict) -> tuple[bool, str]:
-        cur = self.geom.refresh_layout()
+        # allow_cached=False：这条断言要的是**新的**布局行。
+        # 退路（用上一次记住的布局）会让「没变」永远成立 —— 那是自欺欺人。
+        cur = self.geom.refresh_layout(retries=12, gap_s=1.5, allow_cached=False)
         prev = self.last_layout
         self.last_layout = cur
         if prev is None:
@@ -1240,7 +1615,8 @@ class Runner:
 
     def expect_layout_regex(self, step: dict) -> tuple[bool, str]:
         pat = step.get("re", "")
-        cur = self.geom.refresh_layout()
+        # 同上：要的是**新的**布局行（应用每开一局都会重打一条，GameController.ets:215→266→328）
+        cur = self.geom.refresh_layout(retries=12, gap_s=1.5, allow_cached=False)
         self.last_layout = cur
         ok = re.search(pat, cur.raw) is not None
         return ok, ("匹配 %r 于 %s" % (pat, cur.raw[-160:]))
@@ -1292,24 +1668,39 @@ class Runner:
         return ok, "平均亮度 %.1f（期望 %s）" % (lum, "亮" if want_light else "暗")
 
     def expect_cell_opened(self, step: dict) -> tuple[bool, str]:
+        """断言某一格被翻开了（触摸路由对位）。
+
+        **轮询**：真机上应用点完到重画要 0.5~2 秒（模拟器几乎立刻），
+        读一次就下结论会把「还没画完」当成「没翻开」
+        （2026-11-03 真平板实测：board.cell.04 在 (0,4) 上点完 1.5 秒后
+        那一格还没翻开 —— 那一局其实早就输了、失败框挡着，点哪儿都没用）。
+        """
         cell = step.get("cell")
         if cell is None:
             return False, "cell_opened 必须给 cell"
         lay = self.geom.layout
-        cur = self.current()
         r, c = int(cell[0]), int(cell[1])
         cy = self.geom.canvas_y or 0
-        now = cell_opened(cur, lay, r, c, cy)
-        was = None
-        if self.before is not None:
-            was = cell_opened(self.before, lay, r, c, cy)
-        if now and (was is False):
-            return True, "第(%d,%d)格从砖块变成已翻开" % (r, c)
-        if now and was is None:
-            return True, "第(%d,%d)格已翻开（无改动前画面可比）" % (r, c)
-        if not now and was is True:
-            return False, "第(%d,%d)格本来是翻开的，现在反而盖上了" % (r, c)
-        return False, "第(%d,%d)格没有被翻开" % (r, c)
+        timeout_ms = float(step.get("timeout_ms", 8000))
+        deadline = time.time() + timeout_ms / 1000.0
+        while True:
+            self.dirty = True
+            cur = self.current()
+            if cur is None:
+                return False, "还没有截图"
+            now = cell_opened(cur, lay, r, c, cy)
+            was = None
+            if self.before is not None:
+                was = cell_opened(self.before, lay, r, c, cy)
+            if now and (was is False):
+                return True, "第(%d,%d)格从砖块变成已翻开" % (r, c)
+            if now and was is None:
+                return True, "第(%d,%d)格已翻开（无改动前画面可比）" % (r, c)
+            if not now and was is True:
+                return False, "第(%d,%d)格本来是翻开的，现在反而盖上了" % (r, c)
+            if time.time() >= deadline:
+                return False, "第(%d,%d)格没有被翻开（等了 %.1f 秒）" % (r, c, timeout_ms / 1000.0)
+            time.sleep(0.6)
 
     def run_expect(self, step: dict) -> tuple[bool, str]:
         t = step.get("type")
@@ -1417,7 +1808,7 @@ class Runner:
     def _dump_frames(self, case_id: str, step_no: int) -> None:
         """断言失败时把基准帧 / 当前帧存成图，便于事后看图定位。
 
-        存到 docs\\verify\\，名字 `<tag>_FAIL_<用例>_<步号>_base|cur.jpeg`。
+        存到 docs/verify\\，名字 `<tag>_FAIL_<用例>_<步号>_base|cur.jpeg`。
         存不了就算了 —— 不能因为存图失败把用例判成别的错。
         """
         try:
