@@ -1946,6 +1946,10 @@ class _Tee:
     def write(self, s: str) -> int:
         self.stream.write(s)
         self.fh.write(s)
+        # **每写一行就落盘**：不刷的话 Python 的缓冲会攒着，
+        # 跑测进行中去看那个日志文件是 0 字节（没法看进度），
+        # 中途被掐掉的话更是什么都留不下。
+        self.fh.flush()
         return len(s)
 
     def flush(self) -> None:
