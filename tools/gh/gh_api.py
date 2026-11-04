@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 # Windows: 子进程默认会弹控制台窗口，必须带 CREATE_NO_WINDOW
@@ -202,3 +203,62 @@ class GitHub:
     def get_commit(self, repo, sha):
         _, data = self.request('GET', '/repos/%s/%s/git/commits/%s' % (self.owner, repo, sha))
         return data
+
+    # ------------------------------------------------------------ release
+
+    def create_release(self, repo, tag, name, body, prerelease=False, draft=False):
+        """建一个 release（附件随后用 upload_asset 传）。"""
+        _, data = self.request('POST', '/repos/%s/%s/releases' % (self.owner, repo), {
+            'tag_name': tag,
+            'name': name,
+            'body': body,
+            'prerelease': prerelease,
+            'draft': draft,
+        })
+        return data
+
+    def upload_asset(self, repo, release_id, filename, data, content_type='application/octet-stream'):
+        """往 release 上传一个附件。
+
+        上传走的是**另一个域名** `uploads.github.com`（不是 api.github.com），
+        所以这里不用通用的 request()，自己发一次。
+
+        为什么必须分两个域名（实测）：GitHub 的 release 附件上传接口只认
+        uploads.github.com；本机 github.com 被墙，但 uploads/api/objects
+        三个域名都通 ✓（2026-11-04 实测）。
+        """
+        url = ('https://uploads.github.com/repos/%s/%s/releases/%s/assets?name=%s'
+               % (self.owner, repo, release_id, urllib.parse.quote(filename)))
+        headers = self._headers()
+        headers['Content-Type'] = content_type
+        last = None
+        delay = 3
+        for attempt in range(4):
+            req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+            try:
+                with urllib.request.urlopen(req, timeout=900) as resp:
+                    self._track(resp.headers)
+                    self.calls += 1
+                    return json.loads(resp.read().decode('utf-8') or '{}')
+            except urllib.error.HTTPError as err:
+                self._track(err.headers)
+                self.calls += 1
+                payload = err.read().decode('utf-8', 'replace')
+                last = 'HTTP %s: %s' % (err.code, payload[:300])
+                if err.status not in (502, 503, 504) and 'timeout' not in payload.lower():
+                    raise ApiError(err.status, payload, url)
+            except (urllib.error.URLError, ConnectionError, socket.timeout, OSError) as err:
+                last = '%s: %s' % (type(err).__name__, str(err)[:200])
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
+        raise ApiError(0, {'error': last or 'upload failed'}, url)
+
+    def get_release_by_tag(self, repo, tag):
+        try:
+            _, data = self.request('GET', '/repos/%s/%s/releases/tags/%s'
+                                   % (self.owner, repo, urllib.parse.quote(tag)))
+            return data
+        except ApiError as err:
+            if err.status == 404:
+                return None
+            raise

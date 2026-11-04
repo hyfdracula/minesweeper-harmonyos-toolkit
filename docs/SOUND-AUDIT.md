@@ -385,3 +385,169 @@ grep -n "SoundPlayer\.\|Sound\.[A-Z_]\+" C:\Users\19161\saolei\entry\src\main\et
   见 4.2。
 - 「原版素材」的取样范围是 `minesweeper-refs` 下的 3 份 audio 副本（共 15 个 wav，
   内容互为字节相同），不是从原版 exe 里现场提取的资源段。
+
+---
+
+## 10. 2026-11-04 用户报障后的修正（已落地并有回归）
+
+用户 2026-11-04 报了两条：
+
+> 1. 音画不同步
+> 2. 在点击第一个方块打开的时候，还是会播放一次开始音频，原版是只有方块波浪形展开的时候才播放一次
+
+两条都查清了根因并已改。**这一节把改动和依据集中记在这里**，
+前面的章节保持「审计当时的样子」不动，便于对照。
+
+### 10.1 首点音效归属 —— 原来确实挂错了
+
+第 2 节「原版触发点基线」表里写着：
+
+| 事件 | 原版 | 本项目（当时） |
+|---|---|---|
+| 新局发牌 | NewBoard → `gameStart` | `GameController.ets:219` gameStart |
+| 首次点击 | FirstPaint → `firstPaint` | `GameController.ets:932` firstPaint |
+
+**这个「首次点击 → firstPaint」是错的**。两份复刻都不把任何音效挂在首点上：
+
+- **Qt 复刻** `src/ui/MainWindow.cpp:41-48`，注释原文
+  *"The original's SingleReveal / MultiReveal pair."*：
+  ```cpp
+  connect(m_board, &Board::cellsOpened, this, [this](const QVector<QPoint> &order) {
+      if (order.size() > 1) m_sounds.multiReveal();
+      else if (order.size() == 1) m_sounds.singleReveal();
+  });
+  ```
+  —— 判据是**翻开几格**，没有「首点」这一说。
+- **Lmy 复刻** `utf8/Minesweeper.cpp:1774-1797`：`zeroDevelop()` 是独立函数，
+  判据是**被点那格的相邻雷数**，同样不看是不是首点。
+- **Lmy 复刻** `utf8/Minesweeper.cpp:1495-1508`：`firstPaint`（`IDR_WAVE1`，
+  见 `Minesweeper.rc:344`）是在**发牌的逐格绘制循环之前**播的
+  —— 它是**发牌动画的配乐**，不是首点的音。
+
+本项目原来的 `else if` 链：
+
+```ts
+if (wasReady)            SoundPlayer.play(Sound.FIRST_PAINT);   // 首点：只响这一声
+else if (adjacent === 0) SoundPlayer.play(Sound.ZERO_DEVELOP);
+else if (opened > 1)     SoundPlayer.play(Sound.TILE_MULTIPLE);
+else                     SoundPlayer.play(Sound.TILE_SINGLE);
+```
+
+`wasReady` 排在最前，于是**首点永远只响 firstPaint**，
+`zeroDevelop` / `tileSingle` / `tileMultiple` 在首点时一声不响。
+用户听到的「又播了一次开始音」就是它。
+
+**已改**：
+- 首点删掉 `wasReady` 分支，改按 `adjacent==0 → ZERO_DEVELOP` /
+  `opened.length>1 → TILE_MULTIPLE` / 否则 `TILE_SINGLE` 走（与其它开格同一套规则）；
+- 发牌动画改播 `Sound.FIRST_PAINT`；
+- `Sound.GAME_START` 目前**全仓无调用点**（两份复刻对「发牌那一刻响哪一条」互相矛盾，
+  详见 `SOUND-MAP.md` 的「两份复刻与分歧」；在真 Win7 上试听定案前不擅自补播）。
+
+### 10.2 `invalidMove` 那条分支是**死代码**（第 3.2-A 已记，这次确认并删掉）
+
+`tap()` 里原来有：
+
+```ts
+} else if (e.gameState === GameState.Playing &&
+  !e.cellAt(r, c).revealed && e.cellAt(r, c).mark !== Mark.Flag) {
+  SoundPlayer.play(Sound.INVALID_MOVE);
+}
+```
+
+`e.reveal(r, c)` 返回 `changed=false` 只有两种可能
+（`MinesweeperEngine.ets:259-289`）：
+
+1. 棋局已终局（`:261`，`isOver()` 见 `:246-248`）；
+2. 该格**已翻开**或**已插旗**（`:265-267`）。
+
+而上面那个分支要求的是「**没**翻开、**没**插旗」——
+**两条正好互斥，所以它永远进不去**。
+
+而且原版本来就不该在这里响：
+**Qt 复刻** `src/ui/BoardWidget.cpp:833-849`（`mouseReleaseEvent`）里
+`emit invalidMove()` 只出现在 `Press::Chord` 分支（**和弦失败**），
+普通点击那条分支只调 `m_board->reveal()`，不响任何音。
+我们的 `chord()` 里已经是对的。
+
+**已改**：删掉这条死分支，并留下注释说明原版的口径。
+
+### 10.3 音画不同步 —— 两套时钟的问题
+
+**根因**：画面动画走 `Date.now()` 的**绝对时间轴**
+（`DealIn.ts` 的 `dealStart`、涟漪的 `rippleStart`、`Anim` 的 `tripElapsed`），
+声音却是从「调用 `play()` 的那一刻」开始**异步**准备播放器的：
+
+```
+getRawFd → createAVPlayer → 等 initialized → prepare → seek(0) → play()
+```
+
+第一次播某个音效要几百毫秒，全花在**该响的那一刻之后** ——
+于是声音总是比画面晚一截。
+
+**已改**（`SoundPlayer.ets`）：
+
+1. **`warmup()`**：启动后把 15 个音效的播放器全部提前建好并 `prepare`，
+   真正要播时只剩 `seek(0) → play`，延迟降到几十毫秒。
+   预热挂在 `MinefieldCanvas.ets` 的 `setTimeout(..., 0)` 上（让首帧先画完）。
+2. **`playAt(name, atMs)`**：把「该响的绝对时刻」交给声音层 ——
+   按剩余时间补偿，**声音与画面落在同一个绝对时刻**。
+   发牌配乐、翻开声、爆炸三段、胜利音都改用它。
+3. **重播路径分两档**：播放器正在 `playing` 时直接 `seek(0)`
+   （API 契约：`play()` 只在 `prepared`/`paused`/`completed` 可调，
+   在 `playing` 下调用会抛 5400102）；其余状态才走 `stop → prepare → seek → play`。
+
+### 10.4 爆炸三段的切换点：抄错了 575ms
+
+第 3.1 节记的原版时序是「爆炸动画 25 帧 × 23ms = 575ms → 切到爆炸中音」。
+那 575ms 是**参考实现**的动画时长，**不是本工程的**。
+
+本工程的爆炸是 `Anim.EXPLODE_FRAMES = 23` 帧 × `1000/23 = 43.478` ms
+= **1000ms**（`Anim.ets:60-62`，依据是原版的 `MineTrip.xml`）。
+照抄 575 会让「爆炸中音」比画面上的爆炸**早 425ms** 响起来 —— 又一处不同步。
+
+**已改**：`playBombTail()` 用 `Anim.explodeDurationMs()`
+（本工程自己的动画时长），而且三段都锚到**级联的绝对起始时刻**，
+不再各用各的 `setTimeout`（那是「从调用时刻起算」，一抖动就各自漂移）。
+
+### 10.5 `gameLose` 改成**逐雷各炸一声**（第 8 节「备注」那行的取舍，已推翻）
+
+第 8 节把它记成「有意取舍」，理由是「本项目没做其它雷逐颗烧红的级联动画」。
+**那个理由现在不成立了** —— 级联动画早就有了
+（`Anim.startTrip(booms)` + `Anim.boomFrame(index)` + `boom.startMs`）。
+
+原版的判负音是**每颗雷各炸一声、叠着响**
+（**Qt 复刻** `src/ui/Sounds.h:10-12`：
+*"the original keeps 30 buffers so cascading mines overlap"*），
+而且**由动画时钟触发**（**Qt 复刻** `src/ui/BoardWidget.cpp:305-306`：
+环走到这颗雷时才 `emit mineTripped()`）——
+**那才是原版的音画同步机制**。
+
+**已改**：
+- `playBombTail()` 按每颗雷的 `boom.startMs`（与 `Anim.boomFrame()` 用的是同一个数）
+  **逐颗**触发 `gameLose` —— 声音与那一格的爆炸帧**同一时刻**；
+- 新增 `SoundPlayer.playPooled()`：4 个播放器轮转，
+  单一播放器会让后一声打断前一声，级联听起来是「哒哒哒」而不是原版的「轰隆隆一片」。
+
+### 10.6 自动化回归（新增 `tools/click_cases/sound.json`，8 条）
+
+音效是**听觉**的，像素断言抓不到。但应用每播一声都会打一行日志：
+
+```
+[Sound] 播放 <名字> at=<时刻>            —— 立即播放
+[Sound] 对齐播放 <名字> at=<时刻>         —— 对齐到画面的绝对时刻
+```
+
+于是「这一刻到底播了哪一声」可以用日志断言 —— 硬且可复现。
+
+跑测器新增了一个断言类型 `hilog_checks`（在**同一个日志窗口**里做多条检查）。
+为什么不能写成「两个 `hilog_regex` / `hilog_absent` 连着写」：
+`log_new_lines()` 每读一次就把读到的行标成「已见过」，
+所以连续两个 expect 看不到同一批日志 —— 第二个会**空跑通过**（假的绿灯）。
+这是实测踩到的：首轮跑测「首点只播一声」那条用例**假通过**，
+因为它数到了两条重复日志（`playAt` 调度时一行 + `play()` 实际播放时一行）。
+
+### 10.7 顺带修的：`SoundPlayer.playSequence()` 是死代码
+
+全仓无调用点（爆炸三段是各自 `setTimeout` 的）。已删。
+

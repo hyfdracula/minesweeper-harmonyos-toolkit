@@ -184,6 +184,7 @@
     },
     {
       "id": "custom.key.emptycell",
+      "critical": true,
       "desc": "键盘右下角的空格子（没有键）：点它什么也不该发生，高度值区不变",
       "steps": [
         {"act": "reset"},
@@ -259,6 +260,7 @@
 
     {
       "id": "custom.limit.height",
+      "critical": true,
       "desc": "高度越界：先输 2（合法），再输 5 → 25 > 上限 24 → 这一次按键被拒绝，高度值区保持 2 不变",
       "steps": [
         {"act": "reset"},

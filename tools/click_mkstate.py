@@ -227,7 +227,10 @@ def _dialog_matches(path, state, hint_rect):
 
 
 def _run_win_probe(device, phase, outdir):
-    cmd = [sys.executable, WIN_PROBE, "--device", device, "--phase", phase, "--out", outdir]
+    # `--burst 1`：win_probe 默认连拍 16 帧爆炸动画，那是给**动画分析**用的。
+    # 这里只需要「框弹出来了」，那一帧纯属白花时间（每帧一次截图 ~500ms）。
+    cmd = [sys.executable, WIN_PROBE, "--device", device, "--phase", phase,
+           "--out", outdir, "--burst", "1"]
     print("[mkstate] 执行:", " ".join(cmd))
     proc = run(cmd, capture_output=True, timeout=900)
     out = (proc.stdout or b"")

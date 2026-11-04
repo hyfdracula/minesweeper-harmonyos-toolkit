@@ -53,6 +53,7 @@
     },
     {
       "id": "menu.game.new",
+      "critical": true,
       "desc": "游戏→新建(F2)：同难度重开一局（棋盘清空、重新计时）",
       "steps": [
         {"act": "reset"},
@@ -184,6 +185,7 @@
     },
     {
       "id": "menu.help.about",
+      "critical": true,
       "desc": "帮助→关于扫雷 A：弹出「关于 扫雷」对话框",
       "steps": [
         {"act": "reset"},

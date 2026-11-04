@@ -14,3 +14,10 @@ docs/verify/CTR_*.jpeg
 docs/verify/IDLE_*.jpeg
 docs/verify/STRIP_now*.jpeg
 docs/verify/STRIP_zoom.png
+
+# 亮屏守护脚本的活日志（一直在写，不进仓）
+docs/verify/keep_awake.log
+
+# GitHub 树缓存（可再生）
+tools/gh/tree_cache_app.json
+tools/gh/tree_cache_spec.json

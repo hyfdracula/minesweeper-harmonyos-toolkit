@@ -397,6 +397,33 @@ if (m_board->over()) {
 - `Sound.FIRST_PAINT`（`firstPaint.wav`）常量在 `SoundPlayer.ets` 里定义了，但**只在首点开格时播**（`GameController.ets` 约 536 行 `SoundPlayer.play(Sound.FIRST_PAINT)`），**没有动画**。
 - **可疑**：真 Win7 的 `firstPaint.wav` 是**发牌动画的配乐**（`IDR_WAVE1` 在发牌时播），而项目把它挂在「首点开格」上。项目用的是 `gameStart.wav` 放在 `startNewGame()`。**这两条音效的位置疑似与原版对调**，标记为**疑似**，建议核对。
 
+### 3.5.1 音效归属对调 —— **今日状态：已核对并修正**（2026-11-04）
+
+用户 2026-11-04 报：「**在点击第一个方块打开的时候，还是会播放一次开始音频，原版是只有方块波浪形展开的时候才播放一次**」。
+
+**核查结论（本节「疑似」升级为「已定案」）**：
+
+| 事件 | 原版播什么 | 依据 |
+|---|---|---|
+| 新局**发牌动画** | `firstPaint` | Lmy `Minesweeper.rc:344`（`IDR_WAVE1 = firstPaint.wav`）+ `utf8/Minesweeper.cpp:1495-1508`（在发牌逐格绘制循环**之前** `PlaySound(IDR_WAVE1)`） |
+| **首点**开格 | `tileSingle` / `tileMultiple` / `zeroDevelop`（**按翻开格数**） | Qt `MainWindow.cpp:41-48`（注释原文 "The original's SingleReveal / MultiReveal pair."，`order.size()>1 → multiReveal`）；Lmy `utf8/Minesweeper.cpp:1774-1797`（0 格洪泛走独立的 `zeroDevelop()`，判据**不看是不是首点**） |
+
+**两份复刻都没有把任何音效挂在「首点」上** —— 首点与其它开格走同一套规则。
+本项目原先的 `else if` 链（`wasReady → FIRST_PAINT`）把这条规则整个吃掉了，
+于是首点**只**响一声 `firstPaint`（听起来就是「又播了一次开始音」），
+而 `zeroDevelop` / `tileSingle` / `tileMultiple` 在首点时一声不响。
+
+**已改**：
+- `startNewGame()`：发牌动画改播 `Sound.FIRST_PAINT`（并锚到发牌起始时刻，见 §3.6）；
+- `tap()`：删掉 `wasReady` 分支，首点按 `adjacent==0 → ZERO_DEVELOP` /
+  `opened.length>1 → TILE_MULTIPLE` / 否则 `TILE_SINGLE` 走；
+- `Sound.GAME_START` 目前**全仓无调用点** —— 两份复刻对「发牌那一刻响哪一条」互相矛盾
+  （详见 `SOUND-MAP.md` 的「两份复刻与分歧」一节），在真 Win7 上听一次之前不擅自补播。
+
+**自动化回归**：新增 `tools/click_cases/sound.json`（8 条用例），
+靠应用侧 `[Sound] 播放/对齐播放 <名字>` 日志断言（音效是听觉的，像素断言抓不到）。
+
+
 **工作量估计：中（30~120 行）**
 - 逐格淡入需要 per-cell 的 alpha 淡入（`Theme.ets` 已有 `normalTileRect` / `pressedTileRect`，可用 `ctx.globalAlpha` 实现淡入）。
 - 波浪时刻按「到最近角的对角距离」算，与 `[QT] playIntro()` 同款算法，约 60~100 行。

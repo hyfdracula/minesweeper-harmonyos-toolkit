@@ -1709,6 +1709,48 @@ class Runner:
                 return False, "不该出现的日志却出现了: " + ln.strip()[-140:]
         return True, "没有出现 %r（新日志 %d 行）" % (pat, len(new))
 
+    def expect_hilog_checks(self, step: dict) -> tuple[bool, str]:
+        """在**同一个日志窗口**里做多条断言。
+
+        为什么需要这个（2026-11-04，音效回归）：
+        `log_new_lines()` 每调一次就把读到的行都标成「已见过」，
+        所以**连续两个 expect 看不到同一批日志** ——
+        第二个 expect 只会看到第一个之后新产生的行。
+        于是「X 要出现」和「Y 不该出现」这种成对的断言，
+        分成两个 expect 时，第二个会**空跑通过**（假的绿灯）。
+
+        这里一次读完窗口，然后对这一批日志做**全部**检查：
+        - `present`: true/false —— 该正则该不该命中（默认 present=true）
+        - `re`: 正则
+        - `min_count` / `max_count`: 命中次数的下限/上限（可选）
+        """
+        checks = step.get("checks")
+        if not checks:
+            return False, "hilog_checks 必须给 checks"
+        new = self.log_new_lines()
+        failed = []
+        detail = []
+        for chk in checks:
+            pat = chk.get("re", "")
+            want_present = bool(chk.get("present", True))
+            hits = [ln for ln in new if re.search(pat, ln)]
+            n = len(hits)
+            detail.append("%r 命中 %d 次" % (pat, n))
+            if want_present and n == 0:
+                failed.append("应当出现 %r，但没有" % pat)
+            if not want_present and n > 0:
+                failed.append("不应出现 %r，却出现了 %d 次：%s"
+                              % (pat, n, hits[0].strip()[-100:]))
+            lo = chk.get("min_count")
+            if lo is not None and n < int(lo):
+                failed.append("%r 命中 %d 次，少于要求的 %s 次" % (pat, n, lo))
+            hi = chk.get("max_count")
+            if hi is not None and n > int(hi):
+                failed.append("%r 命中 %d 次，多于要求的 %s 次" % (pat, n, hi))
+        if failed:
+            return False, "；".join(failed) + "（本窗口 %d 行：%s）" % (len(new), " / ".join(detail))
+        return True, "同一窗口 %d 行全部符合：%s" % (len(new), " / ".join(detail))
+
     def expect_app_alive(self, step: dict) -> tuple[bool, str]:
         want = step.get("alive", True)
         alive = self.hdc.app_alive()
@@ -1786,6 +1828,8 @@ class Runner:
             ok, msg = self.expect_hilog_regex(step)
         elif t == "hilog_absent":
             ok, msg = self.expect_hilog_absent(step)
+        elif t == "hilog_checks":
+            ok, msg = self.expect_hilog_checks(step)
         elif t == "counter":
             ok, msg = self.expect_counter(step)
         elif t == "app_alive":
@@ -1907,7 +1951,12 @@ class Runner:
 # ===========================================================================
 #  主流程
 # ===========================================================================
-def load_cases(domains: list[str], only: str | None) -> list[tuple[str, dict]]:
+def load_cases(domains: list[str], only: str | None,
+               critical_only: bool = False) -> list[tuple[str, dict]]:
+    """读用例表。
+
+    @param critical_only 只收标了 `"critical": true` 的用例（见 --critical）。
+    """
     out = []
     if not os.path.isdir(CASES_DIR):
         return out
@@ -1923,6 +1972,8 @@ def load_cases(domains: list[str], only: str | None) -> list[tuple[str, dict]]:
         for case in data.get("cases", []):
             cid = case.get("id", "")
             if only and only not in cid:
+                continue
+            if critical_only and not case.get("critical"):
                 continue
             out.append((dom, case))
     return out
@@ -1972,13 +2023,16 @@ def main() -> int:
     ap.add_argument("--cases", default="", help="要跑的域，逗号分隔（默认全部）")
     ap.add_argument("--only", default="", help="只跑用例 id 含这个子串的")
     ap.add_argument("--tag", default="", help="证据图名前缀（CM_<tag>_<name>.jpeg）")
+    ap.add_argument("--critical", action="store_true",
+                    help="只跑标了 \"critical\": true 的用例（每个域的关键几条，分钟级）")
     ap.add_argument("--verbose", action="store_true", help="打印每一步的细节")
     args = ap.parse_args()
 
     domains = [d.strip() for d in args.cases.split(",") if d.strip()]
-    cases = load_cases(domains, args.only or None)
+    cases = load_cases(domains, args.only or None, args.critical)
     if not cases:
-        print("没有匹配的用例（--cases %s --only %s）" % (args.cases, args.only))
+        print("没有匹配的用例（--cases %s --only %s --critical %s）"
+              % (args.cases, args.only, args.critical))
         return 2
 
     # 成绩单同时写进 docs\verify\CM_<tag>.log（见 _Tee 的说明）。

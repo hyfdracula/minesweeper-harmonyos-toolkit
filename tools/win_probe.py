@@ -189,12 +189,25 @@ def find_grid_by_seams(img, pitch):
     colcnt = dark.sum(axis=0).astype(np.int64)
     rowcnt = dark.sum(axis=1).astype(np.int64)
 
+    # 阈值**跟 pitch 挂钩**，不用「全图最大值 × 0.55」。
+    #
+    # 坑（2026-11-05，真平板横屏 2800x1840 实测）：
+    # 原来 thr = 全图最大值 × 0.55。而屏幕顶部那条**系统状态栏是整行全黑**，
+    # 它的行计数 = 整屏宽度 2800 → thr = 1540；
+    # 真正的**横缝**（棋盘宽 ≈ 1296）**全被砍掉** → 一个横缝候选都找不到 →
+    # `find_grid_by_seams` 返回 None → `restart_app` 轮询 40 次全废
+    # （每轮一次截图 ≈ 2.5 秒，两轮就 5 分钟），最后报
+    # 「应用启动后仍找不到棋盘网格」。
+    #
+    # 为什么列方向没事：列剖面的全图最大值（1452）恰好来自竖缝本身。
+    #
+    # 一条缝的「暗像素支撑」≈ 棋盘在**另一个方向**上的边长，
+    # 至少也有 3 格（3*pitch）。所以用 **2 * pitch** 当阈值：
+    # 它只依赖格子尺寸，不受「整行全黑」这种极值污染。
+    thr = max(20.0, 2.0 * pitch)
+
     def candidates(profile):
         """把「连续的高暗像素列/行」归成一条线，返回每条线的位置。"""
-        mx = int(profile.max())
-        if mx <= 0:
-            return []
-        thr = mx * 0.55
         lines = []
         run = []
         for i, v in enumerate(profile):
@@ -210,15 +223,16 @@ def find_grid_by_seams(img, pitch):
 
     def match(lines, p):
         """
-        找最佳相位。返回 (第一线的位置, 命中数)。
+        列出所有按 pitch 排列的候选链，返回 [(起点, 命中数), ...]（长的在前）。
+
         命中数 - 1 = 格子数（棋盘有 cols+1 条竖线：含左右外框）。
 
         做法：对每个候选线当起点，向后按 pitch 找下一条，命中最多的就是网格。
         """
         if len(lines) < 3:
-            return None
-        best = None
+            return []
         tol = max(4, p // 20)
+        out = []
         for start in lines:
             hits = [start]
             prev = start
@@ -230,21 +244,43 @@ def find_grid_by_seams(img, pitch):
                 pick = min(near, key=lambda x: abs(x - target))
                 hits.append(pick)
                 prev = pick
-            if best is None or len(hits) > best[1]:
-                best = (hits[0], len(hits))
-        return best
+            out.append((hits[0], len(hits)))
+        # 长的在前；一样长时起点小的在前（更可能是左上角那条）
+        out.sort(key=lambda t: (-t[1], t[0]))
+        return out
 
-    cm = match(candidates(colcnt), pitch)
-    rm = match(candidates(rowcnt), pitch)
-    if cm is None or rm is None:
-        return None
-    gx, ncl = cm
-    gy, nrl = rm
-    ncols = ncl - 1
-    nrows = nrl - 1
-    if ncols < 3 or nrows < 3 or ncols > 30 or nrows > 24:
-        return None
-    return gx, gy, ncols, nrows
+    col_chains = match(candidates(colcnt), pitch)
+    row_chains = match(candidates(rowcnt), pitch)
+    if not col_chains or not row_chains:
+        return []
+    out = []
+    # 组合前若干条链（每轴最多 16 条）—— 够用且不会爆炸
+    for gx, ncl in col_chains[:16]:
+        for gy, nrl in row_chains[:16]:
+            ncols = ncl - 1
+            nrows = nrl - 1
+            if ncols < 3 or nrows < 3 or ncols > 30 or nrows > 24:
+                continue
+            out.append((gx, gy, ncols, nrows))
+    if not out:
+        return []
+    # 命中多的优先（链越长越像真网格）
+    out.sort(key=lambda t: -(t[2] + 1) * (t[3] + 1))
+    return out
+
+
+def find_grid_candidates(img, pitch):
+    """列出所有可能的棋盘网格：[(gx, gy, ncols, nrows), ...]，最像的排前面。
+
+    为什么要「一堆」而不是一个（2026-11-05，真平板横屏）：
+    屏幕上除了棋盘，还有**整行全黑**的系统状态栏、导航条。
+    它们也会被当成「候选线」，于是最长的那条链可能是
+    「状态栏 + 前 9 条横缝」这种**拼接出来的假链** ——
+    它的行数多一个、起点也偏得离谱。
+    所以把候选都交出去，让 `validate_grid` 拿**版式**（棋盘原点）
+    去挑吻合的那一条。
+    """
+    return find_grid_by_seams(img, pitch)
 
 
 def _dark_profile(img, x0, y0, x1, y1, axis):
@@ -272,24 +308,24 @@ def validate_grid(img, layout):
     pitch = layout['tile']
     if pitch <= 0:
         return None
-    lat = find_grid_by_seams(img, pitch)
-    if lat is None:
-        return None
-    gx, gy, ncols, nrows = lat
-    dx = gx - layout['board_x']
-    dy = gy - layout['board_y']
-    if not (-12 <= dx <= 40):
-        return None
-    if not (0 <= dy <= 320):
-        return None
-    # 棋盘必须放得进画布（画布原点在屏幕上的偏移就是 dx/dy）
-    if ncols * pitch > layout['canvas_w'] - layout['board_x'] + 40:
-        return None
-    if nrows * pitch > layout['canvas_h'] - layout['board_y'] + 40:
-        return None
-    if ncols < 3 or nrows < 3 or ncols > 30 or nrows > 24:
-        return None
-    return gx, gy, ncols, nrows
+    # 候选可能有好几条（状态栏那种整行全黑的带也会混进来），
+    # 逐条试，**第一条与版式对得上的**就是它。
+    for (gx, gy, ncols, nrows) in find_grid_candidates(img, pitch):
+        dx = gx - layout['board_x']
+        dy = gy - layout['board_y']
+        if not (-12 <= dx <= 40):
+            continue
+        if not (0 <= dy <= 320):
+            continue
+        # 棋盘必须放得进画布（画布原点在屏幕上的偏移就是 dx/dy）
+        if ncols * pitch > layout['canvas_w'] - layout['board_x'] + 40:
+            continue
+        if nrows * pitch > layout['canvas_h'] - layout['board_y'] + 40:
+            continue
+        if ncols < 3 or nrows < 3 or ncols > 30 or nrows > 24:
+            continue
+        return gx, gy, ncols, nrows
+    return None
 
 
 def grid_from_layout(img, layout, rows, cols):

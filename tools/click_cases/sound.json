@@ -1,0 +1,367 @@
+{
+  "domain": "sound",
+  "_说明": [
+    "音效回归（2026-11-04 新增）。",
+    "",
+    "为什么要有这一域：音效是**听觉**的，像素断言抓不到；",
+    "但应用每播一声都会打一行 `[Sound] 播放 <名字>` 的日志，",
+    "于是「这一刻到底播了哪一声」可以用日志断言 —— 硬且可复现。",
+    "",
+    "这个域专门盯用户 2026-11-04 报的两条：",
+    "  ① 音画不同步；",
+    "  ② 点第一个方块时多播一次「开始音」。",
+    "",
+    "断言用 `hilog_checks` 而不是「两个 hilog_regex / hilog_absent 连着写」：",
+    "`log_new_lines()` 每读一次就把读到的行标成「已见过」，",
+    "所以连续两个 expect 看不到同一批日志 —— 第二个会**空跑通过**（假的绿灯）。",
+    "`hilog_checks` 一次读完窗口，对这一批日志做全部检查。",
+    "",
+    "日志行格式：",
+    "  [Sound] 播放 <名字> at=<时间戳>            —— 立即播放",
+    "  [Sound] 对齐播放 <名字> 目标=<时刻> 延迟=<ms> —— 对齐到画面的绝对时刻"
+  ],
+  "cases": [
+    {
+      "id": "sound.deal_in.playlist",
+      "desc": "新局发牌：播 firstPaint（原版的发牌配乐），且**不播** gameStart",
+      "_说明": [
+        "应用**启动**时是不发声的（原版如此：静音启动），",
+        "所以要用菜单「游戏 → 新建」触发新局，才听得到发牌配乐。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "menu",
+          "top": "game",
+          "entry": "新建"
+        },
+        {
+          "act": "wait",
+          "ms": 2000
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) firstPaint"
+            },
+            {
+              "present": false,
+              "re": "\\[Sound\\] (对齐播放|播放) gameStart"
+            }
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "sound_deal_in"
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.first_click.no_start_sound",
+      "desc": "点第一个方块：**不再**播 firstPaint（那是发牌配乐，不是首点的音）",
+      "_说明": [
+        "这条就是用户 2026-11-04 报的第二个 bug：",
+        "「在点击第一个方块打开的时候，还是会播放一次开始音频」。",
+        "原版的首点走的是 zeroDevelop / tileSingle / tileMultiple，",
+        "**没有** firstPaint 这一说（firstPaint 是发牌动画的配乐）。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1200
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": false,
+              "re": "\\[Sound\\] (对齐播放|播放) firstPaint"
+            },
+            {
+              "present": false,
+              "re": "\\[Sound\\] (对齐播放|播放) gameStart"
+            },
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) (tileSingle|tileMultiple|zeroDevelop)"
+            }
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "sound_first_click"
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.first_click.only_one_sound",
+      "desc": "点第一个方块：翻开音**只播一声**（不叠加）",
+      "_说明": [
+        "「只播一声」用 max_count 断言 ——",
+        "首点开一片区域时，原版是**一声**（按翻开格数选一条），不是每格一声。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1200
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) (tileSingle|tileMultiple|zeroDevelop)",
+              "max_count": 1
+            }
+          ]
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.reveal.aligned",
+      "desc": "翻开格子那一声是**对齐播放**（锚在涟漪起点，与画面同一时间轴）",
+      "_说明": [
+        "音画对齐的判据：声音不是「调用 play 的那一刻」起播，",
+        "而是**锚到画面的绝对时刻**（涟漪起点）—— 对齐播放会打「对齐播放」这一行。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1200
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] 对齐播放 (tileSingle|tileMultiple|zeroDevelop)"
+            }
+          ]
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.flag",
+      "desc": "长按插旗：播 dbButtonClickFlag",
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            0,
+            0
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 900
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) dbButtonClickFlag"
+            }
+          ]
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.lose.bomb_sequence",
+      "desc": "踩雷判负：爆炸三段（开始 → 中 → 结束）依次播出",
+      "_说明": [
+        "顺序也要对：开始 → 中 → 结束。",
+        "「中」是循环音，所以可能不止一条；结束音在级联炸完时响。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "lose_game"
+        },
+        {
+          "act": "wait",
+          "ms": 3000
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) mineBombStart"
+            },
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) mineBombRun"
+            },
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) mineBombEnd"
+            }
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "sound_lose"
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.lose.per_mine_boom",
+      "desc": "判负：**每颗雷各炸一声**（原版语义），不是只响一声",
+      "_说明": [
+        "原版是逐雷爆点：环走到哪颗雷，哪颗雷就炸一声，声音**叠着响**",
+        "（linux 复刻 BoardWidget.cpp:305-306：「环走到这颗雷时才 emit mineTripped」",
+        "  —— 那就是原版的音画同步机制）。",
+        "所以 gameLose 的命中次数应该 **≥ 2**（级联里至少两颗雷）。",
+        "只响一声是本项目的旧行为（SOUND-AUDIT.md §2 记的取舍，",
+        "  理由是「没做级联动画」—— 那个理由现在已经不成立了）。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "lose_game"
+        },
+        {
+          "act": "wait",
+          "ms": 3000
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) gameLose",
+              "min_count": 2
+            }
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "sound_lose_per_mine"
+        }
+      ],
+      "critical": true
+    },
+    {
+      "id": "sound.win",
+      "desc": "判胜：播 gameWin，且锚在扫描条起播的那一刻",
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "wait",
+          "ms": 1800
+        },
+        {
+          "act": "win_game"
+        },
+        {
+          "act": "wait",
+          "ms": 3000
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[Sound\\] (对齐播放|播放) gameWin"
+            }
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "sound_win"
+        }
+      ],
+      "critical": true
+    }
+  ]
+}

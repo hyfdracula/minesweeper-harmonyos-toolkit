@@ -19,6 +19,7 @@
 | 第 9 轮 | 规格仓 `bc22e84..HEAD`（跑测器唤醒/错误检查 + 新增回归用例 + 文档） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*I found no actionable defect in the diff*） | 无 | — |
 | 第 9 轮 | 应用仓 `d6bac3d..HEAD`（局终点棋盘重开） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | 「重开那一击把画布的双击状态也记下了 → 300ms 内再点同一格被判成**和弦** → 新局里那格还没翻开，和弦什么也不做 → 玩家想开的第一下被静默吃掉」 | 局终时（`controller.gameOver`）**清掉**双击状态再走 `tap()`；`GameController` 加公开只读属性 `gameOver`。应用仓提交 `80a0f98` |
 | 第 10 轮 | 规格仓 `7913b67..HEAD`（唤醒节流 + 周期性唤醒 + 目标机决策文档） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*I found no actionable regression in the changed wake-up, logging, or state-data paths. The remaining changes are documentation updates.*） | 无 | — |
+| 第 11 轮 | 应用仓 `c121cc8..HEAD`（音效：归属改正 + 音画对齐 + 逐雷爆点） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | ① **逐雷音效在级联被打断时没取消** —— 那些 `setTimeout` 的句柄没留，`stopBombTail()` 撤不掉，跳过动画或换局后爆炸还在结算框上炸；而且池子里的 `GAME_LOSE` 也不在 `SoundPlayer.stop(BOMB_*)` 的射程内 ② **预热建了 19 个 AVPlayer**（15 个普通 + 4 个池子），超过平台建议的 16 个上限，资源紧张的设备上后面的音效建不出来 ③ **预热与播放并发时重复建播放器** —— `ensurePlayer()` 只看已建好的 `players`、不看在建的 `warming`，两条路各建一个，后者顶掉前者，多出来的那个 `dispose()` 也 release 不掉（泄漏）④ **池子无条件轮转会挑到还在播的播放器** —— `seek(0)` 把那声爆炸切断，而这正是池子要避免的事（级联里 5 颗以上雷会挤在一起起爆） | 四条全修：① 逐雷的定时器句柄存进 `bombBoomTimers`，`stopBombTail()` 里全撤；新增 `SoundPlayer.stopPooled()`，跳过动画时把池子里的声音也停掉 ② 预热改成**按优先级 + 有预算**（`WARM_BUDGET=12`），实例总数不超 `HARD_MAX=14`；不常用又互斥的（`gameStart` 无调用点、三条花园音效）不预热，改懒建 ③ `ensurePlayer()` 缓存**在建的 promise**，谁要都 await 同一个 ④ 池子改成**挑空闲的**播放器，全忙时挑开始最早的 |
 
 ## 第 7 轮：这一轮复审**第一次查的是应用代码**
 

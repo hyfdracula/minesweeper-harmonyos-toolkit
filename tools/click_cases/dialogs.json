@@ -30,6 +30,7 @@
     },
     {
       "id": "dialogs.lose.close",
+      "critical": true,
       "desc": "失败框→标题栏红叉 X：关框回主界面，不退出应用",
       "steps": [
         {"act": "reset"},
@@ -95,6 +96,7 @@
     },
     {
       "id": "dialogs.win.exit",
+      "critical": true,
       "desc": "胜利框→退出(X)：关框并终止应用（2026-11-01 起文案由 退出(Q) 改成 退出(X)，提交 323a324）",
       "steps": [
         {"act": "reset"},
@@ -361,6 +363,7 @@
     },
     {
       "id": "dialogs.about.close",
+      "critical": true,
       "desc": "关于框→标题栏红叉 X（经典蓝灰标题栏，尺寸略大）：关掉关于框",
       "steps": [
         {"act": "reset"},

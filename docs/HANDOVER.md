@@ -947,3 +947,150 @@ preflight 的格式化崩溃（`%d` 收到字符串，86 条一条都跑不了�
 ### 13.4 本轮涉及的提交号
 
 **应用仓** `C:\Users\19161\saolei`：`ca5548c`（结算动画可跳过）。
+
+---
+
+## 14. 2026-11-04/05：音效修复（归属改正 + 音画对齐）
+
+用户 2026-11-04 报了两条：
+
+> 1. 音画不同步
+> 2. 在点击第一个方块打开的时候，还是会播放一次开始音频，原版是只有方块波浪形展开的时候才播放一次
+
+### 14.1 第 2 条的根因：`else if` 链把首点的规则吃掉了
+
+原来的写法：
+
+```ts
+if (wasReady)            SoundPlayer.play(Sound.FIRST_PAINT);   // 首点：只响这一声
+else if (adjacent === 0) SoundPlayer.play(Sound.ZERO_DEVELOP);
+else if (opened > 1)     SoundPlayer.play(Sound.TILE_MULTIPLE);
+else                     SoundPlayer.play(Sound.TILE_SINGLE);
+```
+
+`wasReady` 排在最前 → **首点永远只响 `firstPaint`**，
+`zeroDevelop` / `tileSingle` / `tileMultiple` 在首点时一声不响。
+用户听到的「又播了一次开始音」就是它。
+
+两份复刻都不把音挂在首点上：
+
+- **Qt 复刻** `linux-minesweeper-main/src/ui/MainWindow.cpp:41-48`
+  （注释原文 *"The original's SingleReveal / MultiReveal pair."*）：
+  判据是**翻开几格**（`order.size() > 1` → multiReveal，`== 1` → singleReveal）；
+- **Lmy 复刻** `Minesweeper-master/Minesweeper/utf8/Minesweeper.cpp:1774-1797`：
+  `zeroDevelop()` 是独立函数，判据是**被点那格的相邻雷数**，同样不看是不是首点。
+
+而 `firstPaint` 是**发牌动画的配乐**：
+**Lmy 复刻** `Minesweeper.rc:344`（`IDR_WAVE1 = firstPaint.wav`）+
+`utf8/Minesweeper.cpp:1495-1508`（在发牌的逐格绘制循环**之前** `PlaySound(IDR_WAVE1)`，
+每格延时 `1100.0/(row*col)` → 总共 1100 ms）。
+
+**已改**：首点删掉 `wasReady` 分支，按翻开格数走；发牌改播 `FIRST_PAINT`。
+`Sound.GAME_START` 现在**全仓无调用点** —— 两份复刻对「发牌那一刻响哪一条」互相矛盾
+（Qt 说 gameStart，Lmy 说 firstPaint），**要定案得在真 Win7 上试听一次**，
+在此之前不擅自补播（免得多出一声）。详见 `docs\SOUND-MAP.md`「两份复刻与分歧」。
+
+### 14.2 第 1 条的根因：两套时钟
+
+画面走 `Date.now()` 的**绝对时间轴**（`dealStart` / `rippleStart` / `Anim.tripElapsed`），
+声音却从「调用 `play()` 的那一刻」开始**异步**准备播放器
+（`getRawFd` → `createAVPlayer` → 等 `initialized` → `prepare` → `seek` → `play`）——
+几百毫秒全花在**该响的那一刻之后**。
+
+**已改**（`SoundPlayer.ets`）：
+
+1. `warmup()`：启动后提前把播放器建好并 `prepare`（挂在 `MinefieldCanvas.ets` 的
+   `setTimeout(..., 0)` 上，让首帧先画完）；
+2. `playAt(name, atMs)`：把「该响的绝对时刻」交给声音层，按剩余时间补偿；
+   发牌配乐、翻开声、爆炸三段、胜利音都改用它；
+3. 重播分两档：`playing` 时直接 `seek(0)`（`play()` 只在
+   `prepared`/`paused`/`completed` 可调，在 `playing` 下调用会抛 5400102），
+   其余状态才走 `stop → prepare → seek → play`。
+
+### 14.3 顺带修的三处
+
+| 问题 | 依据 | 改法 |
+|---|---|---|
+| 爆炸中音比画面**早 425ms** | 切换点抄了参考实现的 575ms（25 帧 × 23ms），但本工程爆炸是 23 帧 × 43.478ms = **1000ms** | 用 `Anim.explodeDurationMs()`；三段都锚到级联的绝对起始时刻 |
+| `tap()` 里的 `invalidMove` 分支是**死代码** | `reveal()` 返回 `changed=false` 只有两种可能（终局 / 已翻开或已插旗），而那分支要求的是**相反**条件 | 删掉。依据：Qt 复刻 `BoardWidget.cpp:833-849`，`emit invalidMove()` 只在**和弦失败**时出现 |
+| `gameLose` 只播一次 | 原版是**每颗雷各炸一声、可叠加**（Qt 复刻 `Sounds.h:10-12`：原版留 30 个缓冲），而且**由动画时钟触发**（`BoardWidget.cpp:305-306` 环走到这颗雷时才 emit）—— 那就是原版的音画同步机制 | 按每颗雷的 `boom.startMs` 逐颗触发 + 4 个播放器轮转的池子 |
+
+### 14.4 怎么自动验证「这一声到底响没响」
+
+音效是**听觉**的，像素断言抓不到。但应用每播一声都打一行日志：
+
+```
+[Sound] 播放 <名字> at=<时刻>            —— 立即播放
+[Sound] 对齐播放 <名字> at=<时刻>         —— 对齐到画面的绝对时刻
+```
+
+于是「这一刻播了哪一声」可以用日志断言 —— 硬且可复现。
+
+**新增** `tools/click_cases/sound.json`（8 条用例）与跑测器的新断言类型 `hilog_checks`
+（在**同一个日志窗口**里做多条检查）。
+
+**为什么不能用两个 `hilog_regex`/`hilog_absent` 连着写**：
+`log_new_lines()` 每读一次就把读到的行标成「已见过」，
+所以连续两个 expect 看不到同一批日志 —— 第二个会**空跑通过**（假的绿灯）。
+实测踩到过：首轮「首点只播一声」那条用例**假通过**，
+因为它数到了两条重复日志（`playAt` 调度时一行 + `play()` 实际播放时一行）。
+
+### 14.5 亮屏守护脚本（新增，不用 token）
+
+`tools\keep_awake.ps1`（纯 PowerShell，只调 hdc）+ `tools\keep_awake.cmd`（双击版）。
+原理：`power-shell timeout -o 7200000` 把息屏倒计时设成 2 小时，
+但它是**一次性的**，所以脚本每隔几分钟重新拉满。
+
+**三个坑**（都踩过）：
+
+1. **`-o` 的单位是毫秒** —— 写 7200 是 7.2 秒（看着像设了 2 小时，其实几秒就黑屏）；
+2. **PowerShell 5.1 把无 BOM 的 UTF-8 当 GBK 读** → 中文乱码把字符串括号弄坏，
+   直接语法报错。脚本已加 **UTF-8 BOM**；
+3. **`param get` 在这台设备读不回持久化参数**（errNum 1002），
+   所以脚本不靠它，改用 `hidumper` 读回 `OverrideTimeout` **自检**。
+
+### 14.6 跑测器新增 `--critical`（只测关键的）
+
+95 条用例全跑要一个多小时。加了 `--critical` 开关 + 每条用例的 `critical` 标记，
+现在**关键用例 18 条**（board 3 / custom 2 / dialogs 3 / menu 2 / sound 8），分钟级。
+
+### 14.7 Codex 第 11 轮的 4 条 P2（已全修）
+
+见 `docs\CODEX-REVIEW-LOG.md` 第 11 轮。裁定 **CONCERNS**（由 P2 标记推断）。
+四条分别是：逐雷音效没取消、预热建了 19 个播放器超上限、
+预热与播放并发时重复建播放器（泄漏）、池子轮转会切断正在播的声音。
+
+### 14.8 顺带修掉的**跑测器老 bug**：平板上认不出棋盘网格
+
+**症状**：真平板上，凡是「要先造出判负/判胜局面」的用例
+（`board.restart.after_gameover`、`sound.lose.*`、`sound.win`）
+要么卡 40 轮轮询后报「应用启动后仍找不到棋盘网格（已重拉 3 遍）」，
+要么一条都跑不完（每轮一次截图 ≈ 2.5 秒，40 轮 = 100 秒 × 3 遍 = 5 分钟）。
+
+**根因**（`tools\win_probe.py` 的 `find_grid_by_seams`）：
+`candidates()` 的阈值原来是 **全图最大值 × 0.55**。
+
+而屏幕顶部那条**系统状态栏是整行全黑**的：
+在真平板横屏（2800×1840）实测，它的行计数 = **2800**（整屏宽），
+于是阈值 = 2800 × 0.55 = **1540**；
+而真正的**横缝**（棋盘宽 ≈ 1296）**全被砍掉** → 一个横缝候选都找不到。
+
+列方向没事，是因为列剖面的全图最大值（1452）恰好来自竖缝本身。
+**所以这是「按极值定阈值」的通病，跟具体机型有关** ——
+横屏、状态栏更宽的机器上才会暴露。
+
+**修法**（两处）：
+
+1. 阈值改成**跟 pitch 挂钩**：`thr = max(20, 2 * pitch)`。
+   一条缝的暗像素支撑 ≈ 棋盘在另一个方向上的边长，至少也有 3 格，
+   所以 2 格宽当门槛绰绰有余，**且不受「整行全黑」这种极值污染**。
+2. `validate_grid()` 不再只取「最长那条链」，而是**逐条候选链**
+   用版式（hilog 里的棋盘原点）去挑吻合的那一条 ——
+   因为最长那条可能是「状态栏 + 前 9 条横缝」拼出来的**假链**
+   （行数多一个、起点偏 138 px）。
+   实测修好后：`validate_grid` 返回 `(753, 181, 9x9)`，
+   `dx=1 / dy=88` 都落在允许范围内，`detect_theme` 认出 `blue` ✓。
+
+**这个 bug 跟本轮的音效改动无关**（旧图 `CM_1335tabfull2_board_first_click.jpeg`
+跑同一个函数也是 None），但它让平板上**所有依赖造局面的用例**都跑不动，
+不修就没法验证音效的判负/判胜部分。
