@@ -1,0 +1,11 @@
+设备 3KQYD25331202962 ；用例 1 条（域: board）
+
+!! 前置检查没通过，1 条用例一条都没跑：
+   应用起不来：aa start 失败：error: failed to start ability.
+Error Code:10106102  Error Message:The device screen is locked during the application launch, unlock screen failed.
+Error cause: The current mode is developer mode, and（屏幕锁着时要用户手动解锁；`power-shell wakeup` 只能点亮）
+   处理办法：
+   1) 把 HAP 装上去：
+      hdc -t 3KQYD25331202962 install -r <hap 路径>
+   2) 确认能起来：hdc -t 3KQYD25331202962 shell aa start -a EntryAbility -b com.example.saolei
+   3) 再跑本套件。

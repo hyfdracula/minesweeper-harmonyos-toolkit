@@ -1,0 +1,1 @@
+The changes add a regression case for the documented post-game restart behavior and improve device-startup diagnostics. I found no actionable defect in the diff.
