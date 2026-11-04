@@ -1,0 +1,1 @@
+I found no actionable regression in the changed wake-up, logging, or state-data paths. The remaining changes are documentation updates.

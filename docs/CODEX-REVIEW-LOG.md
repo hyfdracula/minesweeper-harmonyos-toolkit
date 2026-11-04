@@ -18,6 +18,7 @@
 | 第 8 轮 | 规格仓 `1c553f3..HEAD`（跑测器归因修复） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | 文档里引用的 `docs/verify/CM_2355tabfull.log` **不存在**，而跑测器只往 stdout 打 —— 仓里没有任何能核对的产物（原文：*the updated handover relies on a nonexistent log as evidence*） | ① 跑测器每轮自动写 `docs/verify/CM_<tag>.log`（`_Tee` 类，stdout 同时写屏幕和文件）② 那一轮的成绩单**手工归档**成 `docs/verify/CM_2355tabfull.log` |
 | 第 9 轮 | 规格仓 `bc22e84..HEAD`（跑测器唤醒/错误检查 + 新增回归用例 + 文档） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*I found no actionable defect in the diff*） | 无 | — |
 | 第 9 轮 | 应用仓 `d6bac3d..HEAD`（局终点棋盘重开） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | 「重开那一击把画布的双击状态也记下了 → 300ms 内再点同一格被判成**和弦** → 新局里那格还没翻开，和弦什么也不做 → 玩家想开的第一下被静默吃掉」 | 局终时（`controller.gameOver`）**清掉**双击状态再走 `tap()`；`GameController` 加公开只读属性 `gameOver`。应用仓提交 `80a0f98` |
+| 第 10 轮 | 规格仓 `7913b67..HEAD`（唤醒节流 + 周期性唤醒 + 目标机决策文档） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*I found no actionable regression in the changed wake-up, logging, or state-data paths. The remaining changes are documentation updates.*） | 无 | — |
 
 ## 第 7 轮：这一轮复审**第一次查的是应用代码**
 
