@@ -13,110 +13,330 @@
       "id": "board.first_click",
       "desc": "第一点开局：点(4,4)，被翻开的就是(4,4)，周围洪水填充",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [4, 4]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [4, 4]},
-        {"act": "shot", "name": "board_first_click"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_first_click"
+        }
       ]
     },
     {
       "id": "board.cell.00",
       "desc": "触摸路由对位：点(0,0)格，翻开的是(0,0)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [0, 0]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [0, 0]},
-        {"act": "shot", "name": "board_cell_00"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            0,
+            0
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            0,
+            0
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_00"
+        }
       ]
     },
     {
       "id": "board.cell.04",
       "desc": "触摸路由对位：点(0,4)格，翻开的是(0,4)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [0, 4]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [0, 4]},
-        {"act": "shot", "name": "board_cell_04"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            0,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            0,
+            4
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_04"
+        }
       ]
     },
     {
       "id": "board.cell.08",
       "desc": "触摸路由对位：点(0,8)格，翻开的是(0,8)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [0, 8]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [0, 8]},
-        {"act": "shot", "name": "board_cell_08"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            0,
+            8
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            0,
+            8
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_08"
+        }
       ]
     },
     {
       "id": "board.cell.40",
       "desc": "触摸路由对位：点(4,0)格，翻开的是(4,0)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [4, 0]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [4, 0]},
-        {"act": "shot", "name": "board_cell_40"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            0
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            4,
+            0
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_40"
+        }
       ]
     },
     {
       "id": "board.cell.44",
       "desc": "触摸路由对位：点(4,4)格，翻开的是(4,4)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [4, 4]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [4, 4]},
-        {"act": "shot", "name": "board_cell_44"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_44"
+        }
       ]
     },
     {
       "id": "board.cell.48",
       "desc": "触摸路由对位：点(4,8)格，翻开的是(4,8)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [4, 8]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [4, 8]},
-        {"act": "shot", "name": "board_cell_48"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            8
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            4,
+            8
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_48"
+        }
       ]
     },
     {
       "id": "board.cell.80",
       "desc": "触摸路由对位：点(8,0)格，翻开的是(8,0)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [8, 0]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [8, 0]},
-        {"act": "shot", "name": "board_cell_80"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            8,
+            0
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            8,
+            0
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_80"
+        }
       ]
     },
     {
       "id": "board.cell.84",
       "desc": "触摸路由对位：点(8,4)格，翻开的是(8,4)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [8, 4]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [8, 4]},
-        {"act": "shot", "name": "board_cell_84"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            8,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            8,
+            4
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_84"
+        }
       ]
     },
     {
       "id": "board.cell.88",
       "desc": "触摸路由对位：点(8,8)格（棋盘最右下角），翻开的是(8,8)",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [8, 8]},
-        {"act": "wait", "ms": 1500},
-        {"act": "expect", "type": "cell_opened", "cell": [8, 8]},
-        {"act": "shot", "name": "board_cell_88"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            8,
+            8
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            8,
+            8
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_cell_88"
+        }
       ]
     },
     {
@@ -124,11 +344,38 @@
       "desc": "点棋盘之外的区域（棋盘上方那条空白）不应翻开任何格子",
       "_注": "用 **board 空间的负数行**（cell[行] = -1）表示棋盘上方那一行，坐标跟着棋盘走，换设备也准；写死屏幕坐标的话在 Mate X7 上会点进棋盘里（那里棋盘更大）。",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [-1, 4]},
-        {"act": "wait", "ms": 800},
-        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 9}},
-        {"act": "shot", "name": "board_outside_no_open"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            -1,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 800
+        },
+        {
+          "act": "expect",
+          "type": "unchanged",
+          "region": {
+            "space": "board",
+            "cell": [
+              0,
+              0
+            ],
+            "w": 9,
+            "h": 9
+          }
+        },
+        {
+          "act": "shot",
+          "name": "board_outside_no_open"
+        }
       ]
     },
     {
@@ -136,11 +383,38 @@
       "desc": "点状态条区域（棋盘下方那一行，也就是状态条）不应翻开任何格子",
       "_注": "同样用 board 空间的第 9 行（棋盘下面那行 = 状态条），坐标跟着棋盘走。",
       "steps": [
-        {"act": "reset"},
-        {"act": "tap", "space": "board", "cell": [9, 4]},
-        {"act": "wait", "ms": 800},
-        {"act": "expect", "type": "unchanged", "region": {"space": "board", "cell": [0, 0], "w": 9, "h": 9}},
-        {"act": "shot", "name": "board_statusbar_no_open"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            9,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 800
+        },
+        {
+          "act": "expect",
+          "type": "unchanged",
+          "region": {
+            "space": "board",
+            "cell": [
+              0,
+              0
+            ],
+            "w": 9,
+            "h": 9
+          }
+        },
+        {
+          "act": "shot",
+          "name": "board_statusbar_no_open"
+        }
       ]
     },
     {
@@ -148,13 +422,50 @@
       "desc": "状态条计数器：点开一格之后**计时器开始走**，而雷数不变（没插旗）",
       "_注": "2026-11-01 加。计数器是**程序画的七段数码管**（不是字体），\n      面板的位置随棋盘宽度变，所以断言区域用 strip 空间（跑测器从当前帧里\n      找出那两个绿色面板，不写死坐标）。panel 0 = 计时，panel 1 = 雷数。",
       "steps": [
-        {"act": "reset"},
-        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "10"},
-        {"act": "tap", "space": "board", "cell": [4, 4]},
-        {"act": "wait", "ms": 2500},
-        {"act": "expect", "type": "changed", "region": {"space": "strip", "panel": 0}},
-        {"act": "expect", "type": "unchanged", "region": {"space": "strip", "panel": 1}},
-        {"act": "shot", "name": "board_counter_timer"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "expect",
+          "type": "counter",
+          "region": {
+            "space": "strip",
+            "panel": 1
+          },
+          "value": "10"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 2500
+        },
+        {
+          "act": "expect",
+          "type": "changed",
+          "region": {
+            "space": "strip",
+            "panel": 0
+          }
+        },
+        {
+          "act": "expect",
+          "type": "unchanged",
+          "region": {
+            "space": "strip",
+            "panel": 1
+          }
+        },
+        {
+          "act": "shot",
+          "name": "board_counter_timer"
+        }
       ]
     },
     {
@@ -162,22 +473,123 @@
       "desc": "状态条计数器：插的旗比雷还多时，**剩余雷数显示为负**（初级 10 雷 → 插 11 面旗 → 显示 -1）",
       "_注": "SPEC §3.3：剩余雷数可以为负。原版负号占紧挨数字左边的那一槽（七段里的独立负号段）。\n      这条用例要求数码管反解能读出负号（掩码 0x40，单根中横）——\n      不然「有没有变」的断言根本发现不了负号画错（Codex 复审 P2）。",
       "steps": [
-        {"act": "reset"},
-        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "10"},
-        {"act": "longpress", "space": "board", "cell": [0, 0]},
-        {"act": "longpress", "space": "board", "cell": [1, 0]},
-        {"act": "longpress", "space": "board", "cell": [2, 0]},
-        {"act": "longpress", "space": "board", "cell": [3, 0]},
-        {"act": "longpress", "space": "board", "cell": [4, 0]},
-        {"act": "longpress", "space": "board", "cell": [5, 0]},
-        {"act": "longpress", "space": "board", "cell": [6, 0]},
-        {"act": "longpress", "space": "board", "cell": [7, 0]},
-        {"act": "longpress", "space": "board", "cell": [8, 0]},
-        {"act": "longpress", "space": "board", "cell": [0, 1]},
-        {"act": "longpress", "space": "board", "cell": [1, 1]},
-        {"act": "wait", "ms": 800},
-        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "-1"},
-        {"act": "shot", "name": "board_counter_negative"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "expect",
+          "type": "counter",
+          "region": {
+            "space": "strip",
+            "panel": 1
+          },
+          "value": "10"
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            0,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            1,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            2,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            3,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            4,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            5,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            6,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            7,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            8,
+            0
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            0,
+            1
+          ]
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            1,
+            1
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 800
+        },
+        {
+          "act": "expect",
+          "type": "counter",
+          "region": {
+            "space": "strip",
+            "panel": 1
+          },
+          "value": "-1"
+        },
+        {
+          "act": "shot",
+          "name": "board_counter_negative"
+        }
       ]
     },
     {
@@ -185,13 +597,120 @@
       "desc": "状态条计数器：长按插一面旗，**雷数从 10 减到 9**（计时器不该动：还没开局）",
       "_注": "长按插旗走 uitest 的极慢 swipe（设备当成按住不动 → onLongPress）。\n      雷数用「计数器读数」断言 10 → 9，不是只看「有没有变」——数字从 10 变成 11\n      也是「变了」，那种断言太弱（Codex 复审 P2）。",
       "steps": [
-        {"act": "reset"},
-        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "10"},
-        {"act": "longpress", "space": "board", "cell": [0, 0]},
-        {"act": "wait", "ms": 1200},
-        {"act": "expect", "type": "counter", "region": {"space": "strip", "panel": 1}, "value": "9"},
-        {"act": "expect", "type": "unchanged", "region": {"space": "strip", "panel": 0}},
-        {"act": "shot", "name": "board_counter_flag"}
+        {
+          "act": "reset"
+        },
+        {
+          "act": "expect",
+          "type": "counter",
+          "region": {
+            "space": "strip",
+            "panel": 1
+          },
+          "value": "10"
+        },
+        {
+          "act": "longpress",
+          "space": "board",
+          "cell": [
+            0,
+            0
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1200
+        },
+        {
+          "act": "expect",
+          "type": "counter",
+          "region": {
+            "space": "strip",
+            "panel": 1
+          },
+          "value": "9"
+        },
+        {
+          "act": "expect",
+          "type": "unchanged",
+          "region": {
+            "space": "strip",
+            "panel": 0
+          }
+        },
+        {
+          "act": "shot",
+          "name": "board_counter_flag"
+        }
+      ]
+    },
+    {
+      "id": "board.restart.after_gameover",
+      "desc": "局终关掉结算框后再点棋盘 = 直接重开一局（增强功能；原版 Win7 局终后棋盘是锁死的）",
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "lose_game"
+        },
+        {
+          "act": "tap",
+          "space": "dialog",
+          "dialog": "lose",
+          "x": 451,
+          "y": 10
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "hilog_regex",
+          "re": "\\[Dialog\\] 点击按钮 close"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 2500
+        },
+        {
+          "act": "expect",
+          "type": "hilog_regex",
+          "re": "局终后点棋盘：重开一局"
+        },
+        {
+          "act": "tap",
+          "space": "board",
+          "cell": [
+            2,
+            2
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 1500
+        },
+        {
+          "act": "expect",
+          "type": "cell_opened",
+          "cell": [
+            2,
+            2
+          ]
+        },
+        {
+          "act": "shot",
+          "name": "board_restart_after_gameover"
+        }
       ]
     }
   ]

@@ -80,6 +80,7 @@
 | 16 | 失败对话框 | 换个难度(D) | 单击 | 同上 | 关框回到主界面（**不会**真的展开菜单栏；原版那个位置是「重新开始这个游戏(R)」，手机端有意改的） | 定义 `WinDialogPainter.loseSpec()`；处理 `Index.ets` 的 `onDialogAction` |
 | 17 | 失败对话框 | 再玩一局(P) | 单击 | 同上 | 同难度重开一局 | 定义 `WinDialogPainter.loseSpec()`；处理 `Index.ets` 的 `onDialogAction` |
 | 18 | 失败对话框 | 标题栏右上角红叉 X | 单击 | `WinDialogPainter.hitButton`（关框分支，返回 `'close'`） | 关框回到主界面，不退出 | 判定 `WinDialogPainter.hitButton()`；矩形 `WinDialogPainter.closeRect()`；处理 `Index.ets` 的 `onDialogAction` |
+| 18b | 失败对话框（关框之后） | **棋盘任意一格** | 单击 | `GameController.tap()`（`gameState` 为 `Won`/`Lost` 时走 `restart()`） | **同盘面重开一局**（增强功能；原版 Win7 局终后棋盘锁死，见 `WIN7-FEATURE-GAP.md` §2.6） | `GameController.tap()` / `restart()` |
 
 ### 2.2 胜利对话框（游戏胜利）
 
@@ -88,6 +89,7 @@
 | 19 | 胜利对话框 | 再玩一局(P) | 单击 | `WinDialogPainter.hitButton` → `dialogButtonAt` | 同难度重开一局 | 定义 `WinDialogPainter.winSpec()`；处理 `Index.ets` 的 `onDialogAction` |
 | 20 | 胜利对话框 | 退出(Q) | 单击 | 同上 | 关框并终止应用 | 定义 `WinDialogPainter.winSpec()`；处理 `Index.ets` 的 `onDialogAction` |
 | 21 | 胜利对话框 | 标题栏右上角红叉 X | 单击 | 同上（关框分支，返回 `'close'`） | 关框回到主界面 | 判定 `WinDialogPainter.hitButton()`；处理 `Index.ets` 的 `onDialogAction` |
+| 21b | 胜利对话框（关框之后） | **棋盘任意一格** | 单击 | 同 18b | **同盘面重开一局**（增强功能，同 18b） | `GameController.tap()` / `restart()` |
 
 胜利对话框不是踩雷后立刻弹：要先播完扫描条 + 拆雷光束动画（约 3 秒），动画结束才建框并弹
 （`GameController.startWinSweep()`，弹框在 `GameController.tickFrames()`）。

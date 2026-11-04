@@ -376,14 +376,51 @@ class Hdc:
             hh = 23
         return "%s %02d:%02d:%02d.000" % (mon, hh, mm, ss)
 
+    def wake_screen(self) -> None:
+        """把设备屏幕点亮（不负责解锁）。
+
+        为什么必须有（2026-11-04 真平板实测）：
+        平板的**熄屏超时是 10 分钟**（`hidumper -s PowerManagerService` 里
+        `ScreenOffTime: Timeout=600000ms`）。一轮 86 条要跑一个多小时，
+        中间没人碰它，屏幕就灭了 —— 这时候 `aa start` 会**静默失败**
+        （屏幕关着时起应用不行），于是工具等 45 秒等布局日志，等到超时，
+        报「hilog 里没有布局日志」，看着像布局日志的 bug，其实是**设备睡着了**。
+        （2026-11-04 那轮真平板 86 条里的唯一一条失败 `dialogs.win.exit`，
+        以及单独跑 `click_mkstate.py` 造失败局面时的失败，都是这个原因。）
+
+        `power-shell wakeup` 只能点亮、**不能解锁**：开发者模式下自动解锁会被拒
+        （`aa start` 报 `Error Code:10106102 The device screen is locked`）。
+        所以解锁仍然要用户手动做，这里只负责把「屏幕灭了」这个状态排除掉。
+
+        顺手把**息屏超时改成 2 小时**（`power-shell timeout -o 7200`），
+        这样一轮 86 条跑一个多小时也不会中途熄屏；
+        用完想还原就 `power-shell timeout -r`。
+        """
+        try:
+            self.shell("power-shell", "wakeup", timeout=30, check=False)
+            self.shell("power-shell", "timeout", "-o", "7200", timeout=30, check=False)
+        except HdcError:
+            pass
+
     def start_app(self) -> str:
         """起应用，返回命令输出。
 
         返回输出是给**前置检查**用的：`aa start` 对没装的 ability
         也是退出码 0，只有输出里带错误（见 preflight）。
+
+        起来之前先把屏幕点亮（见 wake_screen 的说明：屏幕灭着的时候
+        `aa start` 会静默失败，后面表现为「hilog 里没有布局日志」）。
         """
+        self.wake_screen()
         out = self.shell("aa", "start", "-a", "EntryAbility", "-b", BUNDLE,
                          timeout=90, check=True)
+        # `aa start` 出错时**退出码仍然是 0**，错误只在输出里
+        # （实测：屏幕锁着时输出 `Error Code:10106102 The device screen is locked
+        # during the application launch, unlock screen failed.`）。
+        # 不检查的话，这次失败会一路伪装成「hilog 里没有布局日志」。
+        if out and "Error" in out:
+            raise HdcError("aa start 失败：" + out.strip()[:200]
+                           + "（屏幕锁着时要用户手动解锁；`power-shell wakeup` 只能点亮）")
         time.sleep(3.0)
         return out
 
@@ -520,7 +557,10 @@ class Geom:
         # 退路：用上一次记住的布局（先验尺寸还对不对）
         if allow_cached and self.layout is not None and self.layout_fits_screen(self.layout):
             return self.layout
-        raise RuntimeError("hilog 里没有布局日志" + (("：" + last_err) if last_err else ""))
+        raise RuntimeError("hilog 里没有布局日志" + (("：" + last_err) if last_err else "")
+                           + "（设备屏幕灭着会让 `aa start` 静默失败，"
+                             "工具已经会先 `power-shell wakeup` 点亮；"
+                             "如果还是这样，多半是屏幕**锁**着，要手动解锁）")
 
     # ---- 画布顶偏移 -------------------------------------------------------
     def probe_canvas_y(self, retries: int = 3) -> int:
