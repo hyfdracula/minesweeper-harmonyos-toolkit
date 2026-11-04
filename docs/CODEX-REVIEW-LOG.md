@@ -15,6 +15,9 @@
 | 第 5 轮 | `50e1bae..HEAD` | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | ① preflight 可能把**上一轮**残留的布局日志当成本次的，应用没画出来也报「正常」② `tablet_check.py` 只读当前那个盘面，另外三个难度根本没跑到 ③ 截图取不到也照样打印「通过」 | ① 起应用**前**记设备时间戳，只认之后的布局行 ② `tablet_check` 依次切四个盘面逐个核对，期望表补齐中级 ③ 检查 `file recv` 的返回码和文件非空 |
 | 第 6 轮 | `e05bfdd..HEAD` | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行） | `free` 坐标系在**矮画布**上会落到统计窗**里面**：画布 1280×484、密度 3.5 时统计窗占 x=16..1264、y=16..468，而「棋盘上方空隙」算出来是 (26,80) | 空间改名 `outside_stats`，**按窗的实际边界**挑点（窗居中 → 只可能在左/右/上/下）；离线验过五组画布含该反例 |
 | 第 7 轮 | 应用仓 `edb935f..ca5548c`（结算动画可跳过） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | ① 跳过动画时**正在响的爆炸声还在放**（`stopBombTail()` 只撤了定时器）② **长按菜单栏**也会跳过动画，与普通点击菜单栏被排除在外不一致 | ① 跳过时 `SoundPlayer.stop(BOMB_START/BOMB_RUN/BOMB_END)` 三段都停 ② `longPress()` 里先把菜单栏排掉，再判跳过 |
+| 第 8 轮 | 规格仓 `1c553f3..HEAD`（跑测器归因修复） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | 文档里引用的 `docs/verify/CM_2355tabfull.log` **不存在**，而跑测器只往 stdout 打 —— 仓里没有任何能核对的产物（原文：*the updated handover relies on a nonexistent log as evidence*） | ① 跑测器每轮自动写 `docs/verify/CM_<tag>.log`（`_Tee` 类，stdout 同时写屏幕和文件）② 那一轮的成绩单**手工归档**成 `docs/verify/CM_2355tabfull.log` |
+| 第 9 轮 | 规格仓 `bc22e84..HEAD`（跑测器唤醒/错误检查 + 新增回归用例 + 文档） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*I found no actionable defect in the diff*） | 无 | — |
+| 第 9 轮 | 应用仓 `d6bac3d..HEAD`（局终点棋盘重开） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行；本次无 P0/P1/critical） | 「重开那一击把画布的双击状态也记下了 → 300ms 内再点同一格被判成**和弦** → 新局里那格还没翻开，和弦什么也不做 → 玩家想开的第一下被静默吃掉」 | 局终时（`controller.gameOver`）**清掉**双击状态再走 `tap()`；`GameController` 加公开只读属性 `gameOver`。应用仓提交 `80a0f98` |
 
 ## 第 7 轮：这一轮复审**第一次查的是应用代码**
 
