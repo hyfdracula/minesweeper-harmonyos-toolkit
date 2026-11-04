@@ -224,6 +224,8 @@ class Hdc:
     def __init__(self, device: str):
         self.device = device
         self._shot_no = 0
+        # 上次唤醒屏幕的时刻（节流用，见 wake_screen）
+        self._last_wake = 0.0
 
     def run(self, *args, timeout: int = 120, check: bool = False) -> str:
         """跑一条 hdc 命令，返回它的输出。
@@ -376,8 +378,8 @@ class Hdc:
             hh = 23
         return "%s %02d:%02d:%02d.000" % (mon, hh, mm, ss)
 
-    def wake_screen(self) -> None:
-        """把设备屏幕点亮（不负责解锁）。
+    def wake_screen(self, force: bool = False) -> None:
+        """把设备屏幕点亮（**不负责解锁**），并把息屏超时拉到 2 小时。
 
         为什么必须有（2026-11-04 真平板实测）：
         平板的**熄屏超时是 10 分钟**（`hidumper -s PowerManagerService` 里
@@ -388,17 +390,24 @@ class Hdc:
         （2026-11-04 那轮真平板 86 条里的唯一一条失败 `dialogs.win.exit`，
         以及单独跑 `click_mkstate.py` 造失败局面时的失败，都是这个原因。）
 
-        `power-shell wakeup` 只能点亮、**不能解锁**：开发者模式下自动解锁会被拒
-        （`aa start` 报 `Error Code:10106102 The device screen is locked`）。
-        所以解锁仍然要用户手动做，这里只负责把「屏幕灭了」这个状态排除掉。
+        **单位是毫秒**：`power-shell timeout -o 7200` 实测只保了 7.2 秒
+        （设备照样很快睡过去），要 2 小时得填 `7200000`。
 
-        顺手把**息屏超时改成 2 小时**（`power-shell timeout -o 7200`），
-        这样一轮 86 条跑一个多小时也不会中途熄屏；
-        用完想还原就 `power-shell timeout -r`。
+        **点亮 ≠ 解锁**：设备从休眠唤醒后会弹**锁屏（keyguard）**，
+        `aa start` 照样报 `Error Code:10106102 The device screen is locked`。
+        解锁只能由用户手动做（开发者模式下自动解锁会被拒），
+        这里只负责把「屏幕灭了/设备睡着了」这个状态排除掉。
+
+        `force=False` 时按**节流**调用（2 分钟内不重复唤醒），
+        跑长测时可以随手调用，不会刷屏。
         """
+        now = time.time()
+        if not force and (now - self._last_wake) < 120.0:
+            return
+        self._last_wake = now
         try:
             self.shell("power-shell", "wakeup", timeout=30, check=False)
-            self.shell("power-shell", "timeout", "-o", "7200", timeout=30, check=False)
+            self.shell("power-shell", "timeout", "-o", "7200000", timeout=30, check=False)
         except HdcError:
             pass
 
@@ -2020,6 +2029,10 @@ def _run(args, cases) -> int:
     for n, (dom, case) in enumerate(cases, 1):
         print("[%d/%d] %-28s %s" % (n, len(cases), case.get("id", "?"),
                                    case.get("desc", "")[:56]))
+        # 周期性把设备唤醒（内部 2 分钟节流）：一轮 86 条要跑一个多小时，
+        # 设备中途熄屏会让后面的 `aa start` 静默失败。
+        # **点亮不解锁** —— 锁屏(keyguard)还得用户手动解。
+        runner.hdc.wake_screen()
         res = runner.run_case(case, dom)
         results.append(res)
         print("      -> %s%s" % ("通过" if res.ok else "失败",
