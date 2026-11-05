@@ -1095,14 +1095,17 @@ else                     SoundPlayer.play(Sound.TILE_SINGLE);
 跑同一个函数也是 None），但它让平板上**所有依赖造局面的用例**都跑不动，
 不修就没法验证音效的判负/判胜部分。
 
-### 14.9 本轮的收尾状态（2026-11-05 08:00）
+### 14.9 本轮的收尾状态（2026-11-05 08:30）
 
 - 应用仓 HEAD：`e0cdc14`（音效：归属改正 + 音画对齐 + 逐雷爆点 + 16 轮复审的并发修法）
 - 规格仓 HEAD：见 `git log`
 - **真平板（MatePad Pro 12.2，3KQYD25331202962）关键用例 18/18 全绿**，
-  成绩单 `docs\verify\CM_0810crit.log`
-- Codex 复审第 12~16 轮：**1×P1 + 14×P2，全部已修**
-  （第 12 轮有 1 条 P1；第 13~16 轮全是 P2，没有 P0/P1/critical）
+  成绩单 `docs\verify\CM_0810crit.log`（最终构建，1009 秒）
+- Codex 复审第 12~18 轮：**1×P1 + 14×P2，全部已修**；
+  最后第 18 轮（补审第 16 轮那两处修法）**无任何问题** ——
+  裁定 PASS，来源是**由「无任何严重级别标记」推断**（脚本没有给显式 VERDICT 行）
+- 第 17 轮**等于没审**：改动已经提交了，而脚本审的是「工作区 vs HEAD」的差异。
+  下次要审已提交的那一段，用 `-ReviewTarget <上一个提交>`。
 - 两个仓都已推到 GitHub（`hyfdracula/harmonyos-minesweeper` 与
   `hyfdracula/minesweeper-harmonyos-toolkit`）
 - GitHub release `v1.0.0` 的 HAP 附件已换成新构建
