@@ -262,3 +262,15 @@ class GitHub:
             if err.status == 404:
                 return None
             raise
+
+    def delete_asset(self, repo, asset_id):
+        """删掉一个 release 附件（同名附件要替换时用）。"""
+        _, data = self.request('DELETE', '/repos/%s/%s/releases/assets/%s'
+                               % (self.owner, repo, asset_id))
+        return data
+
+    def patch_release(self, repo, release_id, fields):
+        """改 release 的正文/标题等。"""
+        _, data = self.request('PATCH', '/repos/%s/%s/releases/%s'
+                               % (self.owner, repo, release_id), body=fields)
+        return data

@@ -44,6 +44,18 @@ HAP_UNSIGNED = r'C:\Users\19161\saolei\entry\build\default\outputs\default\entry
 RELEASE_BODY = """\
 这是 **Windows 7 扫雷**的鸿蒙（HarmonyOS / ArkTS）像素级移植版。
 
+## 本次更新（2026-11-05）
+
+**音效**（这一版的主要改动）：
+
+- **音画同步**了 —— 声音不再比画面慢一大截。原来声音是「调用播放的那一刻」
+  才开始异步准备，画面是按绝对时间轴走的，两套时钟各走各的；
+  现在播放器提前建好、准备好，播放时按**画面那条时间轴**对齐。
+- **点第一个方块不再播开始音**了。原来把「发牌配乐」错挂在首点上，
+  按两份复刻的交叉证据改正：首点没有专属音效，按翻开几格播对应的那一声；
+  发牌动画才播发牌配乐。
+- **判负改成每颗雷各炸一声**（原版语义），几声叠在一起，而不是只响一声。
+
 ## 下载与安装
 
 附件是**未签名**的 HAP 安装包（`harmonyos-minesweeper-unsigned.hap`）。
@@ -100,6 +112,8 @@ def main() -> int:
     ap.add_argument('--repo', choices=sorted(REPOS), default='app')
     ap.add_argument('--tag', default='v1.0.0')
     ap.add_argument('--build', action='store_true', help='发之前先重新编译')
+    ap.add_argument('--replace', action='store_true',
+                    help='同名附件已存在时**替换**它（发新版安装包时必须带）')
     ap.add_argument('--dry-run', action='store_true', help='只查，不写远端')
     args = ap.parse_args()
 
@@ -129,8 +143,16 @@ def main() -> int:
         print('release 已存在，沿用：%s' % rel['html_url'])
 
     have = {a['name'] for a in rel.get('assets', [])}
+    if HAP_NAME in have and args.replace:
+        # **替换**旧附件：GitHub 不允许同名附件，所以先删再传。
+        # （发新版安装包时必须带 --replace，否则脚本会跳过，线上还是旧包。）
+        for a in rel.get('assets', []):
+            if a.get('name') == HAP_NAME:
+                gh.delete_asset(repo['name'], a['id'])
+                print('已删掉旧附件：%s（%d 字节）' % (a['name'], a.get('size', -1)))
+        have.discard(HAP_NAME)
     if HAP_NAME in have:
-        print('附件已存在，跳过上传')
+        print('附件已存在，跳过上传（要替换就加 --replace）')
     else:
         with open(hap_path, 'rb') as fh:
             data = fh.read()
@@ -140,6 +162,12 @@ def main() -> int:
         print('下载直链：%s' % asset.get('browser_download_url'))
 
     print('release 页面：%s' % rel['html_url'])
+    # 正文同步更新（带上「本次更新」那段）
+    try:
+        gh.patch_release(repo['name'], rel['id'], {'body': RELEASE_BODY})
+        print('正文已更新')
+    except ApiError as err:
+        print('正文更新失败（不影响附件）：%s' % err)
     print('限流剩余：%s' % gh.rate_remaining)
     return 0
 

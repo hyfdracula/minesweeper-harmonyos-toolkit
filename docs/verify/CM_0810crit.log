@@ -1,0 +1,8 @@
+设备 3KQYD25331202962 ；用例 18 条（域: board,custom,dialogs,menu,sound）
+[1/18] board.first_click            第一点开局：点(4,4)，被翻开的就是(4,4)，周围洪水填充
+      -> 通过
+[2/18] board.outside.no_open        点棋盘之外的区域（棋盘上方那条空白）不应翻开任何格子
+      -> 通过
+[3/18] board.restart.after_gameover 局终关掉结算框后再点棋盘 = 直接重开一局（增强功能；原版 Win7 局终后棋盘是锁死的）
+      -> 通过
+[4/18] custom.key.emptycell         键盘右下角的空格子（没有键）：点它什么也不该发生，高度值区不变

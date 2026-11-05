@@ -1094,3 +1094,22 @@ else                     SoundPlayer.play(Sound.TILE_SINGLE);
 **这个 bug 跟本轮的音效改动无关**（旧图 `CM_1335tabfull2_board_first_click.jpeg`
 跑同一个函数也是 None），但它让平板上**所有依赖造局面的用例**都跑不动，
 不修就没法验证音效的判负/判胜部分。
+
+### 14.9 本轮的收尾状态（2026-11-05 08:00）
+
+- 应用仓 HEAD：`e0cdc14`（音效：归属改正 + 音画对齐 + 逐雷爆点 + 16 轮复审的并发修法）
+- 规格仓 HEAD：见 `git log`
+- **真平板（MatePad Pro 12.2，3KQYD25331202962）关键用例 18/18 全绿**，
+  成绩单 `docs\verify\CM_0810crit.log`
+- Codex 复审第 12~16 轮：**1×P1 + 14×P2，全部已修**
+  （第 12 轮有 1 条 P1；第 13~16 轮全是 P2，没有 P0/P1/critical）
+- 两个仓都已推到 GitHub（`hyfdracula/harmonyos-minesweeper` 与
+  `hyfdracula/minesweeper-harmonyos-toolkit`）
+- GitHub release `v1.0.0` 的 HAP 附件已换成新构建
+  （`make_release.py --replace`，GitHub 不允许同名附件，所以先删后传）
+
+**还没定的一件事**：`gameStart.wav` 与 `firstPaint.wav` 到底哪个是发牌那一刻响的。
+两份复刻互相矛盾（Qt 说 gameStart，Win32 复刻说 firstPaint 且有资源 ID 直接对应原版，
+本项目选了后者）。**要彻底定案得在真 Win7 上试听一次**：
+密集颗粒翻牌感 ⇒ gameStart；清脆钟声 + 长余韵 ⇒ firstPaint。
+在那之前 `gameStart.wav` **没有调用点**，不擅自补播（免得多出一声）。
