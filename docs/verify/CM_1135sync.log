@@ -1,0 +1,16 @@
+设备 127.0.0.1:10001 ；用例 8 条（域: sound）
+[1/8] sound.deal_in.playlist       新局发牌：播 firstPaint（原版的发牌配乐），且**不播** gameStart
+      -> 通过
+[2/8] sound.first_click.no_start_sound 点第一个方块：**不再**播 firstPaint（那是发牌配乐，不是首点的音）
+      -> 通过
+[3/8] sound.first_click.only_one_sound 点第一个方块：翻开音**只播一声**（不叠加）
+      -> 通过
+[4/8] sound.reveal.aligned         翻开格子那一声与涟漪起点**实测对齐**（量出毫秒差，不只是走对路子）
+      -> 通过
+[5/8] sound.flag                   长按插旗：播 dbButtonClickFlag
+      -> 通过
+[6/8] sound.lose.bomb_sequence     踩雷判负：爆炸三段（开始 → 中 → 结束）依次播出
+      -> 通过
+[7/8] sound.lose.per_mine_boom     判负：**每颗雷各炸一声**（原版语义），不是只响一声
+      -> 通过
+[8/8] sound.win                    判胜：播 gameWin，且锚在扫描条起播的那一刻

@@ -1709,6 +1709,31 @@ class Runner:
                 return False, "不该出现的日志却出现了: " + ln.strip()[-140:]
         return True, "没有出现 %r（新日志 %d 行）" % (pat, len(new))
 
+    def _check_delta(self, lines: list, spec: dict) -> tuple[bool, str]:
+        """量两条日志的时间差（见 expect_hilog_checks 里 `delta` 的说明）。"""
+        pat_a = spec.get("a", "")
+        pat_b = spec.get("b", "")
+        limit = float(spec.get("abs_max", 60))
+        label = spec.get("label", "时间差")
+
+        def last_num(pat: str):
+            hit = None
+            for ln in lines:
+                if re.search(pat, ln):
+                    hit = ln
+            if hit is None:
+                return None
+            m = re.search(r"(\d{6,})", hit)
+            return int(m.group(1)) if m else None
+
+        va = last_num(pat_a)
+        vb = last_num(pat_b)
+        if va is None or vb is None:
+            return False, "%s：读不到（%r=%r, %r=%r）" % (label, pat_a, va, pat_b, vb)
+        d = vb - va
+        ok = abs(d) <= limit
+        return ok, "%s = %+d ms（要求 |x| <= %.0f）" % (label, d, limit)
+
     def expect_hilog_checks(self, step: dict) -> tuple[bool, str]:
         """在**同一个日志窗口**里做多条断言。
 
@@ -1723,6 +1748,13 @@ class Runner:
         - `present`: true/false —— 该正则该不该命中（默认 present=true）
         - `re`: 正则
         - `min_count` / `max_count`: 命中次数的下限/上限（可选）
+        - `delta`: 量**两条日志的时间差**（可选，2026-11-05 加）。
+          形如 `{"delta": {"a": "<正则，含一个数字>", "b": "<正则，含一个数字>",
+                           "abs_max": 60, "label": "音画差"}}`
+          —— 分别取 a、b 各自**最后一条**命中行里的第一个数字，算 `b - a`，
+          要求 `abs(b - a) <= abs_max`。
+          这是为了真正**量出音画差多少毫秒**：只断言「走了对齐播放那条路」
+          是量不到误差的，而用户报的就是误差本身。
         """
         checks = step.get("checks")
         if not checks:
@@ -1732,6 +1764,12 @@ class Runner:
         detail = []
         for chk in checks:
             pat = chk.get("re", "")
+            if "delta" in chk:
+                ok_d, msg_d = self._check_delta(new, chk["delta"])
+                detail.append(msg_d)
+                if not ok_d:
+                    failed.append(msg_d)
+                continue
             want_present = bool(chk.get("present", True))
             hits = [ln for ln in new if re.search(pat, ln)]
             n = len(hits)
