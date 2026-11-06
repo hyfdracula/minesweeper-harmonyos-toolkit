@@ -1149,3 +1149,77 @@ else                     SoundPlayer.play(Sound.TILE_SINGLE);
 **不是**扬声器物理出声的延迟 —— 后者得录音才能量，纯软件测不出来。
 改之前那几百毫秒的「现建播放器」延迟才是用户听到的不同步；
 现在播放器预热过，剩下的只有 `play()` 的毫秒级启动时间。
+
+---
+
+## 15. 2026-11-06：两个动画混杂（发牌 vs 翻开涟漪）
+
+用户原话：「两个动画混杂了，动画1是进入扫雷页面，未打开的各自从中间向两边打开的动画，
+波纹状。动画2是点击未打开方块翻开的动画，我希望动画2能打断动画1」。
+
+### 15.1 根因
+
+`dealActive`（发牌波浪）和 `rippleActive`（翻开涟漪）是**两套独立的动画状态**，
+`tickFrames()` 里同时推进（`tickDealIn()` + `tickRipple()`），
+所以在发牌还没放完时点一格，画面上就是「一半格子还在波浪弹起、另一半已经在涟漪淡入」。
+
+### 15.2 原版是**能打断**的（这点很关键：不是增强，是补齐保真）
+
+依据 [Lmy] `Minesweeper.cpp:1843-1879` 的 `speed()`：
+
+```c
+//鼠标消息停止动画效果
+if ((optionFlag & OF_DRAW) && (!PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)
+    || (msg.message != WM_LBUTTONDOWN && msg.message != WM_RBUTTONDOWN)))
+{ ... Sleep(dwMilliseconds); ... }
+else
+{
+    msgFlag = true;
+    PlaySound(NULL, NULL, SND_ASYNC);   // ← 连声音一起停
+}
+```
+
+- 判据是**消息类型**，不看坐标 ⇒ 鼠标在窗口**任何位置**按下都算；
+- 左键**和**右键都算；
+- 命中后 `msgFlag = true` ⇒ 后续 `speed()` 不再 `Sleep` ⇒ 剩下的格子**瞬间全部画完**（不是冻结在半截）；
+- 并且 `PlaySound(NULL,...)` 把正在播的配乐也停掉。
+
+参考实现那段发牌循环上方还留着原作者的注释
+`//bug	WM_LBUTTONDOWN停止动画, WM_LBUTTONUP消息会初始化mapInfo` ——
+它把这当成自己的 bug，但那是原版的真实表现。
+
+**顺带纠正一处文档错误**：应用仓 `README.md` §5 原来写「开局发牌动画不能点击跳过」，
+那是错的，原版能打断。已改。
+
+### 15.3 实现
+
+1. `GameController.interruptDealIn()`：`dealActive = false` → `dealFlags = []`
+   （清空的直接效果就是每格都算「已弹起」= **瞬间画完**）→ `SoundPlayer.stop(FIRST_PAINT)`
+   → 打一行 `[DealIn] 发牌动画被打断 elapsed=<ms>`（给跑测器断言用）。
+2. `MinefieldCanvas.handleTouch()` 在最前面（`inputLocked` 判断之前、
+   `touches.length>=2` 判断之前）对 `TouchType.Down` 调它 ——
+   这样「按哪都断、几根手指都断、拖动也断」，与原版「任何按下消息」一致。
+   放在 `tap()`（抬手）里是不对的：按下到抬手之间动画还在跑，而且拖动/捏合根本不走 `tap()`。
+
+### 15.4 顺带修掉的第二个问题（Codex 复审抓到的 P2）
+
+`SoundPlayer.stop(name)` 原来只撤「还没到点的定时器」+ 停当前播放器，
+**挡不住已经进了 `prepare()` 的播放请求** —— 于是「按下打断发牌动画之后，配乐才响起来」。
+`playAt()` 给的时间通常已经到点，请求会立刻进入异步链、根本不在定时器里。
+
+修法：给普通音效也加**取消代次**（同池子那套）：`stop(name)` 把代次 +1，
+`playAsync()` 取调用时刻的代次并把它当取消判据传进 `playOn()`，
+`playOn()` 在真正 `play()` 之前查一次。
+
+### 15.5 验证
+
+| 项 | 结果 |
+|---|---|
+| `board.deal_in.interrupted_by_tap`（新增） | ✓ 通过 |
+| 实测打断时刻 | **elapsed=913 ms**（窗口 1100 ms）；不点时是 `结束 elapsed=1102` |
+| 模拟器关键集（19 条，含新用例） | **19/19** ✓（`CM_1205crit.log`，512 秒） |
+| 真平板 | **没跑** —— 平板当时处于掉线状态（`hdc list targets` 只有模拟器），
+  重新连上之后要补跑 |
+
+新增用例用的是新加的 `click` 动作（**不截图直接点**）：`tap` 在点之前要先存基准帧，
+那 0.3~0.5 秒会把点击推出 1100 ms 的动画窗口 —— 那样失败的是跑测器的开销，不是被测代码。

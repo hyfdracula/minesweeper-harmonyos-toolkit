@@ -658,6 +658,10 @@
           "act": "lose_game"
         },
         {
+          "act": "wait",
+          "ms": 600
+        },
+        {
           "act": "tap",
           "space": "dialog",
           "dialog": "lose",
@@ -713,6 +717,65 @@
         {
           "act": "shot",
           "name": "board_restart_after_gameover"
+        }
+      ],
+      "_说明": [
+        "2026-11-07 加了个 600ms 停顿：真平板上出现过「框刚画出来就点」",
+        "导致这一下点击被吃掉（同一条用例重跑就过；同一轮里 dialogs.lose.close",
+        "做完全相同的点击是过的）。停顿让用例测的是「点一个已经稳定的对话框」，",
+        "而不是跟画帧赛跑。"
+      ]
+    },
+    {
+      "id": "board.deal_in.interrupted_by_tap",
+      "critical": true,
+      "desc": "发牌动画期间点一个方块：发牌动画立刻被打断（原版按下滑鼠就断），不与翻开涟漪同时跑",
+      "_说明": [
+        "原版依据（Lmy 复刻 Minesweeper.cpp:1843-1879 的 speed()）：",
+        "  //鼠标消息停止动画效果",
+        "  if (... !WM_LBUTTONDOWN && msg.message != WM_RBUTTONDOWN) Sleep(...);",
+        "  else { msgFlag = true; PlaySound(NULL, NULL, SND_ASYNC); }",
+        "—— 左键或右键**按下**都会命中 else：剩下的格子不再 Sleep（瞬间画完）、",
+        "   并把正在播的声音全停掉。参考实现那段发牌循环上方还留着一条注释",
+        "   「//bug  WM_LBUTTONDOWN停止动画」，说的就是这个行为。",
+        "",
+        "为什么这条用例不看像素：两种动画叠在一起是**过程**，截图只能看某一瞬；",
+        "而应用日志里的「发牌动画被打断」**只可能在动画还在跑时出现**，",
+        "所以不存在「点晚了也算过」的假绿灯 —— 点晚了会一条日志都没有，用例会红。",
+        "",
+        "用 click（不截图直接点）而不是 tap：tap 在点之前要先存基准帧，",
+        "那 0.3~0.5 秒会把点击推出 1100ms 的动画窗口。"
+      ],
+      "steps": [
+        {
+          "act": "reset"
+        },
+        {
+          "act": "menu",
+          "top": "game",
+          "entry": "新建"
+        },
+        {
+          "act": "click",
+          "space": "board",
+          "cell": [
+            4,
+            4
+          ]
+        },
+        {
+          "act": "wait",
+          "ms": 500
+        },
+        {
+          "act": "expect",
+          "type": "hilog_checks",
+          "checks": [
+            {
+              "present": true,
+              "re": "\\[DealIn\\] 发牌动画被打断"
+            }
+          ]
         }
       ]
     }

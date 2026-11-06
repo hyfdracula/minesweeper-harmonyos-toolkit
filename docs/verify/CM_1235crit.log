@@ -1,0 +1,9 @@
+设备 127.0.0.1:10001 ；用例 19 条（域: board,custom,dialogs,menu,sound）
+
+!! 前置检查没通过，19 条用例一条都没跑：
+   应用起不来：aa force-stop 之后应用进程还在（pidof=[Fail][E001005] Device not found or connected）
+   处理办法：
+   1) 把 HAP 装上去：
+      hdc -t 127.0.0.1:10001 install -r <hap 路径>
+   2) 确认能起来：hdc -t 127.0.0.1:10001 shell aa start -a EntryAbility -b com.example.saolei
+   3) 再跑本套件。

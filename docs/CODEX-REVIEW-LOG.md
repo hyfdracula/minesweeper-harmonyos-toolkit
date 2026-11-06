@@ -28,6 +28,8 @@
 | 第 17 轮 | 应用仓 `e0cdc14`（对比 HEAD，工作区已提交） | **（无内容可审）** | — | 模型回的是「工作区是干净的，请求的 git diff 是空的，没有可审的代码改动」。**这一轮等于没审**（因为改动已经提交了，而脚本审的是「工作区 vs HEAD」的差异）。**教训**：审之前别急着提交，或者用 `-ReviewTarget <上一个提交>` 来审已提交的那一段 | — |
 | 第 18 轮 | 应用仓 `cd1c69b..e0cdc14`（**补审**第 16 轮那两处修法） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*No actionable regressions introduced by this diff were identified. Validation was limited to source inspection and diff checks; HarmonyOS runtime tests were not run.*） | 无 | — |
 
+| 第 19 轮 | 应用仓（发牌动画可以被按下打断） | **CONCERNS** | 由 P2 标记**推断**（无 VERDICT 行） | ① **打断发牌时取消不掉在途的音效请求** —— SoundPlayer.stop() 只清除「还没到点的定时器」并停当前播放器，而**已经进了 prepare() 的 playAsync() 没有取消检查**，仍会走到 player.play()。startNewGame() 传给 playAt() 的时间通常已经到点，所以请求会**立刻**进入这条异步链、根本不在可撤销的定时器里 → 用户打断发牌动画之后配乐才响起来。模型用「延迟完成的 prepare」模拟复现了 | 已修：普通音效也加**取消代次**（playGen）——stop(name) 把代次 +1，playAsync() 取调用时刻的代次并作为取消判据传进 playOn()，playOn() 在真正 play() 之前查一次（与池子那套同源） |
+| 第 20 轮 | 应用仓（第 19 轮那一条修完之后） | **PASS** | **由「无任何严重级别标记」推断**（无 VERDICT 行；模型原话：*No actionable regressions were identified in the diff. The frame timer redraws the completed board after interruption, and focused mock-AVPlayer checks passed for cancellation during creation and preparation, replay after cancellation, and stopping active playback. Full HarmonyOS build and device behavior were not verified.*） | 无 | — |
 ## 第 7 轮：这一轮复审**第一次查的是应用代码**
 
 前六轮的全部发现都在**跑测工具**里，应用仓一行没动。

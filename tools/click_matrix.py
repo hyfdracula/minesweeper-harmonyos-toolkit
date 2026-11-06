@@ -1916,6 +1916,18 @@ class Runner:
                     self.act_longpress(step)
                 elif act == "wait":
                     time.sleep(float(step.get("ms", 500)) / 1000.0)
+                elif act == "click":
+                    # **不截图直接点**（时机敏感的用例用）。
+                    #
+                    # 为什么需要：`tap` / `longpress` 动作在点之前都会先
+                    # `_before_capture()` 存一张画面（给 changed/unchanged 断言做基准），
+                    # 那一次截图要 0.3~0.5 秒 —— 对于「打断 1100ms 发牌动画」
+                    # 这种有窗口的用例，这点时间就足以把点击推出窗口外，
+                    # 于是用例会因为**跑测器的开销**而失败，而不是被测代码坏了。
+                    #
+                    # 这个动作就只是点一下：不存基准帧，所以它**不能**接
+                    # changed_vs_* / unchanged_vs_* 那类断言（基准帧还是上一步的）。
+                    self.act_tap(step)
                 elif act == "hold":
                     # 存一张「参照画面」，给 changed_vs_hold / unchanged_vs_hold 用。
                     # 用处：对话框会把棋盘整个盖住时，「棋盘有没有变」只能拿

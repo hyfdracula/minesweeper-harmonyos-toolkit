@@ -1,0 +1,46 @@
+设备 3KQYD25331202962 ；用例 19 条（域: board,custom,dialogs,menu,sound）
+[1/19] board.first_click            第一点开局：点(4,4)，被翻开的就是(4,4)，周围洪水填充
+      -> 通过
+[2/19] board.outside.no_open        点棋盘之外的区域（棋盘上方那条空白）不应翻开任何格子
+      -> 通过
+[3/19] board.restart.after_gameover 局终关掉结算框后再点棋盘 = 直接重开一局（增强功能；原版 Win7 局终后棋盘是锁死的）
+      -> 失败：失败：第5步 hilog_regex: 未命中 '\\[Dialog\\] 点击按钮 close'；最近的新日志: /AudioEffectHdiParam: [UpdateHdiState]hdiControl is nullptr. / dioEffectChainManager: [SetHdiParam]set hdi room mode failed / 85/audio_server/HpaeRenderEffectNode: [AudioRendererStop]out；失败：第8步 hilog_regex: 未命中 '局终后点棋盘：重开一局'；最近的新日志: 59.687  1240  1283 W C01C42/time_service/SA: tg:1096 11800 0 / .687  1240  1283 W C01C42/time_service/SA: we:11800 21972777 / 07 00:59:59.688  1240  1283 W C01C42/time_service/SA: t3 312
+[4/19] board.deal_in.interrupted_by_tap 发牌动画期间点一个方块：发牌动画立刻被打断（原版按下滑鼠就断），不与翻开涟漪同时跑
+      -> 通过
+[5/19] custom.key.emptycell         键盘右下角的空格子（没有键）：点它什么也不该发生，高度值区不变
+      -> 通过
+[6/19] custom.limit.height          高度越界：先输 2（合法），再输 5 → 25 > 上限 24 → 这一次按键被拒绝，高度值区保持 2 不变
+      -> 通过
+[7/19] dialogs.lose.close           失败框→标题栏红叉 X：关框回主界面，不退出应用
+      -> 通过
+[8/19] dialogs.win.exit             胜利框→退出(X)：关框并终止应用（2026-11-01 起文案由 退出(Q) 改成 退出(X)，提交 323a
+      -> 通过
+[9/19] dialogs.about.close          关于框→标题栏红叉 X（经典蓝灰标题栏，尺寸略大）：关掉关于框
+      -> 通过
+[10/19] menu.game.new                游戏→新建(F2)：同难度重开一局（棋盘清空、重新计时）
+      -> 通过
+[11/19] menu.help.about              帮助→关于扫雷 A：弹出「关于 扫雷」对话框
+      -> 通过
+[12/19] sound.deal_in.playlist       新局发牌：播 firstPaint（原版的发牌配乐），且**不播** gameStart
+      -> 通过
+[13/19] sound.first_click.no_start_sound 点第一个方块：**不再**播 firstPaint（那是发牌配乐，不是首点的音）
+      -> 通过
+[14/19] sound.first_click.only_one_sound 点第一个方块：翻开音**只播一声**（不叠加）
+      -> 通过
+[15/19] sound.reveal.aligned         翻开格子那一声与涟漪起点**实测对齐**（量出毫秒差，不只是走对路子）
+      -> 通过
+[16/19] sound.flag                   长按插旗：播 dbButtonClickFlag
+      -> 通过
+[17/19] sound.lose.bomb_sequence     踩雷判负：爆炸三段（开始 → 中 → 结束）依次播出
+      -> 通过
+[18/19] sound.lose.per_mine_boom     判负：**每颗雷各炸一声**（原版语义），不是只响一声
+      -> 通过
+[19/19] sound.win                    判胜：播 gameWin，且锚在扫描条起播的那一刻
+      -> 通过
+
+==============================================================================
+总计 19 条：通过 18，失败 1（用时 797 秒）
+
+失败明细：
+  board.restart.after_gameover 失败：第5步 hilog_regex: 未命中 '\\[Dialog\\] 点击按钮 close'；最近的新日志: /AudioEffectHdiParam: [UpdateHdiState]hdiControl is nullptr. / dioEffectChainManager: [SetHdiParam]set hdi room mode failed / 85/audio_server/HpaeRenderEffectNode: [AudioRendererStop]out；失败：第8步 hilog_regex: 未命中 '局终后点棋盘：重开一局'；最近的新日志: 59.687  1240  1283 W C01C42/time_service/SA: tg:1096 11800 0 / .687  1240  1283 W C01C42/time_service/SA: we:11800 21972777 / 07 00:59:59.688  1240  1283 W C01C42/time_service/SA: t3 312
+==============================================================================
